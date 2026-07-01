@@ -15,7 +15,10 @@ export const IPC = {
   vaultTree: 'geode:vault-tree',
   vaultReadNote: 'geode:vault-read-note',
   vaultWriteNote: 'geode:vault-write-note',
-  vaultCreateNote: 'geode:vault-create-note'
+  vaultCreateNote: 'geode:vault-create-note',
+  gitCommit: 'geode:git-commit',
+  gitHistory: 'geode:git-history',
+  gitReadAt: 'geode:git-read-at'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -63,6 +66,25 @@ export interface VaultApi {
   createNote(dir: string): Promise<TreeNode>
 }
 
+// ── Git (versionado, Capa 2) ───────────────────────────────────────────────
+
+export interface GitVersion {
+  oid: string
+  message: string
+  /** Epoch en milisegundos. */
+  timestamp: number
+  author: string
+}
+
+export interface GitApi {
+  /** Commitea los cambios del vault. Devuelve el oid, o null si no había nada. */
+  commit(message?: string): Promise<string | null>
+  /** Versiones de una nota (más nueva primero). */
+  history(path: string): Promise<GitVersion[]>
+  /** Contenido de una nota en un commit dado. */
+  readAt(oid: string, path: string): Promise<string>
+}
+
 // ── Superficie completa expuesta en window.geode ───────────────────────────
 
 export interface GeodeApi {
@@ -71,4 +93,5 @@ export interface GeodeApi {
   /** Versiones del runtime. */
   getAppInfo(): Promise<AppInfo>
   vault: VaultApi
+  git: GitApi
 }

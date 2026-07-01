@@ -2,9 +2,22 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { IPC, type AppInfo } from '@shared/ipc'
 import { VaultService } from './services/vault'
+import { GitService } from './services/git'
 import { loadSettings, saveSettings } from './services/settings'
 
 const vault = new VaultService()
+const gitService = new GitService()
+
+/** Root del vault activo o error uniforme si no hay ninguno. */
+function requireRoot(): string {
+  const info = vault.getInfo()
+  if (!info) throw new Error('No hay vault abierto')
+  return info.root
+}
+
+function autoCommitMessage(): string {
+  return `Snapshot ${new Date().toISOString()}`
+}
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -55,7 +68,10 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.vaultOpen, async () => {
     const info = await vault.openDialog()
-    if (info) await saveSettings({ lastVault: info.root })
+    if (info) {
+      await gitService.ensureRepo(info.root)
+      await saveSettings({ lastVault: info.root })
+    }
     return info
   })
 
@@ -66,6 +82,16 @@ function registerIpcHandlers(): void {
     vault.writeNote(path, content)
   )
   ipcMain.handle(IPC.vaultCreateNote, (_e, dir: string) => vault.createNote(dir))
+
+  ipcMain.handle(IPC.gitCommit, (_e, message?: string) =>
+    gitService.commit(requireRoot(), message ?? autoCommitMessage())
+  )
+  ipcMain.handle(IPC.gitHistory, (_e, path: string) =>
+    gitService.history(requireRoot(), path)
+  )
+  ipcMain.handle(IPC.gitReadAt, (_e, oid: string, path: string) =>
+    gitService.readAt(requireRoot(), oid, path)
+  )
 }
 
 /** Reabre el último vault si todavía existe. */
@@ -74,6 +100,7 @@ async function restoreLastVault(): Promise<void> {
   if (!lastVault) return
   try {
     await vault.setRoot(lastVault)
+    await gitService.ensureRepo(lastVault)
   } catch {
     // La carpeta se movió o borró: arrancamos sin vault, sin romper.
   }

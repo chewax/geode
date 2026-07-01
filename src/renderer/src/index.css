@@ -107,6 +107,21 @@ button.primary {
   text-align: right;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.topbar-actions button {
+  -webkit-app-region: no-drag;
+  font-size: 12px;
+}
+
+.topbar-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .body {
   flex: 1;
   min-height: 0;
@@ -248,4 +263,64 @@ button.primary {
   background: var(--panel);
   color: var(--muted);
   font-size: 12px;
+}
+
+/* ── Panel de historial ─────────────────────────────────────────────────── */
+.history {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+
+.history-head button {
+  padding: 2px 8px;
+}
+
+.version-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+}
+
+.version {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--panel-2);
+}
+
+.v-msg {
+  font-size: 13px;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.v-meta {
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  margin-bottom: 8px;
+}
+
+.v-restore {
+  font-size: 12px;
+  padding: 3px 10px;
 }

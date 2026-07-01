@@ -16,6 +16,11 @@ const api: GeodeApi = {
     readNote: (path) => ipcRenderer.invoke(IPC.vaultReadNote, path),
     writeNote: (path, content) => ipcRenderer.invoke(IPC.vaultWriteNote, path, content),
     createNote: (dir) => ipcRenderer.invoke(IPC.vaultCreateNote, dir)
+  },
+  git: {
+    commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),
+    history: (path) => ipcRenderer.invoke(IPC.gitHistory, path),
+    readAt: (oid, path) => ipcRenderer.invoke(IPC.gitReadAt, oid, path)
   }
 }
 

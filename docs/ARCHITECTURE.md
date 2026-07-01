@@ -4,7 +4,16 @@
 > Propuesta de valor: **versionado total, diffs, rollbacks infinitos, nunca perder nada** — con una UX humana encima de Git.
 > Local-first, sin backend en el MVP, extensible por plugins.
 
-**Estado:** planificación. **Nombre de código de la carpeta:** Amethist. **Nombre de producto:** Geode.
+**Estado:** en desarrollo (Fase 0 completa; Fase 1 núcleo + versionado local implementados). **Nombre de código de la carpeta:** Amethist. **Nombre de producto:** Geode.
+
+### Estado de implementación (actualizado)
+
+- ✅ **Fase 0** — Andamiaje Electron + Vite + React + TS, IPC tipado, seguridad (contextIsolation/sandbox), dominio puro.
+- ✅ **Editor** — CodeMirror 6 con markdown, resaltado y line-wrapping.
+- ✅ **Fase 1 · persistencia** — Abrir/recordar vault, árbol de notas, escritura atómica (temp+fsync+rename), autosave con debounce, guardarraíl anti path-traversal.
+- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): commit agrupado **inmune al racy git** (detección por hash de contenido), auto-commit por inactividad + commit manual (Ctrl+S), historial por nota y **restaurar** una versión.
+- ⏳ **Pendiente en Fase 1** — Journal/snapshots de sub-commit (Capa 1 fina), diff visual entre versiones, búsqueda (SQLite/FTS5) y `[[backlinks]]`, arquitectura de plugins interna.
+- ⏭️ **Fase 2** — GitHub, auth, branch por dispositivo, `main` canónica, UI de conflictos 3-way.
 
 ---
 

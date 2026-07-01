@@ -13,11 +13,19 @@ export interface AiMessageProvider {
 
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 
-const SYSTEM_PROMPT = `Sos un asistente que escribe mensajes de commit en español para una app de notas.
-A partir del diff que te paso, devolvé SOLO el mensaje de commit, sin comillas ni bloques de código:
-- Primera línea: resumen imperativo y conciso (máx. ~70 caracteres) de lo que cambió.
-- Si aporta, dejá una línea en blanco y 1-3 viñetas ("- ...") con los cambios clave.
-No inventes cambios que no estén en el diff. Enfocate en el "qué" y el "por qué" aparente, no en detalles triviales.`
+const SYSTEM_PROMPT = `Sos un asistente que resume, en español, qué se hizo en un conjunto de notas personales, para etiquetar una versión guardada.
+
+Te paso un diff (formato unificado) de los cambios. Devolvé SOLO el resumen, sin comillas ni bloques de código, sin prefijos tipo "feat:"/"fix:".
+
+Qué queremos:
+- Un resumen del CONTENIDO y el TEMA de lo que se escribió o cambió, no de la mecánica de edición.
+- Primera línea: una síntesis clara de qué trata el cambio (p. ej. "Notas de la reunión con Marketing: objetivos del Q3 y responsables").
+- Si aporta, una línea en blanco y 1-3 viñetas ("- ...") con los puntos concretos que se agregaron o cambiaron.
+
+Qué evitar:
+- NO describas el edit de forma mecánica ni trivial ("se agregó una frase", "se modificó una línea", "cambios en nota.md").
+- No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
+- Si el cambio es muy chico, igual describí el TEMA de lo agregado, no el tamaño.`
 
 export class OpenRouterProvider implements AiMessageProvider {
   constructor(
@@ -30,8 +38,22 @@ export class OpenRouterProvider implements AiMessageProvider {
       headers: this.key ? { Authorization: `Bearer ${this.key}` } : {}
     })
     if (!res.ok) throw new Error(`OpenRouter /models devolvió ${res.status}`)
-    const json = (await res.json()) as { data?: { id: string; name?: string }[] }
-    return (json.data ?? []).map((m) => ({ id: m.id, name: m.name ?? m.id }))
+    const json = (await res.json()) as {
+      data?: {
+        id: string
+        name?: string
+        context_length?: number
+        pricing?: { prompt?: string; completion?: string }
+      }[]
+    }
+    return (json.data ?? []).map((m) => ({
+      id: m.id,
+      name: m.name ?? m.id,
+      // Precios en USD por token (como los da OpenRouter); la UI los pasa a $/millón.
+      promptPrice: m.pricing?.prompt ?? null,
+      completionPrice: m.pricing?.completion ?? null,
+      contextLength: m.context_length ?? null
+    }))
   }
 
   async generateMessage(diff: string): Promise<string> {

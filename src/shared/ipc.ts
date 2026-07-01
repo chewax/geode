@@ -121,6 +121,11 @@ export interface GitApi {
 export interface AiModel {
   id: string
   name: string
+  /** USD por token de entrada (string de OpenRouter); null si no informa. */
+  promptPrice: string | null
+  /** USD por token de salida; null si no informa. */
+  completionPrice: string | null
+  contextLength: number | null
 }
 
 export interface AiConfig {

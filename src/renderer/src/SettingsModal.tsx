@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import type { AiConfig, AiModel } from '@shared/ipc'
 
@@ -7,12 +7,23 @@ interface SettingsModalProps {
   onConfigChange: (config: AiConfig) => void
 }
 
-/** Ajustes de IA: API key de OpenRouter, modelo y activación. */
+/** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
+function perMillion(perToken: string | null): string {
+  if (perToken == null) return '—'
+  const n = Number(perToken)
+  if (!Number.isFinite(n)) return '—'
+  if (n === 0) return 'gratis'
+  const m = n * 1_000_000
+  return `$${m < 1 ? m.toFixed(2) : m.toFixed(m < 100 ? 1 : 0)}/M`
+}
+
+/** Ajustes de IA: API key de OpenRouter, modelo (con precios) y activación. */
 export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): JSX.Element {
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [models, setModels] = useState<AiModel[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
+  const [filter, setFilter] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const apply = useCallback(
@@ -23,15 +34,35 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     [onConfigChange]
   )
 
+  const loadModels = useCallback(async () => {
+    setLoadingModels(true)
+    setError(null)
+    try {
+      const list = await window.geode.ai.listModels()
+      list.sort((a, b) => a.name.localeCompare(b.name))
+      setModels(list)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar los modelos')
+    } finally {
+      setLoadingModels(false)
+    }
+  }, [])
+
+  // Cargar config al abrir; si ya hay key, traer la lista de modelos.
   useEffect(() => {
-    void window.geode.ai.getConfig().then(apply)
-  }, [apply])
+    void (async () => {
+      const c = await window.geode.ai.getConfig()
+      apply(c)
+      if (c.hasKey) void loadModels()
+    })()
+  }, [apply, loadModels])
 
   const saveKey = async (): Promise<void> => {
     if (!keyInput.trim()) return
     setError(null)
     apply(await window.geode.ai.setKey(keyInput.trim()))
     setKeyInput('')
+    void loadModels()
   }
 
   const clearKey = async (): Promise<void> => {
@@ -39,19 +70,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     setModels([])
   }
 
-  const loadModels = async (): Promise<void> => {
-    setLoadingModels(true)
-    setError(null)
-    try {
-      setModels(await window.geode.ai.listModels())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudieron cargar los modelos')
-    } finally {
-      setLoadingModels(false)
-    }
-  }
-
-  const setModel = async (model: string): Promise<void> => {
+  const selectModel = async (model: string): Promise<void> => {
     apply(await window.geode.ai.setModel(model))
   }
 
@@ -59,11 +78,16 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     apply(await window.geode.ai.setEnabled(enabled))
   }
 
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return models
+    return models.filter((m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+  }, [models, filter])
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Ajustes · Mensajes por IA</h2>
-
         <p className="modal-sub">
           Motor: <strong>OpenRouter</strong>. La API key se guarda cifrada en tu equipo, fuera del
           repositorio.
@@ -90,29 +114,53 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
           </div>
         )}
 
-        <label className="field-label">Modelo</label>
-        <div className="key-row">
-          <input
-            list="or-models"
-            className="text-input"
-            placeholder="ej. anthropic/claude-3.5-haiku"
-            defaultValue={config?.model ?? ''}
-            onChange={(e) => void setModel(e.target.value)}
-            disabled={!config?.hasKey}
-          />
-          <button onClick={() => void loadModels()} disabled={!config?.hasKey || loadingModels}>
-            {loadingModels ? 'cargando…' : 'Cargar lista'}
-          </button>
-        </div>
-        <datalist id="or-models">
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </datalist>
-        {models.length > 0 && (
-          <p className="hint">{models.length} modelos disponibles. Para mensajes de commit conviene uno rápido y barato.</p>
+        <label className="field-label">
+          Modelo
+          {config?.model && <span className="model-current">{config.model}</span>}
+        </label>
+
+        {!config?.hasKey ? (
+          <p className="hint">Guardá una API key para ver los modelos.</p>
+        ) : (
+          <>
+            <div className="key-row">
+              <input
+                className="text-input"
+                placeholder="Filtrar modelos…"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              <button onClick={() => void loadModels()} disabled={loadingModels}>
+                {loadingModels ? 'cargando…' : '↻'}
+              </button>
+            </div>
+
+            <ul className="model-list">
+              {filtered.length === 0 && !loadingModels && (
+                <li className="model-empty">Sin resultados</li>
+              )}
+              {filtered.map((m) => (
+                <li
+                  key={m.id}
+                  className={`model-row${m.id === config?.model ? ' sel' : ''}`}
+                  onClick={() => void selectModel(m.id)}
+                  title={m.id}
+                >
+                  <div className="m-name">{m.name}</div>
+                  <div className="m-meta">
+                    <span className="m-id">{m.id}</span>
+                    <span className="m-price">
+                      in {perMillion(m.promptPrice)} · out {perMillion(m.completionPrice)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="hint">
+              Para resumir cambios conviene un modelo rápido y barato (mirá el precio por millón de
+              tokens).
+            </p>
+          </>
         )}
 
         <label className="toggle-row">
@@ -122,7 +170,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             disabled={!config?.hasKey || !config?.model}
             onChange={(e) => void toggleEnabled(e.target.checked)}
           />
-          Generar mensajes de commit con IA
+          Generar resúmenes de versión con IA
         </label>
 
         {error && <p className="modal-error">⚠ {error}</p>}

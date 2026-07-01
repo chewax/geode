@@ -98,6 +98,9 @@ function registerIpcHandlers(): void {
     vault.writeNote(path, content)
   )
   ipcMain.handle(IPC.vaultCreateNote, (_e, dir: string) => vault.createNote(dir))
+  ipcMain.handle(IPC.vaultCreateFolder, (_e, dir: string) => vault.createFolder(dir))
+  ipcMain.handle(IPC.vaultRename, (_e, from: string, to: string) => vault.rename(from, to))
+  ipcMain.handle(IPC.vaultDelete, (_e, path: string) => vault.deletePath(path))
 
   ipcMain.handle(IPC.gitCommit, (_e, message?: string) =>
     gitService.commit(requireRoot(), message ?? autoCommitMessage())

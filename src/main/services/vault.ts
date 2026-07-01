@@ -1,5 +1,5 @@
 import { dialog } from 'electron'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { basename, join, relative, resolve, sep } from 'node:path'
 import type { TreeNode, VaultInfo } from '@shared/ipc'
 import { atomicWrite } from '../fs/atomic'
@@ -105,6 +105,37 @@ export class VaultService {
     const rel = relDir ? `${relDir}/${name}` : name
     await atomicWrite(this.resolveInside(rel), `# ${base}\n\n`)
     return { name, path: rel, isDir: false }
+  }
+
+  /** Crea una carpeta con nombre libre en `relDir` ('' = raíz). */
+  async createFolder(relDir = ''): Promise<TreeNode> {
+    if (!this.root) throw new Error('No hay vault abierto')
+    const base = 'Nueva carpeta'
+
+    let name = base
+    let n = 1
+    while (await this.exists(join(relDir, name))) {
+      name = `${base} ${n++}`
+    }
+
+    const rel = relDir ? `${relDir}/${name}` : name
+    await mkdir(this.resolveInside(rel), { recursive: true })
+    return { name, path: rel, isDir: true, children: [] }
+  }
+
+  /** Renombra/mueve una nota o carpeta. Ambas rutas quedan validadas dentro del vault. */
+  async rename(fromRel: string, toRel: string): Promise<void> {
+    const from = this.resolveInside(fromRel)
+    const to = this.resolveInside(toRel)
+    if (await this.exists(toRel)) {
+      throw new Error(`Ya existe: ${toRel}`)
+    }
+    await rename(from, to)
+  }
+
+  /** Borra una nota o una carpeta (recursivo). */
+  async deletePath(relPath: string): Promise<void> {
+    await rm(this.resolveInside(relPath), { recursive: true, force: true })
   }
 
   private async exists(relPath: string): Promise<boolean> {

@@ -15,7 +15,10 @@ const api: GeodeApi = {
     tree: () => ipcRenderer.invoke(IPC.vaultTree),
     readNote: (path) => ipcRenderer.invoke(IPC.vaultReadNote, path),
     writeNote: (path, content) => ipcRenderer.invoke(IPC.vaultWriteNote, path, content),
-    createNote: (dir) => ipcRenderer.invoke(IPC.vaultCreateNote, dir)
+    createNote: (dir) => ipcRenderer.invoke(IPC.vaultCreateNote, dir),
+    createFolder: (dir) => ipcRenderer.invoke(IPC.vaultCreateFolder, dir),
+    rename: (from, to) => ipcRenderer.invoke(IPC.vaultRename, from, to),
+    delete: (path) => ipcRenderer.invoke(IPC.vaultDelete, path)
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),

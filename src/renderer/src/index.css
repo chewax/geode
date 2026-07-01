@@ -242,6 +242,68 @@ button.primary {
   padding: 10px;
 }
 
+.tree-rename {
+  font: inherit;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  width: calc(100% - 20px);
+}
+
+.tree-rename:focus {
+  outline: none;
+}
+
+/* ── Menú contextual ────────────────────────────────────────────────────── */
+.ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.ctx-menu {
+  position: fixed;
+  min-width: 160px;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.ctx-menu li {
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ctx-menu li:hover {
+  background: rgba(183, 148, 246, 0.14);
+}
+
+.ctx-menu .ctx-sep {
+  height: 1px;
+  margin: 4px 0;
+  padding: 0;
+  background: var(--border);
+  cursor: default;
+}
+
+.ctx-menu .ctx-sep:hover {
+  background: var(--border);
+}
+
+.ctx-menu .ctx-danger:hover {
+  background: rgba(255, 107, 107, 0.16);
+  color: #ff6b6b;
+}
+
 /* ── Área principal ─────────────────────────────────────────────────────── */
 .main {
   flex: 1;

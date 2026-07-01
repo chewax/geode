@@ -23,6 +23,8 @@ export function App(): JSX.Element {
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
+  const [editingPath, setEditingPath] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -86,11 +88,55 @@ export function App(): JSX.Element {
     await refreshGraph()
   }, [refreshTree, refreshGraph])
 
-  const newNote = useCallback(async () => {
-    const node = await window.geode.vault.createNote('')
+  const newNoteIn = useCallback(async (dir: string) => {
+    const node = await window.geode.vault.createNote(dir)
     await refreshTree()
     await openNote(node.path)
+    setEditingPath(node.path) // permitir nombrarla al toque
   }, [refreshTree, openNote])
+
+  const newFolderIn = useCallback(async (dir: string) => {
+    const node = await window.geode.vault.createFolder(dir)
+    await refreshTree()
+    setEditingPath(node.path)
+  }, [refreshTree])
+
+  const renameNode = useCallback(async (node: TreeNode, rawName: string) => {
+    setEditingPath(null)
+    const clean = rawName.replace(/[\\/]/g, '').trim()
+    if (!clean) return
+    const parent = parentDir(node.path)
+    const filename = node.isDir ? clean : `${clean.replace(/\.md$/i, '')}.md`
+    const toRel = parent ? `${parent}/${filename}` : filename
+    if (toRel === node.path) return
+    try {
+      await window.geode.vault.rename(node.path, toRel)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo renombrar')
+      return
+    }
+    // Reflejar en el editor si la nota abierta fue renombrada o movida.
+    const cur = openPathRef.current
+    if (cur === node.path) setOpenPath(toRel)
+    else if (cur && cur.startsWith(`${node.path}/`)) setOpenPath(toRel + cur.slice(node.path.length))
+    await refreshTree()
+  }, [refreshTree])
+
+  const deleteNode = useCallback(async (node: TreeNode) => {
+    const label = node.isDir ? node.name : node.name.replace(/\.md$/i, '')
+    const ok = window.confirm(
+      `¿Eliminar "${label}"?${node.isDir ? ' Se borra toda la carpeta y su contenido.' : ''}`
+    )
+    if (!ok) return
+    await window.geode.vault.delete(node.path)
+    const cur = openPathRef.current
+    if (cur === node.path || (cur && cur.startsWith(`${node.path}/`))) {
+      setOpenPath(null)
+      setContent('')
+      setStatus('none')
+    }
+    await refreshTree()
+  }, [refreshTree])
 
   /** Abre el diálogo de "Guardar versión" si hay cambios pendientes. */
   const openCommitDialog = useCallback(async () => {
@@ -227,14 +273,23 @@ export function App(): JSX.Element {
           <div className="sidebar-head">
             <span className="vault-name" title={vault.root}>{vault.name}</span>
             <div className="sidebar-actions">
-              <button title="Nueva nota" onClick={() => void newNote()}>＋</button>
+              <button title="Nueva nota" onClick={() => void newNoteIn('')}>＋</button>
+              <button title="Nueva carpeta" onClick={() => void newFolderIn('')}>📁</button>
               <button title="Cambiar de vault" onClick={() => void openVault()}>⏏</button>
             </div>
           </div>
           {tree.length > 0 ? (
-            <FileTree nodes={tree} openPath={openPath} onOpen={(p) => void openNote(p)} />
+            <FileTree
+              nodes={tree}
+              openPath={openPath}
+              editingPath={editingPath}
+              onOpen={(p) => void openNote(p)}
+              onContext={(node, x, y) => setMenu({ node, x, y })}
+              onRename={(node, name) => void renameNode(node, name)}
+              onRenameCancel={() => setEditingPath(null)}
+            />
           ) : (
-            <p className="tree-empty">Vault vacío. Creá una nota con ＋.</p>
+            <p className="tree-empty">Vault vacío. Creá una nota con ＋ o una carpeta con 📁.</p>
           )}
         </aside>
 
@@ -284,8 +339,32 @@ export function App(): JSX.Element {
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} onConfigChange={setAiConfig} />
       )}
+
+      {menu && (
+        <div className="ctx-overlay" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
+          <ul className="ctx-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
+            {menu.node.isDir && (
+              <>
+                <li onClick={() => { setMenu(null); void newNoteIn(menu.node.path) }}>Nueva nota</li>
+                <li onClick={() => { setMenu(null); void newFolderIn(menu.node.path) }}>Nueva carpeta</li>
+                <li className="ctx-sep" />
+              </>
+            )}
+            <li onClick={() => { setEditingPath(menu.node.path); setMenu(null) }}>Renombrar</li>
+            <li className="ctx-danger" onClick={() => { const n = menu.node; setMenu(null); void deleteNode(n) }}>
+              Eliminar
+            </li>
+          </ul>
+        </div>
+      )}
     </div>
   )
+}
+
+/** Carpeta padre de una ruta relativa ('' si está en la raíz). */
+function parentDir(path: string): string {
+  const i = path.lastIndexOf('/')
+  return i === -1 ? '' : path.slice(0, i)
 }
 
 function statusLabel(status: SaveStatus, savedAt: Date | null): string {

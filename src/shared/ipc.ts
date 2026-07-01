@@ -16,6 +16,9 @@ export const IPC = {
   vaultReadNote: 'geode:vault-read-note',
   vaultWriteNote: 'geode:vault-write-note',
   vaultCreateNote: 'geode:vault-create-note',
+  vaultCreateFolder: 'geode:vault-create-folder',
+  vaultRename: 'geode:vault-rename',
+  vaultDelete: 'geode:vault-delete',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
@@ -72,6 +75,12 @@ export interface VaultApi {
   writeNote(path: string, content: string): Promise<void>
   /** Crea una nota nueva en `dir` (relativo; '' = raíz) y devuelve su nodo. */
   createNote(dir: string): Promise<TreeNode>
+  /** Crea una carpeta nueva en `dir` (relativo; '' = raíz) y devuelve su nodo. */
+  createFolder(dir: string): Promise<TreeNode>
+  /** Renombra/mueve una nota o carpeta a una nueva ruta relativa. */
+  rename(from: string, to: string): Promise<void>
+  /** Borra una nota o carpeta (recursivo). */
+  delete(path: string): Promise<void>
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
+import type { AiConfig, GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VersionGraph } from './VersionGraph'
+import { CommitDialog } from './CommitDialog'
+import { SettingsModal } from './SettingsModal'
 
 type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
 const AUTOSAVE_MS = 600
-const AUTOCOMMIT_MS = 5000
 
 export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
@@ -19,12 +20,13 @@ export function App(): JSX.Element {
   const [editorEpoch, setEditorEpoch] = useState(0)
   const [graphOpen, setGraphOpen] = useState(false)
   const [graph, setGraph] = useState<GitGraph | null>(null)
+  const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
 
-  // Guardado pendiente + timers (autosave y auto-commit) en refs.
+  // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
   const saveTimerRef = useRef<number | null>(null)
-  const commitTimerRef = useRef<number | null>(null)
-  // Ref para leer el openPath actual dentro de callbacks estables.
   const openPathRef = useRef<string | null>(null)
   openPathRef.current = openPath
 
@@ -36,7 +38,7 @@ export function App(): JSX.Element {
     setGraph(await window.geode.git.graph())
   }, [])
 
-  /** Persiste inmediatamente lo que haya pendiente (autosave o cambio de nota). */
+  /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
   const flush = useCallback(async () => {
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current)
@@ -50,32 +52,15 @@ export function App(): JSX.Element {
     setSavedAt(new Date())
   }, [])
 
-  /** Agrupa cambios en un commit. Refresca el árbol de versiones si hubo commit. */
-  const commitNow = useCallback(async (message?: string) => {
-    if (commitTimerRef.current !== null) {
-      window.clearTimeout(commitTimerRef.current)
-      commitTimerRef.current = null
-    }
-    await flush() // el archivo tiene que estar escrito antes de commitear
-    const oid = await window.geode.git.commit(message)
-    if (oid) await refreshGraph()
-    return oid
-  }, [flush, refreshGraph])
-
   const handleChange = useCallback((doc: string) => {
     const path = openPathRef.current
     if (!path) return
     setContent(doc)
     pendingRef.current = { path, content: doc }
     setStatus('saving')
-
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => void flush(), AUTOSAVE_MS)
-
-    // Auto-commit agrupado: se dispara tras una pausa de edición más larga.
-    if (commitTimerRef.current !== null) window.clearTimeout(commitTimerRef.current)
-    commitTimerRef.current = window.setTimeout(() => void commitNow(), AUTOCOMMIT_MS)
-  }, [flush, commitNow])
+  }, [flush])
 
   const loadIntoEditor = useCallback((path: string, text: string) => {
     setOpenPath(path)
@@ -85,7 +70,7 @@ export function App(): JSX.Element {
   }, [])
 
   const openNote = useCallback(async (path: string) => {
-    await flush() // no perder cambios de la nota anterior al cambiar
+    await flush() // journal: no perder lo tipeado al cambiar de nota
     const text = await window.geode.vault.readNote(path)
     loadIntoEditor(path, text)
   }, [flush, loadIntoEditor])
@@ -107,9 +92,37 @@ export function App(): JSX.Element {
     await openNote(node.path)
   }, [refreshTree, openNote])
 
-  /** Ir a una versión: mueve HEAD ahí (checkout) sin generar un commit nuevo. */
+  /** Abre el diálogo de "Guardar versión" si hay cambios pendientes. */
+  const openCommitDialog = useCallback(async () => {
+    await flush()
+    const changes = await window.geode.git.changes()
+    if (changes.length === 0) {
+      setStatus('clean')
+      return
+    }
+    setCommitChanges(changes)
+  }, [flush])
+
+  /** Confirmación del diálogo: crea la versión (commit permanente). */
+  const doCommit = useCallback(async (message: string) => {
+    const fallback = `Versión ${new Date().toLocaleString()}`
+    await window.geode.git.commit(message || fallback)
+    setCommitChanges(null)
+    await refreshGraph()
+  }, [refreshGraph])
+
+  /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {
-    await commitNow() // preservar ediciones pendientes en la rama actual antes de mover
+    await flush()
+    const pending = await window.geode.git.changes()
+    if (pending.length > 0) {
+      const ok = window.confirm(
+        `Tenés ${pending.length} cambio(s) sin guardar como versión.\n` +
+          'Si vas a otra versión ahora, se descartan.\n\n' +
+          'Cancelá y usá "Guardar versión" para conservarlos.'
+      )
+      if (!ok) return
+    }
     await window.geode.git.checkout(oid)
     await refreshTree()
     const path = openPathRef.current
@@ -118,20 +131,20 @@ export function App(): JSX.Element {
         const text = await window.geode.vault.readNote(path)
         loadIntoEditor(path, text)
       } catch {
-        // La nota abierta no existe en esta versión.
         setOpenPath(null)
         setContent('')
         setStatus('none')
       }
     }
     await refreshGraph()
-  }, [commitNow, refreshTree, loadIntoEditor, refreshGraph])
+  }, [flush, refreshTree, loadIntoEditor, refreshGraph])
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
-  // Al arrancar: restaurar el vault del último uso.
+  // Al arrancar: restaurar vault y cargar config de IA.
   useEffect(() => {
     void (async () => {
+      setAiConfig(await window.geode.ai.getConfig())
       const info = await window.geode.vault.current()
       if (!info) return
       setVault(info)
@@ -140,17 +153,17 @@ export function App(): JSX.Element {
     })()
   }, [refreshTree, refreshGraph])
 
-  // Ctrl/Cmd+S: crea una versión (commit) inmediata.
+  // Ctrl/Cmd+S: abre el diálogo de guardar versión.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
-        void commitNow()
+        void openCommitDialog()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [commitNow])
+  }, [openCommitDialog])
 
   const stats = useMemo(() => {
     const chars = content.length
@@ -160,6 +173,7 @@ export function App(): JSX.Element {
   }, [content])
 
   const detached = !!graph && graph.head.oid !== null && graph.head.branch === null
+  const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
 
   // Red de seguridad: si el preload no cargó, window.geode no existe.
   if (typeof window.geode === 'undefined') {
@@ -198,16 +212,13 @@ export function App(): JSX.Element {
         )}
         <span className="save-status">{statusLabel(status, savedAt)}</span>
         <div className="topbar-actions">
-          <button title="Crear versión (Ctrl+S)" disabled={!openPath} onClick={() => void commitNow()}>
+          <button title="Crear versión (Ctrl+S)" onClick={() => void openCommitDialog()}>
             Guardar versión
           </button>
-          <button
-            title="Árbol de versiones"
-            className={graphOpen ? 'active' : ''}
-            onClick={toggleGraph}
-          >
+          <button title="Árbol de versiones" className={graphOpen ? 'active' : ''} onClick={toggleGraph}>
             Versiones
           </button>
+          <button title="Ajustes" onClick={() => setSettingsOpen(true)}>⚙</button>
         </div>
       </header>
 
@@ -260,6 +271,19 @@ export function App(): JSX.Element {
           />
         )}
       </div>
+
+      {commitChanges && (
+        <CommitDialog
+          changes={commitChanges}
+          aiReady={aiReady}
+          onConfirm={doCommit}
+          onClose={() => setCommitChanges(null)}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal onClose={() => setSettingsOpen(false)} onConfigChange={setAiConfig} />
+      )}
     </div>
   )
 }

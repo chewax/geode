@@ -3,6 +3,7 @@ import os from 'node:os'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
+import { createPatch } from 'diff'
 import type { GitCommitNode, GitGraph } from '@shared/ipc'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
@@ -11,12 +12,14 @@ const IGNORED_TOP = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
 /**
  * Capa 2 del versionado (ver ARCHITECTURE.md §3): commits Git con sentido.
  *
- * Modelo de historial (rediseño): el usuario ve un ÁRBOL de todo el vault, como
- * git. "Ir a una versión" es un checkout (mueve HEAD), no genera un commit
- * nuevo. Si el usuario edita estando parado en un commit viejo (HEAD detached),
- * el próximo commit BIFURCA automáticamente a una rama nueva (rama-N): así nada
- * se pisa y el árbol muestra la bifurcación. La rama principal queda intacta y
- * en la UI se atenúa lo que no está en la línea de HEAD.
+ * Modelo de historial: el usuario ve un ÁRBOL de todo el vault, como git. "Ir a
+ * una versión" es un checkout (mueve HEAD), no genera un commit nuevo. Si el
+ * usuario edita parado en un commit viejo (HEAD detached), el próximo commit
+ * BIFURCA automáticamente a una rama nueva (rama-N): así nada se pisa y el árbol
+ * muestra la bifurcación. La rama principal queda intacta.
+ *
+ * Los commits son un acto explícito del usuario ("Guardar versión"); no hay
+ * auto-commit. El mensaje lo genera IA a partir de pendingDiff().
  */
 export class GitService {
   private author(): { name: string; email: string } {
@@ -50,16 +53,7 @@ export class GitService {
    * hasheamos el contenido real de cada archivo (hashBlob) vs los blobs de HEAD.
    */
   async commit(dir: string, message: string): Promise<string | null> {
-    const headBlobs = await this.headBlobs(dir)
-    const workBlobs = await this.workBlobs(dir)
-
-    const changes: { filepath: string; deleted: boolean }[] = []
-    for (const [filepath, oid] of workBlobs) {
-      if (headBlobs.get(filepath) !== oid) changes.push({ filepath, deleted: false })
-    }
-    for (const filepath of headBlobs.keys()) {
-      if (!workBlobs.has(filepath)) changes.push({ filepath, deleted: true })
-    }
+    const changes = await this.pendingChanges(dir)
     if (changes.length === 0) return null
 
     const wasDetached = !(await git.currentBranch({ fs, dir, fullname: false }))
@@ -167,10 +161,78 @@ export class GitService {
     return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine }
   }
 
-  /** Contenido de una nota tal como estaba en un commit dado (para diffs futuros). */
+  /** Contenido de una nota tal como estaba en un commit dado. */
   async readAt(dir: string, oid: string, filepath: string): Promise<string> {
     const { blob } = await git.readBlob({ fs, dir, oid, filepath })
     return new TextDecoder().decode(blob)
+  }
+
+  /** Rutas cuyo contenido difiere entre HEAD y el working dir (lo que se versionaría). */
+  async changes(dir: string): Promise<string[]> {
+    return (await this.pendingChanges(dir)).map((c) => c.filepath)
+  }
+
+  /**
+   * Diff unificado de lo pendiente (working vs HEAD), para alimentar a la IA.
+   * Las notas de texto van con su diff; los binarios, solo como estado. Se
+   * trunca para acotar tokens.
+   */
+  async pendingDiff(dir: string): Promise<string> {
+    const changes = await this.pendingChanges(dir)
+    if (changes.length === 0) return ''
+    const headOid = await this.headOid(dir)
+    const MAX = 8000
+
+    let out = ''
+    for (const { filepath, deleted } of changes) {
+      if (out.length > MAX) {
+        out += '\n… (diff truncado)\n'
+        break
+      }
+      const oldText = headOid ? await this.safeReadAt(dir, headOid, filepath) : ''
+      const newText = deleted ? '' : await readFile(join(dir, filepath), 'utf8').catch(() => '')
+
+      if (this.looksBinary(oldText) || this.looksBinary(newText)) {
+        const verb = deleted ? 'borrado' : oldText ? 'modificado' : 'agregado'
+        out += `Archivo binario ${verb}: ${filepath}\n\n`
+        continue
+      }
+      out += createPatch(filepath, oldText, newText, '', '') + '\n'
+    }
+    return out.trim()
+  }
+
+  /** Heurística simple: un byte NUL sugiere contenido binario (no diffeable como texto). */
+  private looksBinary(text: string): boolean {
+    return text.includes(String.fromCharCode(0))
+  }
+
+  private async safeReadAt(dir: string, oid: string, filepath: string): Promise<string> {
+    try {
+      return await this.readAt(dir, oid, filepath)
+    } catch {
+      return '' // el archivo no existía en ese commit
+    }
+  }
+
+  /** Oid de HEAD, o null si el repo aún no tiene commits. */
+  private async headOid(dir: string): Promise<string | null> {
+    return git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null)
+  }
+
+  /** Archivos creados/modificados/borrados entre HEAD y el working dir. */
+  private async pendingChanges(dir: string): Promise<{ filepath: string; deleted: boolean }[]> {
+    const headBlobs = await this.headBlobs(dir)
+    const workBlobs = await this.workBlobs(dir)
+
+    const changes: { filepath: string; deleted: boolean }[] = []
+    for (const [filepath, oid] of workBlobs) {
+      if (headBlobs.get(filepath) !== oid) changes.push({ filepath, deleted: false })
+    }
+    for (const filepath of headBlobs.keys()) {
+      if (!workBlobs.has(filepath)) changes.push({ filepath, deleted: true })
+    }
+    return changes
   }
 
   /** Próximo nombre de rama libre: rama-1, rama-2, … */

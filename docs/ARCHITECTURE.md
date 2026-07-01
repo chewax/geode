@@ -11,8 +11,10 @@
 - ✅ **Fase 0** — Andamiaje Electron + Vite + React + TS, IPC tipado, seguridad (contextIsolation/sandbox), dominio puro.
 - ✅ **Editor** — CodeMirror 6 con markdown, resaltado y line-wrapping.
 - ✅ **Fase 1 · persistencia** — Abrir/recordar vault, árbol de notas, escritura atómica (temp+fsync+rename), autosave con debounce, guardarraíl anti path-traversal.
-- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): commit agrupado **inmune al racy git** (detección por hash de contenido), auto-commit por inactividad + commit manual (Ctrl+S). **Árbol de versiones de todo el vault** con checkout (ir a una versión mueve HEAD) y **fork automático** al editar en el pasado; la rama principal queda intacta y lo fuera de la línea de HEAD se atenúa.
-- ⏳ **Pendiente en Fase 1** — Journal/snapshots de sub-commit (Capa 1 fina), diff visual entre versiones, búsqueda (SQLite/FTS5) y `[[backlinks]]`, arquitectura de plugins interna.
+- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): detección de cambios **inmune al racy git** (por hash de contenido). **Árbol de versiones de todo el vault** con checkout (ir a una versión mueve HEAD) y **fork automático** al editar en el pasado; la rama principal queda intacta y lo fuera de la línea de HEAD se atenúa.
+- 🔤 **Commits = acto manual (nuevo modelo)** — Se quitó el auto-commit. Guardar versión (Ctrl+S) es el único commit; entre medio, journal + autosave (Capa 1) con undo/redo.
+- 🤖 **Mensajes de commit por IA** — OpenRouter (key cifrada + modelo elegible), mensaje editable a partir del diff, fallback a timestamp.
+- ⏳ **Pendiente en Fase 1** — Journal persistente entre reinicios (Capa 1 fina), diff visual entre versiones, búsqueda (SQLite/FTS5) y `[[backlinks]]`, arquitectura de plugins interna.
 - ⏭️ **Fase 2** — GitHub, auth, branch por dispositivo, `main` canónica, UI de conflictos 3-way.
 
 ---
@@ -67,15 +69,11 @@ El requisito "nunca perder nada" y el requisito "diffs y rollbacks con sentido" 
 ### Capa 2 — Commits Git (versionado semántico)
 
 - **Objetivo:** historial navegable, diffs con sentido, rollbacks, atribución, sync.
-- **Los commits se agrupan**, no es un commit por tecla. Disparadores de commit:
-  - Inactividad de edición (p. ej. 30–60 s sin cambios) sobre notas modificadas.
-  - Cierre/cambio de nota.
-  - Botón manual "Guardar versión" (con mensaje opcional).
-  - Antes de un sync (fetch/merge/push).
-- **Mensaje de commit autogenerado** legible: `Update "Título de la nota"` o `Edit 3 notes` si son varias, más contexto en el cuerpo.
-- El usuario puede pedir un commit "con nombre" en cualquier momento para marcar un hito.
+- **Un commit = un acto explícito del usuario (DECIDIDO).** El único disparador es **"Guardar versión"** (botón o Ctrl+S). No hay auto-commit por inactividad: mientras editás, todo vive en la Capa 1 (journal + autosave). Commitear crea un **ledger permanente**, y la UI lo avisa antes de confirmar.
+- **Mensaje de commit por IA (ver §5.1).** Al guardar, se genera un mensaje que resume el diff (vía OpenRouter, modelo elegible). El usuario puede **editarlo** antes de confirmar. Si la IA no está configurada o falla, cae a un mensaje con timestamp.
+- Al commitear, el estado guardado pasa a ser la nueva base; el journal de sesión deja de ser necesario para esos cambios.
 
-> **Resumen mental:** el journal garantiza *nunca perder nada*; Git garantiza *historia con sentido*. Son dos cosas distintas y por eso viven en capas distintas.
+> **Resumen mental:** el journal garantiza *nunca perder nada* (y da undo/redo); Git guarda *hitos permanentes con sentido* que vos marcás. Son dos cosas distintas y por eso viven en capas distintas.
 
 ### Árbol de versiones y rollback (feature estrella)
 
@@ -86,6 +84,15 @@ Git da rollback infinito gratis; el valor es la UX. **Modelo (decidido con el us
 - **Fork automático:** editar estando en *detached* (una versión vieja) bifurca a una rama nueva (`rama-N`) en el próximo commit, sin pisar lo que se escribió. La rama principal queda intacta. Antes de cualquier checkout se commitea lo pendiente en la rama actual (no perder nada).
 - **Diff visual** entre versiones — pendiente.
 - Descartado el enfoque previo (restaurar = commit nuevo): ensuciaba el historial y hacía perder la referencia antes/después.
+
+### Mensajes de commit por IA
+
+Para tener de un vistazo qué cambió en cada versión, el mensaje de commit lo genera IA a partir del diff de lo que se va a versionar.
+
+- **Motor: OpenRouter.** El usuario ingresa su API key (guardada **cifrada** con `safeStorage` de Electron, en `userData`, fuera del repo) y **elige el modelo** de la lista de OpenRouter. La abstracción `AiMessageProvider` permite sumar otros motores (local/Ollama, Anthropic directo) sin tocar el resto.
+- **Cuándo:** solo al "Guardar versión" (único momento con commit). El diff se arma con jsdiff (unified, truncado para acotar tokens); las notas `.md` van con su diff, los binarios solo como "agregado/modificado/borrado".
+- **Editable + fallback:** la IA propone, el usuario aprueba/edita antes de confirmar. Si la IA está deshabilitada o falla, el mensaje cae a timestamp.
+- **Privacidad:** al usar la nube, el diff viaja a OpenRouter. Es una elección explícita del usuario (alternativa local queda para más adelante por la misma interfaz).
 
 ---
 

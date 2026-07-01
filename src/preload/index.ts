@@ -20,7 +20,17 @@ const api: GeodeApi = {
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),
     graph: () => ipcRenderer.invoke(IPC.gitGraph),
-    checkout: (oid) => ipcRenderer.invoke(IPC.gitCheckout, oid)
+    checkout: (oid) => ipcRenderer.invoke(IPC.gitCheckout, oid),
+    changes: () => ipcRenderer.invoke(IPC.gitChanges)
+  },
+  ai: {
+    getConfig: () => ipcRenderer.invoke(IPC.aiGetConfig),
+    setKey: (key) => ipcRenderer.invoke(IPC.aiSetKey, key),
+    clearKey: () => ipcRenderer.invoke(IPC.aiClearKey),
+    setModel: (model) => ipcRenderer.invoke(IPC.aiSetModel, model),
+    setEnabled: (enabled) => ipcRenderer.invoke(IPC.aiSetEnabled, enabled),
+    listModels: () => ipcRenderer.invoke(IPC.aiListModels),
+    suggestMessage: () => ipcRenderer.invoke(IPC.aiSuggestMessage)
   }
 }
 

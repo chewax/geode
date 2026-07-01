@@ -18,7 +18,15 @@ export const IPC = {
   vaultCreateNote: 'geode:vault-create-note',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
-  gitCheckout: 'geode:git-checkout'
+  gitCheckout: 'geode:git-checkout',
+  gitChanges: 'geode:git-changes',
+  aiGetConfig: 'geode:ai-get-config',
+  aiSetKey: 'geode:ai-set-key',
+  aiClearKey: 'geode:ai-clear-key',
+  aiSetModel: 'geode:ai-set-model',
+  aiSetEnabled: 'geode:ai-set-enabled',
+  aiListModels: 'geode:ai-list-models',
+  aiSuggestMessage: 'geode:ai-suggest-message'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -104,6 +112,35 @@ export interface GitApi {
   graph(): Promise<GitGraph>
   /** Mueve HEAD a un commit (checkout). Sobrescribe el working dir. */
   checkout(oid: string): Promise<void>
+  /** Rutas con cambios pendientes respecto de HEAD (lo que se versionaría). */
+  changes(): Promise<string[]>
+}
+
+// ── IA (mensajes de commit) ─────────────────────────────────────────────────
+
+export interface AiModel {
+  id: string
+  name: string
+}
+
+export interface AiConfig {
+  enabled: boolean
+  model: string | null
+  /** Si hay una API key guardada (nunca se expone la key en sí al renderer). */
+  hasKey: boolean
+}
+
+export interface AiApi {
+  getConfig(): Promise<AiConfig>
+  /** Guarda la API key (cifrada en el main). Devuelve la config actualizada. */
+  setKey(key: string): Promise<AiConfig>
+  clearKey(): Promise<AiConfig>
+  setModel(model: string): Promise<AiConfig>
+  setEnabled(enabled: boolean): Promise<AiConfig>
+  /** Lista de modelos disponibles en OpenRouter. */
+  listModels(): Promise<AiModel[]>
+  /** Genera un mensaje de commit a partir del diff pendiente. '' si no hay cambios. */
+  suggestMessage(): Promise<string>
 }
 
 // ── Superficie completa expuesta en window.geode ───────────────────────────
@@ -115,4 +152,5 @@ export interface GeodeApi {
   getAppInfo(): Promise<AppInfo>
   vault: VaultApi
   git: GitApi
+  ai: AiApi
 }

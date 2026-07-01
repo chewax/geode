@@ -1,12 +1,28 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
-import { IPC, type AppInfo } from '@shared/ipc'
+import { IPC, type AppInfo, type AiConfig } from '@shared/ipc'
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
-import { loadSettings, saveSettings } from './services/settings'
+import { OpenRouterProvider, listOpenRouterModels } from './services/ai'
+import {
+  loadSettings,
+  saveSettings,
+  setAiKey,
+  clearAiKey,
+  getAiKey
+} from './services/settings'
 
 const vault = new VaultService()
 const gitService = new GitService()
+
+async function aiConfig(): Promise<AiConfig> {
+  const { ai } = await loadSettings()
+  return {
+    enabled: ai?.enabled ?? false,
+    model: ai?.model ?? null,
+    hasKey: !!ai?.key
+  }
+}
 
 /** Root del vault activo o error uniforme si no hay ninguno. */
 function requireRoot(): string {
@@ -88,6 +104,50 @@ function registerIpcHandlers(): void {
   )
   ipcMain.handle(IPC.gitGraph, () => gitService.graph(requireRoot()))
   ipcMain.handle(IPC.gitCheckout, (_e, oid: string) => gitService.checkout(requireRoot(), oid))
+  ipcMain.handle(IPC.gitChanges, () => gitService.changes(requireRoot()))
+
+  ipcMain.handle(IPC.aiGetConfig, () => aiConfig())
+
+  ipcMain.handle(IPC.aiSetKey, async (_e, key: string) => {
+    await setAiKey(key)
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiClearKey, async () => {
+    await clearAiKey()
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiSetModel, async (_e, model: string) => {
+    const settings = await loadSettings()
+    settings.ai = { ...settings.ai, model }
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiSetEnabled, async (_e, enabled: boolean) => {
+    const settings = await loadSettings()
+    settings.ai = { ...settings.ai, enabled }
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiListModels, async () => {
+    const key = await getAiKey()
+    return listOpenRouterModels(key ?? '')
+  })
+
+  ipcMain.handle(IPC.aiSuggestMessage, async (): Promise<string> => {
+    const key = await getAiKey()
+    const { ai } = await loadSettings()
+    if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+
+    const diff = await gitService.pendingDiff(requireRoot())
+    if (!diff) return ''
+
+    const provider = new OpenRouterProvider(key, ai.model)
+    return provider.generateMessage(diff)
+  })
 }
 
 /** Reabre el último vault si todavía existe. */

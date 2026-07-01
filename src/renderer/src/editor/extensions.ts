@@ -1,6 +1,6 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { EditorState, type Extension } from '@codemirror/state'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab, redo, undo } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -18,6 +18,13 @@ export function baseExtensions(): Extension[] {
     lineNumbers(),
     highlightActiveLine(),
     history(),
+    // Undo/redo explícitos y con prioridad. En Windows/Linux el historyKeymap
+    // por defecto solo trae Ctrl+Y para redo; agregamos también Ctrl+Shift+Z.
+    keymap.of([
+      { key: 'Mod-z', run: undo, preventDefault: true },
+      { key: 'Mod-y', run: redo, preventDefault: true },
+      { key: 'Mod-Shift-z', run: redo, preventDefault: true }
+    ]),
     keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
     // codeLanguages: resalta bloques ```lang dentro del markdown, cargados on-demand.
     markdown({ codeLanguages: languages }),

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
 import { IPC, type AppInfo, type AiConfig } from '@shared/ipc'
 import { VaultService } from './services/vault'
@@ -163,6 +163,11 @@ async function restoreLastVault(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  // Sin menú por defecto: sus aceleradores de edición (Ctrl+Y/Ctrl+Z/…)
+  // secuestran las teclas antes de que lleguen al editor y rompen el redo.
+  // El copiar/pegar sigue funcionando (lo maneja Chromium dentro del editor).
+  Menu.setApplicationMenu(null)
+
   registerIpcHandlers()
   await restoreLastVault()
   createWindow()

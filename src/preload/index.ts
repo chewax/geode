@@ -8,7 +8,15 @@ import { IPC, type GeodeApi } from '@shared/ipc'
  */
 const api: GeodeApi = {
   ping: () => ipcRenderer.invoke(IPC.ping),
-  getAppInfo: () => ipcRenderer.invoke(IPC.appInfo)
+  getAppInfo: () => ipcRenderer.invoke(IPC.appInfo),
+  vault: {
+    open: () => ipcRenderer.invoke(IPC.vaultOpen),
+    current: () => ipcRenderer.invoke(IPC.vaultCurrent),
+    tree: () => ipcRenderer.invoke(IPC.vaultTree),
+    readNote: (path) => ipcRenderer.invoke(IPC.vaultReadNote, path),
+    writeNote: (path, content) => ipcRenderer.invoke(IPC.vaultWriteNote, path, content),
+    createNote: (dir) => ipcRenderer.invoke(IPC.vaultCreateNote, dir)
+  }
 }
 
 contextBridge.exposeInMainWorld('geode', api)

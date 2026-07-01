@@ -3,9 +3,11 @@
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   --bg: #16161a;
   --panel: #1c1c22;
+  --panel-2: #202027;
   --border: #2a2a32;
   --muted: #9a9aa6;
   --accent: #b794f6;
+  --text: #e6e6ea;
 }
 
 * {
@@ -21,9 +23,53 @@ body,
 
 body {
   background: var(--bg);
-  color: #e6e6ea;
+  color: var(--text);
 }
 
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button.primary {
+  background: var(--accent);
+  color: #16161a;
+  border: none;
+  padding: 10px 18px;
+  font-weight: 600;
+}
+
+/* ── Pantalla de bienvenida (sin vault) ─────────────────────────────────── */
+.welcome {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.welcome h1 {
+  margin: 0;
+  font-size: 44px;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+/* ── Layout principal ───────────────────────────────────────────────────── */
 .shell {
   display: flex;
   flex-direction: column;
@@ -37,12 +83,15 @@ body {
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
-  -webkit-app-region: drag; /* la barra mueve la ventana */
+  -webkit-app-region: drag;
+}
+
+.topbar button {
+  -webkit-app-region: no-drag;
 }
 
 .brand {
   font-weight: 700;
-  letter-spacing: -0.01em;
 }
 
 .doc-name {
@@ -50,19 +99,131 @@ body {
   font-size: 13px;
 }
 
-.unsaved {
+.save-status {
   margin-left: auto;
   color: var(--accent);
   font-size: 12px;
+  min-width: 120px;
+  text-align: right;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+
+.vault-name {
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.sidebar-actions button {
+  padding: 2px 8px;
+}
+
+.tree,
+.tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree {
+  padding: 6px 4px;
+}
+
+.tree-children {
+  padding-left: 14px;
+}
+
+.tree-dir,
+.tree-file {
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-dir {
+  color: var(--muted);
+  user-select: none;
+}
+
+.twisty {
+  display: inline-block;
+  width: 14px;
+  color: var(--muted);
+}
+
+.tree-file:hover {
+  background: var(--panel-2);
+}
+
+.tree-file.active {
+  background: var(--panel-2);
+  color: var(--accent);
+}
+
+.tree-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 10px;
+}
+
+/* ── Área principal ─────────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .editor-pane {
   flex: 1;
-  min-height: 0; /* deja que el editor haga scroll interno */
+  min-height: 0;
   display: flex;
 }
 
-/* El editor ocupa todo el panel. */
+.placeholder {
+  margin: auto;
+  color: var(--muted);
+}
+
 .cm-host {
   flex: 1;
   min-height: 0;

@@ -1,6 +1,10 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { IPC, type AppInfo } from '@shared/ipc'
+import { VaultService } from './services/vault'
+import { loadSettings, saveSettings } from './services/settings'
+
+const vault = new VaultService()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -36,8 +40,7 @@ function createWindow(): void {
 
 /**
  * Handlers IPC. Un handler por canal del contrato de @shared/ipc.
- * Acá es donde, en fases siguientes, se cablearán los servicios reales
- * (StorageService, GitService, SyncService…).
+ * Los del vault delegan en VaultService; acá se irán sumando Git/Sync.
  */
 function registerIpcHandlers(): void {
   ipcMain.handle(IPC.ping, (): 'pong' => 'pong')
@@ -49,10 +52,36 @@ function registerIpcHandlers(): void {
     nodeVersion: process.versions.node,
     platform: process.platform
   }))
+
+  ipcMain.handle(IPC.vaultOpen, async () => {
+    const info = await vault.openDialog()
+    if (info) await saveSettings({ lastVault: info.root })
+    return info
+  })
+
+  ipcMain.handle(IPC.vaultCurrent, () => vault.getInfo())
+  ipcMain.handle(IPC.vaultTree, () => vault.tree())
+  ipcMain.handle(IPC.vaultReadNote, (_e, path: string) => vault.readNote(path))
+  ipcMain.handle(IPC.vaultWriteNote, (_e, path: string, content: string) =>
+    vault.writeNote(path, content)
+  )
+  ipcMain.handle(IPC.vaultCreateNote, (_e, dir: string) => vault.createNote(dir))
 }
 
-app.whenReady().then(() => {
+/** Reabre el último vault si todavía existe. */
+async function restoreLastVault(): Promise<void> {
+  const { lastVault } = await loadSettings()
+  if (!lastVault) return
+  try {
+    await vault.setRoot(lastVault)
+  } catch {
+    // La carpeta se movió o borró: arrancamos sin vault, sin romper.
+  }
+}
+
+app.whenReady().then(async () => {
   registerIpcHandlers()
+  await restoreLastVault()
   createWindow()
 
   app.on('activate', () => {

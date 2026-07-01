@@ -1,0 +1,13 @@
+node_modules
+out
+dist
+dist-electron
+*.tsbuildinfo
+*.log
+.DS_Store
+
+# Índice SQLite del vault: derivado y reconstruible, nunca versionado
+*.db
+*.db-shm
+*.db-wal
+.geode/index.db

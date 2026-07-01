@@ -1,41 +1,51 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import type { AppInfo } from '@shared/ipc'
+import { CodeMirrorEditor } from './editor/CodeMirrorEditor'
 
-/**
- * Pantalla mínima de Fase 0: confirma que el puente IPC tipado funciona
- * extremo a extremo (renderer → preload → main → back). No es UI de producto;
- * es la prueba viva de que el andamiaje está sano.
- */
+const SAMPLE = `# Bienvenido a Geode
+
+Editor **CodeMirror 6** con markdown, resaltado y line-wrapping.
+
+- Probá listas
+- \`código inline\`
+- y bloques con resaltado:
+
+\`\`\`ts
+const saludo: string = 'hola geode'
+console.log(saludo)
+\`\`\`
+
+> Esto todavía vive **solo en memoria**. La persistencia atómica y el
+> versionado con Git llegan en el próximo paso (Fase 1).
+`
+
 export function App(): JSX.Element {
-  const [pong, setPong] = useState<string>('…')
-  const [info, setInfo] = useState<AppInfo | null>(null)
+  const [doc, setDoc] = useState<string>(SAMPLE)
 
-  useEffect(() => {
-    void window.geode.ping().then(setPong)
-    void window.geode.getAppInfo().then(setInfo)
-  }, [])
+  const stats = useMemo(() => {
+    const chars = doc.length
+    const words = doc.trim() ? doc.trim().split(/\s+/).length : 0
+    const lines = doc.split('\n').length
+    return { chars, words, lines }
+  }, [doc])
 
   return (
-    <main className="app">
-      <h1>Geode</h1>
-      <p className="tagline">Notas versionadas sobre Git — local-first.</p>
+    <div className="shell">
+      <header className="topbar">
+        <span className="brand">Geode</span>
+        <span className="doc-name">nota-sin-titulo.md</span>
+        <span className="unsaved" title="Aún no persistido">● en memoria</span>
+      </header>
 
-      <section className="card">
-        <h2>Estado del andamiaje</h2>
-        <ul>
-          <li>Puente IPC (ping): <strong>{pong}</strong></li>
-          {info && (
-            <>
-              <li>App: <strong>{info.appVersion}</strong></li>
-              <li>Electron: <strong>{info.electronVersion}</strong></li>
-              <li>Chromium: <strong>{info.chromeVersion}</strong></li>
-              <li>Node: <strong>{info.nodeVersion}</strong></li>
-              <li>Plataforma: <strong>{info.platform}</strong></li>
-            </>
-          )}
-        </ul>
-      </section>
-    </main>
+      <div className="editor-pane">
+        <CodeMirrorEditor initialDoc={SAMPLE} onChange={setDoc} />
+      </div>
+
+      <footer className="statusbar">
+        <span>{stats.words} palabras</span>
+        <span>{stats.chars} caracteres</span>
+        <span>{stats.lines} líneas</span>
+      </footer>
+    </div>
   )
 }

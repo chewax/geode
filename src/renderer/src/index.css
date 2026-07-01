@@ -1,56 +1,90 @@
 :root {
   color-scheme: dark;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --bg: #16161a;
+  --panel: #1c1c22;
+  --border: #2a2a32;
+  --muted: #9a9aa6;
+  --accent: #b794f6;
 }
 
 * {
   box-sizing: border-box;
 }
 
-body {
+html,
+body,
+#root {
+  height: 100%;
   margin: 0;
-  background: #16161a;
+}
+
+body {
+  background: var(--bg);
   color: #e6e6ea;
 }
 
-.app {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 48px 24px;
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-h1 {
-  margin: 0;
-  font-size: 40px;
-  letter-spacing: -0.02em;
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  -webkit-app-region: drag; /* la barra mueve la ventana */
 }
 
-.tagline {
-  margin: 4px 0 32px;
-  color: #9a9aa6;
+.brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-.card {
-  border: 1px solid #2a2a32;
-  border-radius: 12px;
-  padding: 20px 24px;
-  background: #1c1c22;
+.doc-name {
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.card h2 {
-  margin-top: 0;
-  font-size: 16px;
-  color: #9a9aa6;
-  font-weight: 600;
+.unsaved {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 12px;
 }
 
-.card ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  line-height: 1.9;
+.editor-pane {
+  flex: 1;
+  min-height: 0; /* deja que el editor haga scroll interno */
+  display: flex;
 }
 
-.card strong {
-  color: #b794f6;
+/* El editor ocupa todo el panel. */
+.cm-host {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cm-host .cm-editor {
+  height: 100%;
+}
+
+.cm-host .cm-scroller {
+  font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.statusbar {
+  display: flex;
+  gap: 16px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
 }

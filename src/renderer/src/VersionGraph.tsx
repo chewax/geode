@@ -42,7 +42,9 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
   const gutterW = PAD * 2 + model.maxLane * LANE
   const svgH = Math.max(commits.length * ROW, ROW)
 
-  // Aristas commit → padre.
+  // Aristas commit → padre. La línea baja RECTA en la columna del hijo (para que
+  // las ramas se vean paralelas) y sólo hace una "S" (ogee) al entrar en la
+  // columna del padre, junto al punto de bifurcación — como git.
   const edges: JSX.Element[] = []
   commits.forEach((c, i) => {
     for (const parent of c.parents) {
@@ -53,12 +55,21 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
       const y1 = rowY(i)
       const x2 = laneX(parentLane)
       const y2 = rowY(pi)
-      const color = LANE_COLORS[Math.min(parentLane, LANE_COLORS.length - 1)]
+      // La arista lleva el color de la rama del hijo (la línea que se bifurca).
+      const color = LANE_COLORS[Math.min(c.lane, LANE_COLORS.length - 1)]
       const dim = !model.onLine.has(c.oid)
-      const d =
-        x1 === x2
-          ? `M ${x1} ${y1} L ${x2} ${y2}`
-          : `M ${x1} ${y1} C ${x1} ${y1 + ROW * 0.6} ${x2} ${y2 - ROW * 0.6} ${x2} ${y2}`
+
+      let d: string
+      if (x1 === x2) {
+        d = `M ${x1} ${y1} L ${x2} ${y2}` // misma columna: recta vertical
+      } else {
+        // Tramo recto vertical en la columna del hijo, luego S hacia la del padre.
+        const curveH = Math.min(ROW, y2 - y1)
+        const bend = y2 - curveH
+        const mid = y2 - curveH / 2
+        d = `M ${x1} ${y1} L ${x1} ${bend} C ${x1} ${mid} ${x2} ${mid} ${x2} ${y2}`
+      }
+
       edges.push(
         <path
           key={`${c.oid}-${parent}`}

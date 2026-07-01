@@ -11,7 +11,7 @@
 - ✅ **Fase 0** — Andamiaje Electron + Vite + React + TS, IPC tipado, seguridad (contextIsolation/sandbox), dominio puro.
 - ✅ **Editor** — CodeMirror 6 con markdown, resaltado y line-wrapping.
 - ✅ **Fase 1 · persistencia** — Abrir/recordar vault, árbol de notas, escritura atómica (temp+fsync+rename), autosave con debounce, guardarraíl anti path-traversal.
-- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): commit agrupado **inmune al racy git** (detección por hash de contenido), auto-commit por inactividad + commit manual (Ctrl+S), historial por nota y **restaurar** una versión.
+- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): commit agrupado **inmune al racy git** (detección por hash de contenido), auto-commit por inactividad + commit manual (Ctrl+S). **Árbol de versiones de todo el vault** con checkout (ir a una versión mueve HEAD) y **fork automático** al editar en el pasado; la rama principal queda intacta y lo fuera de la línea de HEAD se atenúa.
 - ⏳ **Pendiente en Fase 1** — Journal/snapshots de sub-commit (Capa 1 fina), diff visual entre versiones, búsqueda (SQLite/FTS5) y `[[backlinks]]`, arquitectura de plugins interna.
 - ⏭️ **Fase 2** — GitHub, auth, branch por dispositivo, `main` canónica, UI de conflictos 3-way.
 
@@ -77,14 +77,15 @@ El requisito "nunca perder nada" y el requisito "diffs y rollbacks con sentido" 
 
 > **Resumen mental:** el journal garantiza *nunca perder nada*; Git garantiza *historia con sentido*. Son dos cosas distintas y por eso viven en capas distintas.
 
-### Rollback / historial por nota (feature estrella)
+### Árbol de versiones y rollback (feature estrella)
 
-Git da rollback infinito gratis; el valor es la UX:
+Git da rollback infinito gratis; el valor es la UX. **Modelo (decidido con el usuario): un árbol de commits de TODO el vault, estilo git — no restaurar-como-commit-nuevo.**
 
-- **Timeline por nota:** lista de versiones de *ese archivo* (`git log --follow <archivo>`), con fecha, autor y preview.
-- **Diff visual** entre dos versiones cualesquiera de la nota.
-- **Restaurar** una versión: crea un commit nuevo que devuelve el contenido (nunca reescribe historia).
-- "Ver la nota como estaba el [fecha]" en modo lectura, sin salir de la app.
+- **Árbol del vault:** grafo de commits de todas las ramas (columnas/lanes + aristas a los padres). La línea de HEAD se ve plena; el resto, atenuado.
+- **"Ir a una versión" = checkout** (mueve HEAD), no genera un commit nuevo. Si el oid es el tip de una rama, HEAD se adjunta a esa rama (editar la continúa); si es un commit interior, HEAD queda *detached*.
+- **Fork automático:** editar estando en *detached* (una versión vieja) bifurca a una rama nueva (`rama-N`) en el próximo commit, sin pisar lo que se escribió. La rama principal queda intacta. Antes de cualquier checkout se commitea lo pendiente en la rama actual (no perder nada).
+- **Diff visual** entre versiones — pendiente.
+- Descartado el enfoque previo (restaurar = commit nuevo): ensuciaba el historial y hacía perder la referencia antes/después.
 
 ---
 

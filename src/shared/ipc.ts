@@ -17,8 +17,8 @@ export const IPC = {
   vaultWriteNote: 'geode:vault-write-note',
   vaultCreateNote: 'geode:vault-create-note',
   gitCommit: 'geode:git-commit',
-  gitHistory: 'geode:git-history',
-  gitReadAt: 'geode:git-read-at'
+  gitGraph: 'geode:git-graph',
+  gitCheckout: 'geode:git-checkout'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -68,21 +68,42 @@ export interface VaultApi {
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────
 
-export interface GitVersion {
+/** Un commit del árbol del vault. */
+export interface GitCommitNode {
   oid: string
   message: string
   /** Epoch en milisegundos. */
   timestamp: number
   author: string
+  /** Oids de los commits padre (para dibujar el grafo). */
+  parents: string[]
+  /** Columna asignada en el grafo (0 = línea principal). */
+  lane: number
+}
+
+export interface GitBranchRef {
+  name: string
+  tip: string
+}
+
+/** Grafo de commits de todo el vault, para el árbol de versiones. */
+export interface GitGraph {
+  /** Commits de todas las ramas, más nuevo primero. */
+  commits: GitCommitNode[]
+  branches: GitBranchRef[]
+  /** HEAD actual: su oid y la rama si está adjunto (null = detached). */
+  head: { oid: string | null; branch: string | null }
+  /** Oids que están en la línea de HEAD (ancestros incluido); el resto se atenúa. */
+  onCurrentLine: string[]
 }
 
 export interface GitApi {
   /** Commitea los cambios del vault. Devuelve el oid, o null si no había nada. */
   commit(message?: string): Promise<string | null>
-  /** Versiones de una nota (más nueva primero). */
-  history(path: string): Promise<GitVersion[]>
-  /** Contenido de una nota en un commit dado. */
-  readAt(oid: string, path: string): Promise<string>
+  /** Grafo de commits de todo el vault. */
+  graph(): Promise<GitGraph>
+  /** Mueve HEAD a un commit (checkout). Sobrescribe el working dir. */
+  checkout(oid: string): Promise<void>
 }
 
 // ── Superficie completa expuesta en window.geode ───────────────────────────

@@ -19,8 +19,8 @@ const api: GeodeApi = {
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),
-    history: (path) => ipcRenderer.invoke(IPC.gitHistory, path),
-    readAt: (oid, path) => ipcRenderer.invoke(IPC.gitReadAt, oid, path)
+    graph: () => ipcRenderer.invoke(IPC.gitGraph),
+    checkout: (oid) => ipcRenderer.invoke(IPC.gitCheckout, oid)
   }
 }
 

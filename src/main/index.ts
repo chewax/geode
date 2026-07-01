@@ -86,12 +86,8 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.gitCommit, (_e, message?: string) =>
     gitService.commit(requireRoot(), message ?? autoCommitMessage())
   )
-  ipcMain.handle(IPC.gitHistory, (_e, path: string) =>
-    gitService.history(requireRoot(), path)
-  )
-  ipcMain.handle(IPC.gitReadAt, (_e, oid: string, path: string) =>
-    gitService.readAt(requireRoot(), oid, path)
-  )
+  ipcMain.handle(IPC.gitGraph, () => gitService.graph(requireRoot()))
+  ipcMain.handle(IPC.gitCheckout, (_e, oid: string) => gitService.checkout(requireRoot(), oid))
 }
 
 /** Reabre el último vault si todavía existe. */

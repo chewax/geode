@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { GitVersion, TreeNode, VaultInfo } from '@shared/ipc'
+import type { GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
-import { HistoryPanel } from './HistoryPanel'
+import { VersionGraph } from './VersionGraph'
 
 type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
 const AUTOSAVE_MS = 600
@@ -17,8 +17,8 @@ export function App(): JSX.Element {
   const [status, setStatus] = useState<SaveStatus>('none')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [editorEpoch, setEditorEpoch] = useState(0)
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const [versions, setVersions] = useState<GitVersion[]>([])
+  const [graphOpen, setGraphOpen] = useState(false)
+  const [graph, setGraph] = useState<GitGraph | null>(null)
 
   // Guardado pendiente + timers (autosave y auto-commit) en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -32,8 +32,8 @@ export function App(): JSX.Element {
     setTree(await window.geode.vault.tree())
   }, [])
 
-  const refreshHistory = useCallback(async (path: string | null) => {
-    setVersions(path ? await window.geode.git.history(path) : [])
+  const refreshGraph = useCallback(async () => {
+    setGraph(await window.geode.git.graph())
   }, [])
 
   /** Persiste inmediatamente lo que haya pendiente (autosave o cambio de nota). */
@@ -50,7 +50,7 @@ export function App(): JSX.Element {
     setSavedAt(new Date())
   }, [])
 
-  /** Agrupa cambios en un commit. Refresca el historial si hubo commit. */
+  /** Agrupa cambios en un commit. Refresca el árbol de versiones si hubo commit. */
   const commitNow = useCallback(async (message?: string) => {
     if (commitTimerRef.current !== null) {
       window.clearTimeout(commitTimerRef.current)
@@ -58,9 +58,9 @@ export function App(): JSX.Element {
     }
     await flush() // el archivo tiene que estar escrito antes de commitear
     const oid = await window.geode.git.commit(message)
-    if (oid) await refreshHistory(openPathRef.current)
+    if (oid) await refreshGraph()
     return oid
-  }, [flush, refreshHistory])
+  }, [flush, refreshGraph])
 
   const handleChange = useCallback((doc: string) => {
     const path = openPathRef.current
@@ -88,8 +88,7 @@ export function App(): JSX.Element {
     await flush() // no perder cambios de la nota anterior al cambiar
     const text = await window.geode.vault.readNote(path)
     loadIntoEditor(path, text)
-    await refreshHistory(path)
-  }, [flush, loadIntoEditor, refreshHistory])
+  }, [flush, loadIntoEditor])
 
   const openVault = useCallback(async () => {
     const info = await window.geode.vault.open()
@@ -98,9 +97,9 @@ export function App(): JSX.Element {
     setOpenPath(null)
     setContent('')
     setStatus('none')
-    setVersions([])
     await refreshTree()
-  }, [refreshTree])
+    await refreshGraph()
+  }, [refreshTree, refreshGraph])
 
   const newNote = useCallback(async () => {
     const node = await window.geode.vault.createNote('')
@@ -108,24 +107,27 @@ export function App(): JSX.Element {
     await openNote(node.path)
   }, [refreshTree, openNote])
 
-  const restore = useCallback(async (version: GitVersion) => {
+  /** Ir a una versión: mueve HEAD ahí (checkout) sin generar un commit nuevo. */
+  const goToVersion = useCallback(async (oid: string) => {
+    await commitNow() // preservar ediciones pendientes en la rama actual antes de mover
+    await window.geode.git.checkout(oid)
+    await refreshTree()
     const path = openPathRef.current
-    if (!path) return
-    const text = await window.geode.git.readAt(version.oid, path)
-    await window.geode.vault.writeNote(path, text)
-    loadIntoEditor(path, text)
-    setStatus('saved')
-    setSavedAt(new Date())
-    await commitNow(`Restaurar "${path}" a ${version.oid.slice(0, 7)}`)
-  }, [loadIntoEditor, commitNow])
+    if (path) {
+      try {
+        const text = await window.geode.vault.readNote(path)
+        loadIntoEditor(path, text)
+      } catch {
+        // La nota abierta no existe en esta versión.
+        setOpenPath(null)
+        setContent('')
+        setStatus('none')
+      }
+    }
+    await refreshGraph()
+  }, [commitNow, refreshTree, loadIntoEditor, refreshGraph])
 
-  const toggleHistory = useCallback(() => {
-    setHistoryOpen((open) => {
-      const next = !open
-      if (next) void refreshHistory(openPathRef.current)
-      return next
-    })
-  }, [refreshHistory])
+  const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
   // Al arrancar: restaurar el vault del último uso.
   useEffect(() => {
@@ -134,8 +136,9 @@ export function App(): JSX.Element {
       if (!info) return
       setVault(info)
       await refreshTree()
+      await refreshGraph()
     })()
-  }, [refreshTree])
+  }, [refreshTree, refreshGraph])
 
   // Ctrl/Cmd+S: crea una versión (commit) inmediata.
   useEffect(() => {
@@ -156,8 +159,9 @@ export function App(): JSX.Element {
     return { chars, words, lines }
   }, [content])
 
-  // Red de seguridad: si el preload no cargó, window.geode no existe y todos
-  // los botones quedarían mudos. Mejor decirlo que fallar en silencio.
+  const detached = !!graph && graph.head.oid !== null && graph.head.branch === null
+
+  // Red de seguridad: si el preload no cargó, window.geode no existe.
   if (typeof window.geode === 'undefined') {
     return (
       <div className="welcome">
@@ -187,13 +191,22 @@ export function App(): JSX.Element {
       <header className="topbar">
         <span className="brand">Geode</span>
         <span className="doc-name">{openPath ?? vault.name}</span>
+        {detached && (
+          <span className="detached" title="HEAD en una versión anterior">
+            ⚠ versión anterior · editá para bifurcar
+          </span>
+        )}
         <span className="save-status">{statusLabel(status, savedAt)}</span>
         <div className="topbar-actions">
           <button title="Crear versión (Ctrl+S)" disabled={!openPath} onClick={() => void commitNow()}>
             Guardar versión
           </button>
-          <button title="Historial de la nota" disabled={!openPath} onClick={toggleHistory}>
-            Historial
+          <button
+            title="Árbol de versiones"
+            className={graphOpen ? 'active' : ''}
+            onClick={toggleGraph}
+          >
+            Versiones
           </button>
         </div>
       </header>
@@ -239,11 +252,11 @@ export function App(): JSX.Element {
           </footer>
         </main>
 
-        {historyOpen && openPath && (
-          <HistoryPanel
-            versions={versions}
-            onRestore={(v) => void restore(v)}
-            onClose={() => setHistoryOpen(false)}
+        {graphOpen && graph && (
+          <VersionGraph
+            graph={graph}
+            onSelect={(oid) => void goToVersion(oid)}
+            onClose={() => setGraphOpen(false)}
           />
         )}
       </div>

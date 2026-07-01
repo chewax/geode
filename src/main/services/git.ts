@@ -3,20 +3,20 @@ import os from 'node:os'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
-import type { GitVersion } from '@shared/ipc'
+import type { GitCommitNode, GitGraph } from '@shared/ipc'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
 const IGNORED_TOP = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
 
 /**
  * Capa 2 del versionado (ver ARCHITECTURE.md §3): commits Git con sentido.
- * Envuelve isomorphic-git y habla el idioma de la app. No es un commit por
- * tecla: los commits se agrupan (los dispara el renderer por inactividad o a
- * mano). Restaurar nunca reescribe historia: escribe contenido viejo como
- * estado nuevo, que el próximo commit registra.
  *
- * La identidad de autor es un default local por ahora; la identidad por
- * dispositivo (branch device/<slug>) llega en Fase 2.
+ * Modelo de historial (rediseño): el usuario ve un ÁRBOL de todo el vault, como
+ * git. "Ir a una versión" es un checkout (mueve HEAD), no genera un commit
+ * nuevo. Si el usuario edita estando parado en un commit viejo (HEAD detached),
+ * el próximo commit BIFURCA automáticamente a una rama nueva (rama-N): así nada
+ * se pisa y el árbol muestra la bifurcación. La rama principal queda intacta y
+ * en la UI se atenúa lo que no está en la línea de HEAD.
  */
 export class GitService {
   private author(): { name: string; email: string } {
@@ -41,16 +41,13 @@ export class GitService {
   }
 
   /**
-   * Commitea todos los cambios del vault. Devuelve el oid, o null si no había
-   * nada que commitear (así el auto-commit no genera commits vacíos).
+   * Commitea los cambios del vault. Devuelve el oid, o null si no había nada.
+   * Si HEAD está detached (el usuario editó parado en una versión vieja),
+   * bifurca: commitea y adjunta HEAD a una rama nueva sin tocar los archivos.
    *
-   * IMPORTANTE — el "racy git": isomorphic-git cachea el oid del working dir
-   * contra la stat guardada en el index (tamaño + mtime, 1s de granularidad),
-   * así que tanto statusMatrix como el walker WORKDIR pueden reportar "sin
-   * cambios" ante una edición del mismo tamaño en el mismo segundo → se perdería
-   * un commit. Para evadirlo por completo NO le pedimos a isomorphic-git que lea
-   * el working dir: leemos cada archivo nosotros y lo hasheamos con hashBlob
-   * (contenido puro, sin stat), y comparamos contra los blobs de HEAD.
+   * Detección de cambios INMUNE al "racy git": no usamos el atajo por stat de
+   * isomorphic-git (pierde ediciones del mismo tamaño en el mismo segundo);
+   * hasheamos el contenido real de cada archivo (hashBlob) vs los blobs de HEAD.
    */
   async commit(dir: string, message: string): Promise<string | null> {
     const headBlobs = await this.headBlobs(dir)
@@ -65,6 +62,8 @@ export class GitService {
     }
     if (changes.length === 0) return null
 
+    const wasDetached = !(await git.currentBranch({ fs, dir, fullname: false }))
+
     for (const change of changes) {
       if (change.deleted) {
         await git.remove({ fs, dir, filepath: change.filepath })
@@ -73,7 +72,116 @@ export class GitService {
       }
     }
 
-    return git.commit({ fs, dir, message, author: this.author() })
+    const oid = await git.commit({ fs, dir, message, author: this.author() })
+
+    if (wasDetached) {
+      // Bifurcación: crear rama en el commit nuevo y adjuntar HEAD sin tocar
+      // el working dir (noCheckout), para no pisar lo que el usuario escribió.
+      const name = await this.nextForkName(dir)
+      await git.branch({ fs, dir, ref: name })
+      await git.checkout({ fs, dir, ref: name, noCheckout: true })
+    }
+
+    return oid
+  }
+
+  /**
+   * Mueve HEAD a un commit. Si el oid es el tip de una rama, se adjunta a esa
+   * rama (editar la continúa); si es un commit interior, queda detached (editar
+   * bifurca). Sobrescribe el working dir: el caller debe commitear lo pendiente
+   * antes, para no perder nada.
+   */
+  async checkout(dir: string, oid: string): Promise<void> {
+    const branches = await git.listBranches({ fs, dir })
+    const ordered = ['main', ...branches.filter((b) => b !== 'main')]
+
+    let ref = oid
+    for (const name of ordered) {
+      if (!branches.includes(name)) continue
+      const tip = await git.resolveRef({ fs, dir, ref: name })
+      if (tip === oid) {
+        ref = name
+        break
+      }
+    }
+    await git.checkout({ fs, dir, ref, force: true })
+  }
+
+  /** Grafo de commits de TODO el vault (todas las ramas), para el árbol. */
+  async graph(dir: string): Promise<GitGraph> {
+    const branchNames = await git.listBranches({ fs, dir })
+    const ordered = ['main', ...branchNames.filter((b) => b !== 'main')].filter((b) =>
+      branchNames.includes(b)
+    )
+
+    const commitsMap = new Map<string, GitCommitNode>()
+    const laneOf = new Map<string, number>()
+    const branches: { name: string; tip: string }[] = []
+
+    for (let lane = 0; lane < ordered.length; lane++) {
+      const name = ordered[lane]
+      const tip = await git.resolveRef({ fs, dir, ref: name })
+      branches.push({ name, tip })
+      let log
+      try {
+        log = await git.log({ fs, dir, ref: name })
+      } catch {
+        continue
+      }
+      for (const c of log) {
+        // La lane de un commit es la de la rama de índice más bajo que lo
+        // contiene: los ancestros compartidos caen en la columna de 'main'.
+        if (!laneOf.has(c.oid)) laneOf.set(c.oid, lane)
+        if (!commitsMap.has(c.oid)) {
+          commitsMap.set(c.oid, {
+            oid: c.oid,
+            message: c.commit.message.trim(),
+            timestamp: c.commit.author.timestamp * 1000,
+            author: c.commit.author.name,
+            parents: c.commit.parent ?? [],
+            lane
+          })
+        }
+      }
+    }
+
+    const headOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null)
+    const headBranch = (await git.currentBranch({ fs, dir, fullname: false })) ?? null
+
+    // Línea actual = ancestros (incluido) de HEAD; el resto se atenúa en la UI.
+    const onCurrentLine: string[] = []
+    if (headOid) {
+      const seen = new Set<string>()
+      const stack = [headOid]
+      while (stack.length) {
+        const oid = stack.pop() as string
+        if (seen.has(oid)) continue
+        seen.add(oid)
+        const node = commitsMap.get(oid)
+        if (node) for (const p of node.parents) stack.push(p)
+      }
+      onCurrentLine.push(...seen)
+    }
+
+    const commits = [...commitsMap.values()].sort((a, b) => b.timestamp - a.timestamp)
+    return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine }
+  }
+
+  /** Contenido de una nota tal como estaba en un commit dado (para diffs futuros). */
+  async readAt(dir: string, oid: string, filepath: string): Promise<string> {
+    const { blob } = await git.readBlob({ fs, dir, oid, filepath })
+    return new TextDecoder().decode(blob)
+  }
+
+  /** Próximo nombre de rama libre: rama-1, rama-2, … */
+  private async nextForkName(dir: string): Promise<string> {
+    const branches = await git.listBranches({ fs, dir })
+    let max = 0
+    for (const b of branches) {
+      const m = /^rama-(\d+)$/.exec(b)
+      if (m) max = Math.max(max, Number(m[1]))
+    }
+    return `rama-${max + 1}`
   }
 
   /** Mapa ruta→oid de los blobs de HEAD. Vacío si el repo aún no tiene commits. */
@@ -120,28 +228,5 @@ export class GitService {
     }
     await walk('')
     return map
-  }
-
-  /** Versiones que tocaron una nota, de la más nueva a la más vieja. */
-  async history(dir: string, filepath: string): Promise<GitVersion[]> {
-    let commits
-    try {
-      commits = await git.log({ fs, dir, filepath, force: true })
-    } catch {
-      // Repo sin commits todavía.
-      return []
-    }
-    return commits.map((c) => ({
-      oid: c.oid,
-      message: c.commit.message.trim(),
-      timestamp: c.commit.author.timestamp * 1000,
-      author: c.commit.author.name
-    }))
-  }
-
-  /** Contenido de una nota tal como estaba en un commit dado. */
-  async readAt(dir: string, oid: string, filepath: string): Promise<string> {
-    const { blob } = await git.readBlob({ fs, dir, oid, filepath })
-    return new TextDecoder().decode(blob)
   }
 }

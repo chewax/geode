@@ -1,0 +1,140 @@
+import { useMemo } from 'react'
+import type { JSX } from 'react'
+import type { GitGraph } from '@shared/ipc'
+
+interface VersionGraphProps {
+  graph: GitGraph
+  onSelect: (oid: string) => void
+  onClose: () => void
+}
+
+const ROW = 54
+const LANE = 18
+const PAD = 16
+const DOT = 5
+// Colores por columna (lane). El 0 es la línea principal.
+const LANE_COLORS = ['#b794f6', '#63b3ed', '#68d391', '#f6ad55', '#fc8181', '#f687b3']
+
+/**
+ * Árbol de versiones de todo el vault, estilo git. Cada commit es un punto en
+ * su columna (lane); las aristas van a los padres. La línea de HEAD se muestra
+ * plena y el resto atenuado. Click en un commit = checkout (mover HEAD ahí);
+ * si es un commit viejo, editar después bifurca automáticamente.
+ */
+export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): JSX.Element {
+  const { commits, head, onCurrentLine, branches } = graph
+
+  const model = useMemo(() => {
+    const index = new Map(commits.map((c, i) => [c.oid, i]))
+    const onLine = new Set(onCurrentLine)
+    const tipToBranch = new Map<string, string[]>()
+    for (const b of branches) {
+      const list = tipToBranch.get(b.tip) ?? []
+      list.push(b.name)
+      tipToBranch.set(b.tip, list)
+    }
+    const maxLane = commits.reduce((m, c) => Math.max(m, c.lane), 0)
+    return { index, onLine, tipToBranch, maxLane }
+  }, [commits, onCurrentLine, branches])
+
+  const laneX = (lane: number): number => PAD + lane * LANE
+  const rowY = (i: number): number => i * ROW + ROW / 2
+  const gutterW = PAD * 2 + model.maxLane * LANE
+  const svgH = Math.max(commits.length * ROW, ROW)
+
+  // Aristas commit → padre.
+  const edges: JSX.Element[] = []
+  commits.forEach((c, i) => {
+    for (const parent of c.parents) {
+      const pi = model.index.get(parent)
+      if (pi === undefined) continue
+      const parentLane = commits[pi].lane
+      const x1 = laneX(c.lane)
+      const y1 = rowY(i)
+      const x2 = laneX(parentLane)
+      const y2 = rowY(pi)
+      const color = LANE_COLORS[Math.min(parentLane, LANE_COLORS.length - 1)]
+      const dim = !model.onLine.has(c.oid)
+      const d =
+        x1 === x2
+          ? `M ${x1} ${y1} L ${x2} ${y2}`
+          : `M ${x1} ${y1} C ${x1} ${y1 + ROW * 0.6} ${x2} ${y2 - ROW * 0.6} ${x2} ${y2}`
+      edges.push(
+        <path
+          key={`${c.oid}-${parent}`}
+          d={d}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          opacity={dim ? 0.25 : 0.9}
+        />
+      )
+    }
+  })
+
+  return (
+    <aside className="graph">
+      <div className="graph-head">
+        <span>Árbol de versiones</span>
+        <button title="Cerrar" onClick={onClose}>✕</button>
+      </div>
+
+      {commits.length === 0 ? (
+        <p className="tree-empty">Todavía no hay versiones. Editá y guardá una nota.</p>
+      ) : (
+        <div className="graph-body" style={{ minHeight: svgH }}>
+          <svg className="graph-svg" width={gutterW} height={svgH} style={{ width: gutterW }}>
+            {edges}
+            {commits.map((c, i) => {
+              const isHead = head.oid === c.oid
+              const dim = !model.onLine.has(c.oid)
+              const color = LANE_COLORS[Math.min(c.lane, LANE_COLORS.length - 1)]
+              return (
+                <g key={c.oid} opacity={dim ? 0.35 : 1}>
+                  <circle
+                    cx={laneX(c.lane)}
+                    cy={rowY(i)}
+                    r={isHead ? DOT + 2 : DOT}
+                    fill={isHead ? color : '#1c1c22'}
+                    stroke={color}
+                    strokeWidth={2}
+                  />
+                </g>
+              )
+            })}
+          </svg>
+
+          <ul className="graph-rows" style={{ paddingLeft: gutterW }}>
+            {commits.map((c) => {
+              const isHead = head.oid === c.oid
+              const dim = !model.onLine.has(c.oid)
+              const tips = model.tipToBranch.get(c.oid) ?? []
+              return (
+                <li
+                  key={c.oid}
+                  className={`graph-row${isHead ? ' head' : ''}${dim ? ' dim' : ''}`}
+                  style={{ height: ROW }}
+                  onClick={() => !isHead && onSelect(c.oid)}
+                  title={isHead ? 'Estás en esta versión' : 'Ir a esta versión (checkout)'}
+                >
+                  <div className="row-top">
+                    <span className="g-msg">{c.message}</span>
+                    {tips.map((name) => (
+                      <span key={name} className={`chip${name === head.branch ? ' current' : ''}`}>
+                        {name}
+                      </span>
+                    ))}
+                    {isHead && <span className="chip head-chip">HEAD</span>}
+                  </div>
+                  <div className="g-meta">
+                    {new Date(c.timestamp).toLocaleString()} · {c.oid.slice(0, 7)}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </aside>
+  )
+}

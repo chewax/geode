@@ -129,6 +129,21 @@ button.primary {
   cursor: default;
 }
 
+.topbar-actions button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.detached {
+  font-size: 12px;
+  color: #f6ad55;
+  background: rgba(246, 173, 85, 0.12);
+  border: 1px solid rgba(246, 173, 85, 0.4);
+  border-radius: 6px;
+  padding: 2px 8px;
+  -webkit-app-region: no-drag;
+}
+
 .body {
   flex: 1;
   min-height: 0;
@@ -272,9 +287,9 @@ button.primary {
   font-size: 12px;
 }
 
-/* ── Panel de historial ─────────────────────────────────────────────────── */
-.history {
-  width: 280px;
+/* ── Árbol de versiones ─────────────────────────────────────────────────── */
+.graph {
+  width: 340px;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   background: var(--panel);
@@ -283,7 +298,7 @@ button.primary {
   flex-direction: column;
 }
 
-.history-head {
+.graph-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -294,40 +309,87 @@ button.primary {
   position: sticky;
   top: 0;
   background: var(--panel);
+  z-index: 1;
 }
 
-.history-head button {
+.graph-head button {
   padding: 2px 8px;
 }
 
-.version-list {
-  list-style: none;
-  margin: 0;
-  padding: 6px;
+.graph-body {
+  position: relative;
 }
 
-.version {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 6px;
+.graph-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.graph-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.graph-row {
+  box-sizing: border-box;
+  padding: 8px 12px 8px 0;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.graph-row:hover {
   background: var(--panel-2);
 }
 
-.v-msg {
+.graph-row.head {
+  cursor: default;
+  background: rgba(183, 148, 246, 0.08);
+}
+
+.graph-row.dim {
+  opacity: 0.5;
+}
+
+.row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.g-msg {
   font-size: 13px;
-  margin-bottom: 4px;
   word-break: break-word;
 }
 
-.v-meta {
+.g-meta {
   color: var(--muted);
   font-size: 11px;
   font-family: 'JetBrains Mono', Consolas, monospace;
-  margin-bottom: 8px;
+  margin-top: 2px;
 }
 
-.v-restore {
-  font-size: 12px;
-  padding: 3px 10px;
+.chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip.current {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip.head-chip {
+  background: var(--accent);
+  color: #16161a;
+  border: none;
+  font-weight: 700;
 }

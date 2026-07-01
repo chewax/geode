@@ -129,7 +129,7 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
                   title={isHead ? 'Estás en esta versión' : 'Ir a esta versión (checkout)'}
                 >
                   <div className="row-top">
-                    <span className="g-msg">{c.message}</span>
+                    <span className="g-msg" title={c.message}>{c.message}</span>
                     {tips.map((name) => (
                       <span key={name} className={`chip${name === head.branch ? ' current' : ''}`}>
                         {name}

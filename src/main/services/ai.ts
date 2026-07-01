@@ -15,17 +15,28 @@ const OPENROUTER = 'https://openrouter.ai/api/v1'
 
 const SYSTEM_PROMPT = `Sos un asistente que resume, en español, qué se hizo en un conjunto de notas personales, para etiquetar una versión guardada.
 
-Te paso un diff (formato unificado) de los cambios. Devolvé SOLO el resumen, sin comillas ni bloques de código, sin prefijos tipo "feat:"/"fix:".
+Te paso un diff (formato unificado) de los cambios. Devolvé SOLO el resumen, en UNA SOLA LÍNEA (sin saltos de línea, sin viñetas, sin comillas, sin bloques de código, sin prefijos tipo "feat:"/"fix:"). Va a mostrarse en un grafo de versiones, así que tiene que ser corto: idealmente 60-80 caracteres, nunca más de ~100.
 
 Qué queremos:
-- Un resumen del CONTENIDO y el TEMA de lo que se escribió o cambió, no de la mecánica de edición.
-- Primera línea: una síntesis clara de qué trata el cambio (p. ej. "Notas de la reunión con Marketing: objetivos del Q3 y responsables").
-- Si aporta, una línea en blanco y 1-3 viñetas ("- ...") con los puntos concretos que se agregaron o cambiaron.
+- Una síntesis clara del CONTENIDO y el TEMA de lo que se escribió o cambió (p. ej. "Reunión con Marketing: objetivos del Q3 y responsables").
 
 Qué evitar:
 - NO describas el edit de forma mecánica ni trivial ("se agregó una frase", "se modificó una línea", "cambios en nota.md").
 - No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
 - Si el cambio es muy chico, igual describí el TEMA de lo agregado, no el tamaño.`
+
+/** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
+function toOneLine(text: string): string {
+  const firstLine =
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) ?? text.trim()
+  return firstLine
+    .replace(/^[-*]\s+/, '') // viñeta inicial
+    .replace(/^["'“”]+|["'“”]+$/g, '') // comillas envolventes
+    .trim()
+}
 
 export class OpenRouterProvider implements AiMessageProvider {
   constructor(
@@ -82,9 +93,9 @@ export class OpenRouterProvider implements AiMessageProvider {
     const json = (await res.json()) as {
       choices?: { message?: { content?: string } }[]
     }
-    const msg = json.choices?.[0]?.message?.content?.trim()
-    if (!msg) throw new Error('El modelo devolvió una respuesta vacía')
-    return msg
+    const raw = json.choices?.[0]?.message?.content?.trim()
+    if (!raw) throw new Error('El modelo devolvió una respuesta vacía')
+    return toOneLine(raw)
   }
 }
 

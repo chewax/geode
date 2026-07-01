@@ -156,6 +156,20 @@ export function App(): JSX.Element {
     return { chars, words, lines }
   }, [content])
 
+  // Red de seguridad: si el preload no cargó, window.geode no existe y todos
+  // los botones quedarían mudos. Mejor decirlo que fallar en silencio.
+  if (typeof window.geode === 'undefined') {
+    return (
+      <div className="welcome">
+        <h1>Geode</h1>
+        <p className="tagline error">
+          El puente con el sistema (preload) no cargó. Reiniciá la app; si persiste,
+          revisá la consola del proceso principal.
+        </p>
+      </div>
+    )
+  }
+
   if (!vault) {
     return (
       <div className="welcome">

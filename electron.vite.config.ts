@@ -18,6 +18,16 @@ export default defineConfig({
       alias: {
         '@shared': resolve('src/shared')
       }
+    },
+    build: {
+      rollupOptions: {
+        // El preload DEBE ser CommonJS: con sandbox: true, Electron no admite
+        // preloads ESM. Forzamos formato cjs y extensión .cjs.
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs'
+        }
+      }
     }
   },
   renderer: {

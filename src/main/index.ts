@@ -26,7 +26,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
       // Seguridad (ver ARCHITECTURE.md §2 y §9): el renderer corre aislado,
       // sin acceso a Node. Todo pasa por el puente del preload vía IPC.
       contextIsolation: true,

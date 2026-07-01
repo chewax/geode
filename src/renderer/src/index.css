@@ -69,6 +69,13 @@ button.primary {
   color: var(--muted);
 }
 
+.tagline.error {
+  color: #ff6b6b;
+  max-width: 420px;
+  text-align: center;
+  line-height: 1.5;
+}
+
 /* ── Layout principal ───────────────────────────────────────────────────── */
 .shell {
   display: flex;

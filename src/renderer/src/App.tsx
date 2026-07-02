@@ -18,12 +18,14 @@ import {
   ArrowDownUp,
   FoldVertical,
   UnfoldVertical,
-  HelpCircle
+  HelpCircle,
+  Gem
 } from 'lucide-react'
 import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
+import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
@@ -412,6 +414,7 @@ export function App(): JSX.Element {
   if (typeof window.geode === 'undefined') {
     return (
       <div className="welcome">
+        <div className="welcome-drag" />
         <h1>Geode</h1>
         <p className="tagline error">
           El puente con el sistema (preload) no cargó. Reiniciá la app; si persiste,
@@ -424,6 +427,9 @@ export function App(): JSX.Element {
   if (!vault) {
     return (
       <div className="welcome">
+        <div className="welcome-drag">
+          <WindowControls />
+        </div>
         <h1>Geode</h1>
         <p className="tagline">Notas versionadas sobre Git — local-first.</p>
         <button className="primary" onClick={() => void openVault()}>
@@ -435,47 +441,63 @@ export function App(): JSX.Element {
 
   return (
     <div className="shell">
-      <header className="topbar">
-        <span className="brand">Geode</span>
-        <span className="doc-name">{openPath ?? vault.name}</span>
-        {onProd && (
-          <span className="branch-chip prod" title="Estás en prod. Editar abre una rama de trabajo.">
-            prod
+      <header className="titlebar">
+        <div className="tb-left">
+          <Gem size={15} className="tb-gem" />
+          <span className="tb-doc" title={openPath ?? vault.name}>
+            {openPath ? tabName(openPath) : vault.name}
           </span>
-        )}
-        {workBranch && <span className="branch-chip work" title="Rama de trabajo">{workBranch}</span>}
-        {detached && (
-          <span className="detached" title="HEAD en una versión anterior">
-            <AlertTriangle size={13} /> versión anterior · editá para bifurcar
-          </span>
-        )}
-        <span className="save-status">{statusLabel(status, savedAt)}</span>
-        <div className="topbar-actions">
           {onProd && (
-            <button title="Empezar una rama de cambios" onClick={() => void startWork()}>
-              <GitBranchPlus size={15} /> Empezar cambios
-            </button>
+            <span className="branch-chip prod" title="Estás en prod. Editar abre una rama de trabajo.">
+              prod
+            </span>
           )}
-          {workBranch && (
-            <button title="Integrar la rama a prod" onClick={() => void mergeToProd()}>
-              <GitMerge size={15} /> Merge a prod
-            </button>
+          {workBranch && <span className="branch-chip work" title="Rama de trabajo">{workBranch}</span>}
+          {detached && (
+            <span className="detached" title="HEAD en una versión anterior">
+              <AlertTriangle size={13} /> versión anterior
+            </span>
           )}
-          <button title="Crear versión (Ctrl+S)" onClick={() => void openCommitDialog()}>
-            <Save size={15} /> Guardar versión
-          </button>
-          <button title="Árbol de versiones" className={graphOpen ? 'active' : ''} onClick={toggleGraph}>
-            <GitBranch size={15} /> Versiones
-          </button>
-          {githubCfg?.connected && githubCfg.remote && (
+        </div>
+
+        <div className="tb-right">
+          <span className="save-status">{statusLabel(status, savedAt)}</span>
+          <div className="tb-actions">
+            {onProd && (
+              <button className="tb-btn" title="Empezar una rama de cambios" onClick={() => void startWork()}>
+                <GitBranchPlus size={15} /> Empezar cambios
+              </button>
+            )}
+            {workBranch && (
+              <button className="tb-btn" title="Integrar la rama a prod" onClick={() => void mergeToProd()}>
+                <GitMerge size={15} /> Merge
+              </button>
+            )}
+            <button className="tb-btn cta" title="Crear versión (Ctrl+S)" onClick={() => void openCommitDialog()}>
+              <Save size={15} /> Guardar versión
+            </button>
             <button
-              title="Push a GitHub"
-              disabled={pushing || pushCount === 0}
-              onClick={() => void doPush()}
+              className={`tb-btn icon${graphOpen ? ' active' : ''}`}
+              title="Árbol de versiones"
+              aria-label="Árbol de versiones"
+              onClick={toggleGraph}
             >
-              <UploadCloud size={15} /> {pushing ? 'Push…' : pushCount > 0 ? `Push (${pushCount})` : 'Push'}
+              <GitBranch size={15} />
             </button>
-          )}
+            {githubCfg?.connected && githubCfg.remote && (
+              <button
+                className="tb-btn icon push"
+                title={pushCount > 0 ? `Push a GitHub (${pushCount} pendiente(s))` : 'Push a GitHub'}
+                aria-label="Push a GitHub"
+                disabled={pushing || pushCount === 0}
+                onClick={() => void doPush()}
+              >
+                <UploadCloud size={15} className={pushing ? 'spin' : ''} />
+                {pushCount > 0 && <span className="push-badge">{pushCount}</span>}
+              </button>
+            )}
+          </div>
+          <WindowControls />
         </div>
       </header>
 

@@ -69,6 +69,9 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    // Ventana sin marco nativo: usamos una title bar custom (ver App.tsx).
+    frame: false,
+    backgroundColor: '#16161a',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       // Seguridad (ver ARCHITECTURE.md §2 y §9): el renderer corre aislado,
@@ -80,6 +83,12 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow.show())
+
+  // Avisar al renderer cuando cambia el estado de maximizado (para el ícono).
+  const emitMaxState = (): void =>
+    mainWindow.webContents.send(IPC.windowMaximizeChanged, mainWindow.isMaximized())
+  mainWindow.on('maximize', emitMaxState)
+  mainWindow.on('unmaximize', emitMaxState)
 
   // Los links externos abren en el navegador del sistema, no en la app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -101,6 +110,20 @@ function createWindow(): void {
  */
 function registerIpcHandlers(): void {
   ipcMain.handle(IPC.ping, (): 'pong' => 'pong')
+
+  // Controles de la ventana (title bar custom, ventana frameless).
+  ipcMain.on(IPC.windowMinimize, (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
+  ipcMain.on(IPC.windowMaximizeToggle, (e) => {
+    const w = BrowserWindow.fromWebContents(e.sender)
+    if (!w) return
+    if (w.isMaximized()) w.unmaximize()
+    else w.maximize()
+  })
+  ipcMain.on(IPC.windowClose, (e) => BrowserWindow.fromWebContents(e.sender)?.close())
+  ipcMain.handle(
+    IPC.windowIsMaximized,
+    (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false
+  )
 
   ipcMain.handle(IPC.appInfo, (): AppInfo => ({
     appVersion: app.getVersion(),

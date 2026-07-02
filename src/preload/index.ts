@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IPC, type GeodeApi } from '@shared/ipc'
 
 /**
@@ -9,6 +9,17 @@ import { IPC, type GeodeApi } from '@shared/ipc'
 const api: GeodeApi = {
   ping: () => ipcRenderer.invoke(IPC.ping),
   getAppInfo: () => ipcRenderer.invoke(IPC.appInfo),
+  window: {
+    minimize: () => ipcRenderer.send(IPC.windowMinimize),
+    toggleMaximize: () => ipcRenderer.send(IPC.windowMaximizeToggle),
+    close: () => ipcRenderer.send(IPC.windowClose),
+    isMaximized: () => ipcRenderer.invoke(IPC.windowIsMaximized),
+    onMaximizeChange: (cb) => {
+      const handler = (_e: IpcRendererEvent, maximized: boolean): void => cb(maximized)
+      ipcRenderer.on(IPC.windowMaximizeChanged, handler)
+      return () => ipcRenderer.removeListener(IPC.windowMaximizeChanged, handler)
+    }
+  },
   vault: {
     open: () => ipcRenderer.invoke(IPC.vaultOpen),
     current: () => ipcRenderer.invoke(IPC.vaultCurrent),

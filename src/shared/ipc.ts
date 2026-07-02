@@ -10,6 +10,11 @@
 export const IPC = {
   ping: 'geode:ping',
   appInfo: 'geode:app-info',
+  windowMinimize: 'geode:window-minimize',
+  windowMaximizeToggle: 'geode:window-maximize-toggle',
+  windowClose: 'geode:window-close',
+  windowIsMaximized: 'geode:window-is-maximized',
+  windowMaximizeChanged: 'geode:window-maximize-changed',
   vaultOpen: 'geode:vault-open',
   vaultCurrent: 'geode:vault-current',
   vaultList: 'geode:vault-list',
@@ -57,6 +62,17 @@ export interface AppInfo {
   nodeVersion: string
   /** process.platform, como string para no filtrar tipos de Node al renderer. */
   platform: string
+}
+
+// ── Ventana (title bar custom, ventana frameless) ───────────────────────────
+
+export interface WindowApi {
+  minimize(): void
+  toggleMaximize(): void
+  close(): void
+  isMaximized(): Promise<boolean>
+  /** Suscribe cambios de maximizado. Devuelve una función para desuscribir. */
+  onMaximizeChange(cb: (maximized: boolean) => void): () => void
 }
 
 // ── Vault ──────────────────────────────────────────────────────────────────
@@ -231,6 +247,7 @@ export interface GeodeApi {
   ping(): Promise<'pong'>
   /** Versiones del runtime. */
   getAppInfo(): Promise<AppInfo>
+  window: WindowApi
   vault: VaultApi
   git: GitApi
   ai: AiApi

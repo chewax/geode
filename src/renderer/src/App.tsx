@@ -17,7 +17,9 @@ import {
   ArrowDownUp,
   FoldVertical,
   UnfoldVertical,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  PenLine
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
@@ -26,6 +28,7 @@ import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
+import { MarkdownPreview } from './MarkdownPreview'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
@@ -48,6 +51,7 @@ export function App(): JSX.Element {
   const [status, setStatus] = useState<SaveStatus>('none')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [editorEpoch, setEditorEpoch] = useState(0)
+  const [preview, setPreview] = useState(false)
   const [graphOpen, setGraphOpen] = useState(false)
   const [graph, setGraph] = useState<GitGraph | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
@@ -519,6 +523,16 @@ export function App(): JSX.Element {
 
         <div className="tb-right">
           <div className="tb-actions">
+            {openPath && (
+              <button
+                className={`tb-btn icon${preview ? ' active' : ''}`}
+                title={preview ? 'Editar' : 'Vista previa'}
+                aria-label={preview ? 'Editar' : 'Vista previa'}
+                onClick={() => setPreview((p) => !p)}
+              >
+                {preview ? <PenLine size={15} /> : <Eye size={15} />}
+              </button>
+            )}
             {hasHead && (
               <button
                 className="tb-btn icon"
@@ -659,13 +673,17 @@ export function App(): JSX.Element {
           )}
           <div className="editor-pane">
             {openPath ? (
-              <CodeMirrorEditor
-                ref={editorRef}
-                reloadKey={`${openPath}#${editorEpoch}`}
-                initialDoc={content}
-                onChange={handleChange}
-                onRequestAi={requestAi}
-              />
+              preview ? (
+                <MarkdownPreview source={content} />
+              ) : (
+                <CodeMirrorEditor
+                  ref={editorRef}
+                  reloadKey={`${openPath}#${editorEpoch}`}
+                  initialDoc={content}
+                  onChange={handleChange}
+                  onRequestAi={requestAi}
+                />
+              )
             ) : (
               <div className="placeholder">Elegí una nota del panel, o creá una con ＋.</div>
             )}

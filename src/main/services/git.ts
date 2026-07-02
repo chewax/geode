@@ -560,27 +560,29 @@ export class GitService {
   }
 
   /**
-   * Diff de una versión contra su primer padre: qué cambió en ese commit. Notas
-   * de texto con patch unificado (jsdiff); binarios solo como estado. Para el
-   * visor de cambios por versión.
+   * Diff de una versión contra HEAD (el commit en el que estás parado): en qué
+   * difiere esa versión de la actual. `added` = está en la versión pero no en
+   * HEAD; `deleted` = está en HEAD pero no en la versión. Si es la versión
+   * actual, no hay diferencias. Texto con patch unificado (jsdiff); binarios
+   * solo como estado.
    */
   async commitDiff(dir: string, oid: string): Promise<{ path: string; status: 'added' | 'modified' | 'deleted'; patch: string }[]> {
-    const { commit } = await git.readCommit({ fs, dir, oid })
-    const parent = commit.parent[0] ?? null
+    const head = await this.headOid(dir)
+    if (!head || head === oid) return [] // es la versión actual: sin diferencias
 
-    const curr = await this.treeBlobs(dir, oid)
-    const prev = parent ? await this.treeBlobs(dir, parent) : new Map<string, string>()
-    const paths = [...new Set([...curr.keys(), ...prev.keys()])].sort((a, b) => a.localeCompare(b))
+    const target = await this.treeBlobs(dir, oid) // la versión elegida
+    const current = await this.treeBlobs(dir, head) // HEAD (referencia)
+    const paths = [...new Set([...target.keys(), ...current.keys()])].sort((a, b) => a.localeCompare(b))
 
     const out: { path: string; status: 'added' | 'modified' | 'deleted'; patch: string }[] = []
     for (const path of paths) {
-      const c = curr.get(path)
-      const p = prev.get(path)
-      if (c && p && c === p) continue // sin cambios
+      const t = target.get(path)
+      const h = current.get(path)
+      if (t && h && t === h) continue // sin cambios
 
-      const status: 'added' | 'modified' | 'deleted' = !p ? 'added' : !c ? 'deleted' : 'modified'
-      const oldText = p && parent ? await this.safeReadAt(dir, parent, path) : ''
-      const newText = c ? await this.safeReadAt(dir, oid, path) : ''
+      const status: 'added' | 'modified' | 'deleted' = !h ? 'added' : !t ? 'deleted' : 'modified'
+      const oldText = h ? await this.safeReadAt(dir, head, path) : '' // contenido en HEAD
+      const newText = t ? await this.safeReadAt(dir, oid, path) : '' // contenido en la versión
 
       const patch =
         this.looksBinary(oldText) || this.looksBinary(newText)

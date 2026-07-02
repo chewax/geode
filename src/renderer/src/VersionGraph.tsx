@@ -215,8 +215,8 @@ export function VersionGraph({
           )}
           <button
             className="tag-btn"
-            title="Ver cambios de esta versión"
-            aria-label="Ver cambios de esta versión"
+            title="Comparar con la versión actual"
+            aria-label="Comparar con la versión actual"
             onClick={(e) => {
               e.stopPropagation()
               onShowDiff(c.oid)

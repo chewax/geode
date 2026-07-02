@@ -22,14 +22,16 @@ export function DiffView({ oid, onClose }: DiffViewProps): JSX.Element {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal diff-modal" onClick={(e) => e.stopPropagation()}>
         <div className="diff-head">
-          <h2>Cambios de la versión <span className="diff-oid">{oid.slice(0, 7)}</span></h2>
+          <h2>
+            Versión <span className="diff-oid">{oid.slice(0, 7)}</span> vs. actual
+          </h2>
           <button className="icon-btn" title="Cerrar" onClick={onClose}><X size={16} /></button>
         </div>
 
         {diffs === null ? (
           <p className="modal-sub">Cargando cambios…</p>
         ) : diffs.length === 0 ? (
-          <p className="modal-sub">Sin cambios respecto de la versión anterior.</p>
+          <p className="modal-sub">Es la versión actual (o no difiere de ella).</p>
         ) : (
           <div className="diff-files">
             {diffs.map((f) => (

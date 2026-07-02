@@ -486,6 +486,10 @@ button.primary {
   color: #68d391;
 }
 
+.status-item .st-warn {
+  color: #f6ad55;
+}
+
 .status-item .st-off {
   color: var(--muted);
   opacity: 0.6;
@@ -540,6 +544,11 @@ button.primary {
 .pop-note {
   color: var(--muted);
   line-height: 1.5;
+}
+
+.pop-err {
+  color: #fc8181;
+  word-break: break-word;
 }
 
 /* ── Árbol de versiones ─────────────────────────────────────────────────── */

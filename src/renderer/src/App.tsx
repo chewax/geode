@@ -58,6 +58,7 @@ export function App(): JSX.Element {
   const [pushCount, setPushCount] = useState(0)
   const [pushing, setPushing] = useState(false)
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
+  const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -84,8 +85,11 @@ export function App(): JSX.Element {
   const refreshAiUsage = useCallback(async () => {
     try {
       setAiUsage(await window.geode.ai.usage())
-    } catch {
-      /* red/API caída: dejamos el último valor */
+      setAiUsageErr(null)
+    } catch (e) {
+      // No lo escondemos: si falla, el popover muestra el motivo en vez de
+      // quedarse "Cargando…" para siempre.
+      setAiUsageErr((e as Error).message || 'Error desconocido')
     }
   }, [])
 
@@ -542,9 +546,12 @@ export function App(): JSX.Element {
               </div>
 
               {aiConfig?.hasKey && (
-                <div className="status-item">
-                  <Coins size={14} className="st-ok" />
-                  <span>{aiUsage ? formatUsd(aiUsage.usage) : '—'}</span>
+                <div
+                  className="status-item"
+                  onMouseEnter={() => void refreshAiUsage()}
+                >
+                  <Coins size={14} className={aiUsageErr ? 'st-warn' : 'st-ok'} />
+                  <span>{aiUsage ? formatUsd(aiUsage.usage) : aiUsageErr ? '!' : '—'}</span>
                   <div className="status-pop">
                     <div className="pop-title"><Coins size={13} /> OpenRouter</div>
                     {aiUsage ? (
@@ -562,6 +569,8 @@ export function App(): JSX.Element {
                         )}
                         <div className="pop-row"><span>Modelo</span><b>{aiConfig.model ?? '—'}</b></div>
                       </>
+                    ) : aiUsageErr ? (
+                      <div className="pop-note pop-err">No se pudo leer el uso: {aiUsageErr}</div>
                     ) : (
                       <div className="pop-note">Cargando uso…</div>
                     )}

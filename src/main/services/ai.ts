@@ -140,10 +140,27 @@ export async function listOpenRouterModels(key: string): Promise<AiModel[]> {
 
 /** Uso/gasto de la API key en OpenRouter (crédito consumido y límite, en USD). */
 export async function getOpenRouterUsage(key: string): Promise<AiUsage> {
-  const res = await fetch(`${OPENROUTER}/auth/key`, {
-    headers: { Authorization: `Bearer ${key}` }
-  })
-  if (!res.ok) throw new Error(`OpenRouter /auth/key devolvió ${res.status}`)
+  // Timeout: sin esto un problema de red deja el fetch (y el indicador) colgado.
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 10_000)
+  let res: Response
+  try {
+    res = await fetch(`${OPENROUTER}/auth/key`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: ctrl.signal
+    })
+  } catch (e) {
+    throw new Error(
+      ctrl.signal.aborted
+        ? 'OpenRouter no respondió (timeout de 10s)'
+        : `No se pudo contactar OpenRouter: ${(e as Error).message}`
+    )
+  } finally {
+    clearTimeout(timer)
+  }
+  if (!res.ok) {
+    throw new Error(`OpenRouter /auth/key devolvió ${res.status}: ${await res.text()}`)
+  }
   const j = (await res.json()) as {
     data?: { label?: string; usage?: number; limit?: number | null }
   }

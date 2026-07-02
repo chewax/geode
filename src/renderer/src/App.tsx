@@ -9,7 +9,8 @@ import {
   GitBranch,
   AlertTriangle,
   Pencil,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react'
 import type { AiConfig, GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor } from './editor/CodeMirrorEditor'
@@ -36,6 +37,9 @@ export function App(): JSX.Element {
   const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
   const [editingPath, setEditingPath] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
+  const [tabs, setTabs] = useState<string[]>([])
+  const tabsRef = useRef<string[]>([])
+  tabsRef.current = tabs
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -44,7 +48,9 @@ export function App(): JSX.Element {
   openPathRef.current = openPath
 
   const refreshTree = useCallback(async () => {
-    setTree(await window.geode.vault.tree())
+    const t = await window.geode.vault.tree()
+    setTree(t)
+    return t
   }, [])
 
   const refreshGraph = useCallback(async () => {
@@ -86,7 +92,26 @@ export function App(): JSX.Element {
     await flush() // journal: no perder lo tipeado al cambiar de nota
     const text = await window.geode.vault.readNote(path)
     loadIntoEditor(path, text)
+    setTabs((t) => (t.includes(path) ? t : [...t, path])) // abrir como tab
   }, [flush, loadIntoEditor])
+
+  /** Cierra una tab; si era la activa, pasa a una vecina (o vacía el editor). */
+  const closeTab = useCallback(async (path: string) => {
+    await flush()
+    const prev = tabsRef.current
+    const idx = prev.indexOf(path)
+    const next = prev.filter((p) => p !== path)
+    setTabs(next)
+    if (path === openPathRef.current) {
+      const fallback = next[idx] ?? next[idx - 1] ?? null
+      if (fallback) await openNote(fallback)
+      else {
+        setOpenPath(null)
+        setContent('')
+        setStatus('none')
+      }
+    }
+  }, [flush, openNote])
 
   const openVault = useCallback(async () => {
     const info = await window.geode.vault.open()
@@ -95,6 +120,7 @@ export function App(): JSX.Element {
     setOpenPath(null)
     setContent('')
     setStatus('none')
+    setTabs([])
     await refreshTree()
     await refreshGraph()
   }, [refreshTree, refreshGraph])
@@ -126,10 +152,12 @@ export function App(): JSX.Element {
       window.alert(e instanceof Error ? e.message : 'No se pudo renombrar')
       return
     }
-    // Reflejar en el editor si la nota abierta fue renombrada o movida.
+    // Reflejar en el editor y en las tabs si se renombró/movió la nota o carpeta.
+    const remap = (p: string): string =>
+      p === node.path ? toRel : p.startsWith(`${node.path}/`) ? toRel + p.slice(node.path.length) : p
     const cur = openPathRef.current
-    if (cur === node.path) setOpenPath(toRel)
-    else if (cur && cur.startsWith(`${node.path}/`)) setOpenPath(toRel + cur.slice(node.path.length))
+    if (cur) setOpenPath(remap(cur))
+    setTabs((prev) => prev.map(remap))
     await refreshTree()
   }, [refreshTree])
 
@@ -140,6 +168,7 @@ export function App(): JSX.Element {
     )
     if (!ok) return
     await window.geode.vault.delete(node.path)
+    setTabs((prev) => prev.filter((p) => p !== node.path && !p.startsWith(`${node.path}/`)))
     const cur = openPathRef.current
     if (cur === node.path || (cur && cur.startsWith(`${node.path}/`))) {
       setOpenPath(null)
@@ -181,17 +210,18 @@ export function App(): JSX.Element {
       if (!ok) return
     }
     await window.geode.git.checkout(oid)
-    await refreshTree()
+    const t = await refreshTree()
+    // Las tabs que ya no existen en esta versión se cierran.
+    const existing = new Set(flattenPaths(t))
+    setTabs((prev) => prev.filter((p) => existing.has(p)))
     const path = openPathRef.current
-    if (path) {
-      try {
-        const text = await window.geode.vault.readNote(path)
-        loadIntoEditor(path, text)
-      } catch {
-        setOpenPath(null)
-        setContent('')
-        setStatus('none')
-      }
+    if (path && existing.has(path)) {
+      const text = await window.geode.vault.readNote(path)
+      loadIntoEditor(path, text)
+    } else {
+      setOpenPath(null)
+      setContent('')
+      setStatus('none')
     }
     await refreshGraph()
   }, [flush, refreshTree, loadIntoEditor, refreshGraph])
@@ -313,6 +343,28 @@ export function App(): JSX.Element {
         </aside>
 
         <main className="main">
+          {tabs.length > 0 && (
+            <div className="tabbar">
+              {tabs.map((p) => (
+                <div
+                  key={p}
+                  className={`tab${p === openPath ? ' active' : ''}`}
+                  title={p}
+                  onClick={() => void openNote(p)}
+                  onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); void closeTab(p) } }}
+                >
+                  <span className="tab-label">{tabName(p)}</span>
+                  <button
+                    className="tab-close icon-btn"
+                    title="Cerrar"
+                    onClick={(e) => { e.stopPropagation(); void closeTab(p) }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="editor-pane">
             {openPath ? (
               <CodeMirrorEditor
@@ -390,6 +442,24 @@ export function App(): JSX.Element {
 function parentDir(path: string): string {
   const i = path.lastIndexOf('/')
   return i === -1 ? '' : path.slice(0, i)
+}
+
+/** Nombre de una tab: basename sin extensión .md. */
+function tabName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+}
+
+/** Todas las rutas de nota (hojas) de un árbol. */
+function flattenPaths(nodes: TreeNode[]): string[] {
+  const out: string[] = []
+  for (const n of nodes) {
+    if (n.isDir) {
+      if (n.children) out.push(...flattenPaths(n.children))
+    } else {
+      out.push(n.path)
+    }
+  }
+  return out
 }
 
 function statusLabel(status: SaveStatus, savedAt: Date | null): string {

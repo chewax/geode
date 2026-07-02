@@ -353,6 +353,58 @@ button.primary {
   flex-direction: column;
 }
 
+/* ── Barra de tabs ──────────────────────────────────────────────────────── */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  border-radius: 4px;
+}
+
+.tab-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .editor-pane {
   flex: 1;
   min-height: 0;

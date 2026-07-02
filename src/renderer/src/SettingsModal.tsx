@@ -87,7 +87,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   }
 
   const saveRemote = async (): Promise<void> => {
-    setGithub(await window.geode.github.setRemote(remoteInput.trim()))
+    const cfg = await window.geode.github.setRemote(remoteInput.trim())
+    setGithub(cfg)
+    setRemoteInput(cfg.remote ?? '') // muestra la URL ya normalizada (SSH→HTTPS)
   }
 
   const toggleAutoPush = async (autoPush: boolean): Promise<void> => {

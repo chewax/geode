@@ -17,6 +17,20 @@ export interface DeviceCode {
   expiresIn: number
 }
 
+/**
+ * Normaliza una URL de repo a HTTPS: isomorphic-git no soporta SSH. Convierte
+ * las formas `git@host:owner/repo.git` y `ssh://git@host/owner/repo.git` a
+ * `https://host/owner/repo.git`. Las URLs https se dejan igual.
+ */
+export function normalizeRemoteUrl(url: string): string {
+  const u = url.trim()
+  const scp = /^git@([^:]+):(.+)$/.exec(u) // git@github.com:owner/repo.git
+  if (scp) return `https://${scp[1]}/${scp[2]}`
+  const ssh = /^ssh:\/\/(?:git@)?([^/]+)\/(.+)$/.exec(u) // ssh://git@github.com/owner/repo.git
+  if (ssh) return `https://${ssh[1]}/${ssh[2]}`
+  return u
+}
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 /** Paso 1: pedir un código de dispositivo. */

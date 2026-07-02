@@ -4,7 +4,13 @@ import { IPC, type AppInfo, type AiConfig, type GithubConfig } from '@shared/ipc
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
 import { OpenRouterProvider, listOpenRouterModels } from './services/ai'
-import { requestDeviceCode, pollForToken, getLogin, type DeviceCode } from './services/github'
+import {
+  requestDeviceCode,
+  pollForToken,
+  getLogin,
+  normalizeRemoteUrl,
+  type DeviceCode
+} from './services/github'
 import {
   loadSettings,
   saveSettings,
@@ -206,10 +212,11 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.githubSetRemote, async (_e, url: string) => {
+    const remote = normalizeRemoteUrl(url) // SSH → HTTPS (isomorphic-git no hace SSH)
     const settings = await loadSettings()
-    settings.github = { ...settings.github, remote: url }
+    settings.github = { ...settings.github, remote }
     await saveSettings(settings)
-    if (vault.getInfo()) await gitService.setRemote(requireRoot(), url)
+    if (vault.getInfo()) await gitService.setRemote(requireRoot(), remote)
     return githubConfig()
   })
 
@@ -237,7 +244,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.gitPush, async () => {
     const settings = await loadSettings()
     const token = await getGithubToken()
-    const url = settings.github?.remote
+    const url = normalizeRemoteUrl(settings.github?.remote ?? '') // arregla URLs SSH ya guardadas
     if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
     if (!url) throw new Error('Configurá la URL del repo en Ajustes')
 

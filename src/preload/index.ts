@@ -26,7 +26,9 @@ const api: GeodeApi = {
     checkout: (oid) => ipcRenderer.invoke(IPC.gitCheckout, oid),
     changes: () => ipcRenderer.invoke(IPC.gitChanges),
     push: () => ipcRenderer.invoke(IPC.gitPush),
-    pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush)
+    pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush),
+    startWork: () => ipcRenderer.invoke(IPC.gitStartWork),
+    mergeToProd: (message) => ipcRenderer.invoke(IPC.gitMergeToProd, message)
   },
   github: {
     getConfig: () => ipcRenderer.invoke(IPC.githubGetConfig),

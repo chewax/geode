@@ -10,6 +10,52 @@ import type { GitCommitNode, GitGraph } from '@shared/ipc'
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
 const IGNORED_TOP = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
 
+/** Rama de "producción": es intocable, solo avanza por merge. */
+const PROD = 'main'
+
+/**
+ * Asigna una columna (lane) a cada commit según la topología del DAG, para
+ * dibujar un grafo estilo git (ramas paralelas + merges). Procesa los commits
+ * de más nuevo a más viejo manteniendo "lanes activas" que esperan a un padre.
+ */
+function assignLanes(commits: { oid: string; parents: string[] }[]): Map<string, number> {
+  const lane = new Map<string, number>()
+  const active: (string | null)[] = [] // active[i] = oid que la lane i está esperando
+
+  const firstFree = (): number => {
+    const i = active.indexOf(null)
+    return i === -1 ? active.length : i
+  }
+
+  for (const c of commits) {
+    // ¿Alguna lane estaba esperando este commit?
+    const claiming: number[] = []
+    active.forEach((oid, i) => {
+      if (oid === c.oid) claiming.push(i)
+    })
+
+    let myLane: number
+    if (claiming.length > 0) {
+      myLane = Math.min(...claiming)
+      for (const i of claiming) if (i !== myLane) active[i] = null // merge de lanes
+    } else {
+      myLane = firstFree()
+    }
+    lane.set(c.oid, myLane)
+
+    // El primer padre continúa en mi lane; los demás (merge) toman lanes nuevas.
+    if (c.parents.length === 0) {
+      active[myLane] = null
+    } else {
+      active[myLane] = c.parents[0]
+      for (let p = 1; p < c.parents.length; p++) {
+        if (!active.includes(c.parents[p])) active[firstFree()] = c.parents[p]
+      }
+    }
+  }
+  return lane
+}
+
 /**
  * Capa 2 del versionado (ver ARCHITECTURE.md §3): commits Git con sentido.
  *
@@ -57,7 +103,13 @@ export class GitService {
     const changes = await this.pendingChanges(dir)
     if (changes.length === 0) return null
 
-    const wasDetached = !(await git.currentBranch({ fs, dir, fullname: false }))
+    // Nunca se commitea a prod (main). Si ya hay commits y estamos en prod o en
+    // detached (viendo una versión vieja), arrancamos una rama de trabajo antes
+    // de commitear. Excepción: repo sin commits → el primer commit crea prod.
+    if (await this.headOid(dir)) {
+      const branch = await this.currentBranch(dir)
+      if (!branch || branch === PROD) await this.startWork(dir)
+    }
 
     for (const change of changes) {
       if (change.deleted) {
@@ -67,17 +119,61 @@ export class GitService {
       }
     }
 
-    const oid = await git.commit({ fs, dir, message, author: this.author() })
+    return git.commit({ fs, dir, message, author: this.author() })
+  }
 
-    if (wasDetached) {
-      // Bifurcación: crear rama en el commit nuevo y adjuntar HEAD sin tocar
-      // el working dir (noCheckout), para no pisar lo que el usuario escribió.
-      const name = await this.nextForkName(dir)
-      await git.branch({ fs, dir, ref: name })
-      await git.checkout({ fs, dir, ref: name, noCheckout: true })
+  /**
+   * Arranca (o continúa) una rama de trabajo. Si estamos en prod (main) o en
+   * detached, crea una rama nueva en HEAD y la adjunta SIN tocar el working dir
+   * (noCheckout), para no pisar lo que se está escribiendo. Si ya estamos en una
+   * rama de trabajo, no hace nada. Devuelve la rama, o null si el repo no tiene
+   * commits todavía (ahí el primer commit hace bootstrap de prod).
+   */
+  async startWork(dir: string): Promise<string | null> {
+    if (!(await this.headOid(dir))) return null // repo sin commits: bootstrap a prod
+    const branch = await this.currentBranch(dir)
+    if (branch && branch !== PROD) return branch // ya estás trabajando
+
+    const name = await this.nextWorkBranch(dir)
+    await git.branch({ fs, dir, ref: name })
+    await git.checkout({ fs, dir, ref: name, noCheckout: true })
+    return name
+  }
+
+  /**
+   * Mergea la rama de trabajo actual a prod (main) y vuelve a prod. Crea un
+   * merge commit (no fast-forward) para conservar la topología de rama+merge en
+   * el árbol, y cierra (borra) la rama de trabajo.
+   *
+   * Single-device: prod no diverge mientras trabajás, así que el árbol de la
+   * rama es el resultado del merge. El merge 3-way (multi-dispositivo) se suma
+   * después sin cambiar esta interfaz.
+   */
+  async mergeToProd(dir: string, message: string): Promise<void> {
+    const branch = await this.currentBranch(dir)
+    if (!branch || branch === PROD) throw new Error('No estás en una rama de trabajo')
+
+    const branchTip = await git.resolveRef({ fs, dir, ref: branch })
+    const { commit } = await git.readCommit({ fs, dir, oid: branchTip })
+    const mainTip = await git.resolveRef({ fs, dir, ref: PROD }).catch(() => null)
+
+    if (mainTip) {
+      await git.commit({
+        fs,
+        dir,
+        ref: `refs/heads/${PROD}`,
+        tree: commit.tree,
+        parent: [mainTip, branchTip],
+        message,
+        author: this.author()
+      })
+    } else {
+      // Prod no existía aún: la rama se convierte en prod.
+      await git.writeRef({ fs, dir, ref: `refs/heads/${PROD}`, value: branchTip, force: true })
     }
 
-    return oid
+    await git.checkout({ fs, dir, ref: PROD, force: true })
+    await git.deleteBranch({ fs, dir, ref: branch })
   }
 
   /**
@@ -105,16 +201,10 @@ export class GitService {
   /** Grafo de commits de TODO el vault (todas las ramas), para el árbol. */
   async graph(dir: string, pushed: string[] = []): Promise<GitGraph> {
     const branchNames = await git.listBranches({ fs, dir })
-    const ordered = ['main', ...branchNames.filter((b) => b !== 'main')].filter((b) =>
-      branchNames.includes(b)
-    )
-
     const commitsMap = new Map<string, GitCommitNode>()
-    const laneOf = new Map<string, number>()
     const branches: { name: string; tip: string }[] = []
 
-    for (let lane = 0; lane < ordered.length; lane++) {
-      const name = ordered[lane]
+    for (const name of branchNames) {
       const tip = await git.resolveRef({ fs, dir, ref: name })
       branches.push({ name, tip })
       let log
@@ -124,9 +214,6 @@ export class GitService {
         continue
       }
       for (const c of log) {
-        // La lane de un commit es la de la rama de índice más bajo que lo
-        // contiene: los ancestros compartidos caen en la columna de 'main'.
-        if (!laneOf.has(c.oid)) laneOf.set(c.oid, lane)
         if (!commitsMap.has(c.oid)) {
           commitsMap.set(c.oid, {
             oid: c.oid,
@@ -134,7 +221,7 @@ export class GitService {
             timestamp: c.commit.author.timestamp * 1000,
             author: c.commit.author.name,
             parents: c.commit.parent ?? [],
-            lane
+            lane: 0
           })
         }
       }
@@ -158,7 +245,13 @@ export class GitService {
       onCurrentLine.push(...seen)
     }
 
+    // Orden de visualización (más nuevo primero) y asignación de columnas por
+    // topología del DAG, para que ramas y merges se vean aunque la rama de
+    // trabajo ya se haya cerrado tras el merge.
     const commits = [...commitsMap.values()].sort((a, b) => b.timestamp - a.timestamp)
+    const lanes = assignLanes(commits)
+    for (const c of commits) c.lane = lanes.get(c.oid) ?? 0
+
     return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine, pushed }
   }
 
@@ -296,15 +389,15 @@ export class GitService {
     return changes
   }
 
-  /** Próximo nombre de rama libre: rama-1, rama-2, … */
-  private async nextForkName(dir: string): Promise<string> {
+  /** Próximo nombre de rama de trabajo libre: trabajo-1, trabajo-2, … */
+  private async nextWorkBranch(dir: string): Promise<string> {
     const branches = await git.listBranches({ fs, dir })
     let max = 0
     for (const b of branches) {
-      const m = /^rama-(\d+)$/.exec(b)
+      const m = /^trabajo-(\d+)$/.exec(b)
       if (m) max = Math.max(max, Number(m[1]))
     }
-    return `rama-${max + 1}`
+    return `trabajo-${max + 1}`
   }
 
   /** Mapa ruta→oid de los blobs de HEAD. Vacío si el repo aún no tiene commits. */

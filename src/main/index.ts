@@ -137,6 +137,10 @@ function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.gitCheckout, (_e, oid: string) => gitService.checkout(requireRoot(), oid))
   ipcMain.handle(IPC.gitChanges, () => gitService.changes(requireRoot()))
+  ipcMain.handle(IPC.gitStartWork, () => gitService.startWork(requireRoot()))
+  ipcMain.handle(IPC.gitMergeToProd, (_e, message?: string) =>
+    gitService.mergeToProd(requireRoot(), message ?? `Merge a prod ${new Date().toISOString()}`)
+  )
 
   ipcMain.handle(IPC.aiGetConfig, () => aiConfig())
 

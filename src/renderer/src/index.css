@@ -157,6 +157,27 @@ button.primary {
   color: var(--accent);
 }
 
+.branch-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+}
+
+.branch-chip.prod {
+  color: #68d391;
+  border-color: rgba(104, 211, 145, 0.5);
+  background: rgba(104, 211, 145, 0.12);
+}
+
+.branch-chip.work {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(183, 148, 246, 0.12);
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
 .detached {
   display: inline-flex;
   align-items: center;

@@ -11,7 +11,9 @@ import {
   Pencil,
   Trash2,
   X,
-  UploadCloud
+  UploadCloud,
+  GitMerge,
+  GitBranchPlus
 } from 'lucide-react'
 import type { AiConfig, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
@@ -44,6 +46,10 @@ export function App(): JSX.Element {
   tabsRef.current = tabs
   const editorRef = useRef<EditorHandle>(null)
   const [aiEdit, setAiEdit] = useState<EditorContext | null>(null)
+  // HEAD actual (prod / rama de trabajo / detached) y flag de arranque de rama.
+  const headRef = useRef<{ oid: string | null; branch: string | null }>({ oid: null, branch: null })
+  headRef.current = graph?.head ?? { oid: null, branch: null }
+  const startingWorkRef = useRef(false)
   const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
   const githubCfgRef = useRef<GithubConfig | null>(null)
   githubCfgRef.current = githubCfg
@@ -85,6 +91,12 @@ export function App(): JSX.Element {
     }
   }, [refreshGithub, refreshGraph])
 
+  /** Arranca una rama de trabajo manualmente (estando en prod). */
+  const startWork = useCallback(async () => {
+    await window.geode.git.startWork()
+    await refreshGraph()
+  }, [refreshGraph])
+
   /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
   const flush = useCallback(async () => {
     if (saveTimerRef.current !== null) {
@@ -107,7 +119,18 @@ export function App(): JSX.Element {
     setStatus('saving')
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => void flush(), AUTOSAVE_MS)
-  }, [flush])
+
+    // Modelo prod: editar estando en prod (main) arranca una rama de trabajo.
+    const head = headRef.current
+    if (head.branch === 'main' && head.oid && !startingWorkRef.current) {
+      startingWorkRef.current = true
+      void (async () => {
+        await window.geode.git.startWork()
+        await refreshGraph()
+        startingWorkRef.current = false
+      })()
+    }
+  }, [flush, refreshGraph])
 
   const loadIntoEditor = useCallback((path: string, text: string) => {
     setOpenPath(path)
@@ -258,6 +281,27 @@ export function App(): JSX.Element {
     await refreshGithub()
   }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
 
+  /** Integra la rama de trabajo actual a prod y vuelve a prod. */
+  const mergeToProd = useCallback(async () => {
+    await flush()
+    // No perder cambios sin versionar: se guardan como una versión antes del merge.
+    if ((await window.geode.git.changes()).length > 0) {
+      await window.geode.git.commit(`Cambios ${new Date().toLocaleString()}`)
+    }
+    await window.geode.git.mergeToProd()
+    const t = await refreshTree()
+    const path = openPathRef.current
+    if (path && new Set(flattenPaths(t)).has(path)) {
+      loadIntoEditor(path, await window.geode.vault.readNote(path))
+    } else {
+      setOpenPath(null)
+      setContent('')
+      setStatus('none')
+    }
+    await refreshGraph()
+    await refreshGithub()
+  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
   /** Ctrl+K en el editor: abre el asistente de IA sobre la selección/cursor. */
@@ -302,6 +346,8 @@ export function App(): JSX.Element {
     return { chars, words, lines }
   }, [content])
 
+  const onProd = graph?.head.branch === 'main'
+  const workBranch = graph?.head.branch && graph.head.branch !== 'main' ? graph.head.branch : null
   const detached = !!graph && graph.head.oid !== null && graph.head.branch === null
   const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
 
@@ -335,6 +381,12 @@ export function App(): JSX.Element {
       <header className="topbar">
         <span className="brand">Geode</span>
         <span className="doc-name">{openPath ?? vault.name}</span>
+        {onProd && (
+          <span className="branch-chip prod" title="Estás en prod. Editar abre una rama de trabajo.">
+            prod
+          </span>
+        )}
+        {workBranch && <span className="branch-chip work" title="Rama de trabajo">{workBranch}</span>}
         {detached && (
           <span className="detached" title="HEAD en una versión anterior">
             <AlertTriangle size={13} /> versión anterior · editá para bifurcar
@@ -342,6 +394,16 @@ export function App(): JSX.Element {
         )}
         <span className="save-status">{statusLabel(status, savedAt)}</span>
         <div className="topbar-actions">
+          {onProd && (
+            <button title="Empezar una rama de cambios" onClick={() => void startWork()}>
+              <GitBranchPlus size={15} /> Empezar cambios
+            </button>
+          )}
+          {workBranch && (
+            <button title="Integrar la rama a prod" onClick={() => void mergeToProd()}>
+              <GitMerge size={15} /> Merge a prod
+            </button>
+          )}
           <button title="Crear versión (Ctrl+S)" onClick={() => void openCommitDialog()}>
             <Save size={15} /> Guardar versión
           </button>

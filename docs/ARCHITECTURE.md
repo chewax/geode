@@ -11,7 +11,8 @@
 - ✅ **Fase 0** — Andamiaje Electron + Vite + React + TS, IPC tipado, seguridad (contextIsolation/sandbox), dominio puro.
 - ✅ **Editor** — CodeMirror 6 con markdown, resaltado y line-wrapping.
 - ✅ **Fase 1 · persistencia** — Abrir/recordar vault, árbol de notas, escritura atómica (temp+fsync+rename), autosave con debounce, guardarraíl anti path-traversal.
-- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): detección de cambios **inmune al racy git** (por hash de contenido). **Árbol de versiones de todo el vault** con checkout (ir a una versión mueve HEAD) y **fork automático** al editar en el pasado; la rama principal queda intacta y lo fuera de la línea de HEAD se atenúa.
+- ✅ **Fase 1 · versionado local** — GitService (isomorphic-git): detección de cambios **inmune al racy git** (por hash de contenido). **Árbol de versiones de todo el vault** (lanes por topología del DAG) con checkout (ir a una versión mueve HEAD).
+- 🌱 **Modelo prod/rama (nuevo)** — `main` = prod intocable; editar arranca una rama de trabajo (`trabajo-N`); **Merge a prod** integra con merge commit y cierra la rama. Reemplaza "branch por dispositivo". Multi-dispositivo real (3-way al mergear, push de `main`) queda para Fase 2.
 - 🔤 **Commits = acto manual (nuevo modelo)** — Se quitó el auto-commit. Guardar versión (Ctrl+S) es el único commit; entre medio, journal + autosave (Capa 1) con undo/redo.
 - 🤖 **Mensajes de commit por IA** — OpenRouter (key cifrada + modelo elegible), mensaje editable a partir del diff, fallback a timestamp.
 - ⏳ **Pendiente en Fase 1** — Journal persistente entre reinicios (Capa 1 fina), diff visual entre versiones, búsqueda (SQLite/FTS5) y `[[backlinks]]`, arquitectura de plugins interna.
@@ -81,7 +82,7 @@ Git da rollback infinito gratis; el valor es la UX. **Modelo (decidido con el us
 
 - **Árbol del vault:** grafo de commits de todas las ramas (columnas/lanes + aristas a los padres). La línea de HEAD se ve plena; el resto, atenuado.
 - **"Ir a una versión" = checkout** (mueve HEAD), no genera un commit nuevo. Si el oid es el tip de una rama, HEAD se adjunta a esa rama (editar la continúa); si es un commit interior, HEAD queda *detached*.
-- **Fork automático:** editar estando en *detached* (una versión vieja) bifurca a una rama nueva (`rama-N`) en el próximo commit, sin pisar lo que se escribió. La rama principal queda intacta. Antes de cualquier checkout se commitea lo pendiente en la rama actual (no perder nada).
+- **Editar arranca una rama de trabajo** (ver §4): sobre prod o sobre una versión vieja, el próximo commit va a una rama `trabajo-N`, sin pisar lo escrito. Prod (`main`) queda intacto; se integra por merge.
 - **Diff visual** entre versiones — pendiente.
 - Descartado el enfoque previo (restaurar = commit nuevo): ensuciaba el historial y hacía perder la referencia antes/después.
 
@@ -96,41 +97,27 @@ Para tener de un vistazo qué cambió en cada versión, el mensaje de commit lo 
 
 ---
 
-## 4. Modelo de sincronización: branch por dispositivo
+## 4. Modelo de versionado y sync: `main` = prod, cambios por rama + merge
 
-### Decisiones
+**DECISIÓN (reemplaza el modelo anterior de "branch por dispositivo").** `main` es **producción** y es intocable: nunca se commitea directo. Todo cambio ocurre en una **rama de trabajo** y llega a prod por **merge**. Esto elimina la necesidad de una branch permanente por dispositivo: multi-dispositivo sale gratis porque todos comparten `main` como prod y cada uno trabaja en ramas que publica con merge.
 
-- Cada dispositivo tiene **un nombre** (se pregunta en el primer arranque; se puede editar). Slug sanitizado, ej. `dani-laptop`.
-- Cada dispositivo commitea **solo** a su propia branch: `device/dani-laptop`.
-- Como cada branch de dispositivo tiene **un único escritor**, el `push` es **siempre fast-forward → nunca hay conflictos al pushear.**
-- **Atribución = el nombre de la branch.** El objetivo es poder explorar una branch en GitHub y saber de qué dispositivo es; `device/dani-laptop` ya lo dice todo. **No** hace falta arrastrar el origen commit-por-commit a través de los merges: una vez que un cambio se integró, su dispositivo de origen deja de importar.
-  - Sí configuramos `user.name` / `user.email` de Git por dispositivo para que los commits tengan un autor sensato, pero **no** dependemos de trailers `Device:` ni de conservar el origen post-merge. Es una simplificación deliberada.
+### Reglas
 
-### Flujo de sync (MVP)
+- **`main` (prod) solo avanza por merge.** Nunca hay commits directos a main (excepción: repo vacío, el primer commit hace *bootstrap* de prod).
+- **Editar arranca una rama de trabajo.** Estando en prod (o en una versión vieja / detached), la primera edición crea `trabajo-N` en HEAD y adjunta HEAD sin tocar el working dir (o se crea a mano con "Empezar cambios"). Los "Guardar versión" van a esa rama.
+- **Merge a prod.** Integra la rama de trabajo en `main` con un **merge commit (no fast-forward)** para conservar la topología rama+merge en el árbol, vuelve a prod y **cierra (borra) la rama**. Modelo tipo PR: cada tanda de cambios = una rama que se publica y se cierra.
+- **Conflictos solo al mergear a prod.** Single-device: prod no diverge mientras trabajás, así que el merge es trivial (el árbol de la rama es el resultado). Multi-dispositivo: si prod avanzó, el merge es 3-way → **UI de resolución por nota** (Fase 2), sin cambiar esta interfaz.
 
-Modelo A — "cada dispositivo integra a los demás en su propia branch":
+### Multi-dispositivo (Fase 2, sobre este modelo)
 
-1. **Editar** → commits van a `device/<yo>` (Capa 2).
-2. **Push** de `device/<yo>` → siempre FF, sin conflictos.
-3. **Sync-in:** `fetch` de todas las `device/*` remotas.
-4. **Integrar:** merge de las branches de los otros dispositivos en `device/<yo>`.
-   - Si no hay solapamiento → merge automático.
-   - Si dos dispositivos editaron la **misma zona** de la misma nota → **UI de resolución 3-way por nota** (nunca markers crudos). El resultado queda como merge commit en `device/<yo>`.
-5. La "verdad" que ve el usuario = su branch `device/<yo>` ya integrada.
+1. Todos comparten `main` (prod) en el repo remoto.
+2. Cada dispositivo trabaja en ramas `trabajo-*` locales y las pushea.
+3. Publicar = merge de la rama a `main` (con resolución 3-way si prod avanzó) y push de `main`.
+4. Onboarding de dispositivo nuevo = `clone` de `main`. No hay branches permanentes por dispositivo.
 
-> **Branch `main` canónica — DECIDIDO: se introduce en Fase 2** (no en Fase 1; un solo dispositivo no la necesita). Es la branch de integración que representa "el estado oficial": onboardear un dispositivo nuevo = `clone` de `main` (en vez de descubrir y mergear N branches de dispositivo), y abrir el repo en GitHub muestra la verdad sin tener que elegir entre `device/*`. Flujo: tras integrar en `device/<yo>`, se hace fast-forward de `main`. El punto de integración único ("integro en mi branch → FF de `main`") es más simple de razonar que "todos mergean a todos".
+### Árbol del vault (visualización)
 
-### Evolución futura (no ahora, pero la interfaz lo permite)
-
-- **`main` canónica** con merge automático en background.
-- **CRDTs (Yjs)** para merge sin conflicto a nivel de texto, con Git por debajo como almacén auditable. Este es el diferenciador "premium" a largo plazo.
-
-### Casos borde a cubrir
-
-- Renombrar un dispositivo (mantener la branch vieja o migrar).
-- Un dispositivo que estuvo offline mucho tiempo (fetch grande, merge grande).
-- Borrado de notas vs. edición concurrente (conflicto delete/modify → UI explícita).
-- Attachments binarios en conflicto (no se hace 3-way de texto; se ofrece "quedarme con A / B / ambos renombrado").
+El grafo asigna columnas por **topología del DAG** (no por rama), así ramas y merges se ven aunque la rama de trabajo ya se haya cerrado tras el merge (sus commits siguen alcanzables desde `main` vía el merge commit).
 
 ---
 

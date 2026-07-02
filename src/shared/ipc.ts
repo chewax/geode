@@ -25,6 +25,8 @@ export const IPC = {
   gitChanges: 'geode:git-changes',
   gitPush: 'geode:git-push',
   gitPendingPush: 'geode:git-pending-push',
+  gitStartWork: 'geode:git-start-work',
+  gitMergeToProd: 'geode:git-merge-to-prod',
   githubGetConfig: 'geode:github-get-config',
   githubStartDeviceFlow: 'geode:github-start-device-flow',
   githubCompleteDeviceFlow: 'geode:github-complete-device-flow',
@@ -138,6 +140,10 @@ export interface GitApi {
   push(): Promise<{ branch: string; oid: string }>
   /** Commits de la rama actual sin pushear. */
   pendingPush(): Promise<number>
+  /** Arranca una rama de trabajo si estás en prod/detached. Devuelve la rama (o null). */
+  startWork(): Promise<string | null>
+  /** Mergea la rama de trabajo actual a prod (main) y vuelve a prod. */
+  mergeToProd(message?: string): Promise<void>
 }
 
 // ── GitHub (device flow + push del vault) ───────────────────────────────────

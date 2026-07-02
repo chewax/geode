@@ -40,7 +40,8 @@ export const IPC = {
   aiSetEnabled: 'geode:ai-set-enabled',
   aiListModels: 'geode:ai-list-models',
   aiSuggestMessage: 'geode:ai-suggest-message',
-  aiGenerateText: 'geode:ai-generate-text'
+  aiGenerateText: 'geode:ai-generate-text',
+  aiUsage: 'geode:ai-usage'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -191,6 +192,15 @@ export interface AiConfig {
   hasKey: boolean
 }
 
+/** Uso de la API key en OpenRouter (en USD). */
+export interface AiUsage {
+  label: string | null
+  /** Crédito consumido (acumulado). */
+  usage: number
+  /** Límite de crédito, o null si no hay. */
+  limit: number | null
+}
+
 export interface AiApi {
   getConfig(): Promise<AiConfig>
   /** Guarda la API key (cifrada en el main). Devuelve la config actualizada. */
@@ -204,6 +214,8 @@ export interface AiApi {
   suggestMessage(): Promise<string>
   /** Asistente de escritura: genera texto para el editor según una instrucción. */
   generateText(instruction: string, selection: string, before: string): Promise<string>
+  /** Uso/gasto de la API key en OpenRouter. null si no hay key. */
+  usage(): Promise<AiUsage | null>
 }
 
 // ── Superficie completa expuesta en window.geode ───────────────────────────

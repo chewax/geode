@@ -3,7 +3,7 @@ import { join } from 'path'
 import { IPC, type AppInfo, type AiConfig, type GithubConfig } from '@shared/ipc'
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
-import { OpenRouterProvider, listOpenRouterModels } from './services/ai'
+import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage } from './services/ai'
 import {
   requestDeviceCode,
   pollForToken,
@@ -195,6 +195,11 @@ function registerIpcHandlers(): void {
       return provider.generateText(instruction, selection, before)
     }
   )
+
+  ipcMain.handle(IPC.aiUsage, async () => {
+    const key = await getAiKey()
+    return key ? getOpenRouterUsage(key) : null
+  })
 
   // ── GitHub / push ─────────────────────────────────────────────────────────
 

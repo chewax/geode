@@ -13,9 +13,11 @@ import {
   X,
   UploadCloud,
   GitMerge,
-  GitBranchPlus
+  GitBranchPlus,
+  Cloud,
+  Coins
 } from 'lucide-react'
-import type { AiConfig, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
+import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VersionGraph } from './VersionGraph'
@@ -55,6 +57,7 @@ export function App(): JSX.Element {
   githubCfgRef.current = githubCfg
   const [pushCount, setPushCount] = useState(0)
   const [pushing, setPushing] = useState(false)
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -76,6 +79,14 @@ export function App(): JSX.Element {
     const cfg = await window.geode.github.getConfig()
     setGithubCfg(cfg)
     setPushCount(cfg.connected && cfg.remote ? await window.geode.git.pendingPush() : 0)
+  }, [])
+
+  const refreshAiUsage = useCallback(async () => {
+    try {
+      setAiUsage(await window.geode.ai.usage())
+    } catch {
+      /* red/API caída: dejamos el último valor */
+    }
   }, [])
 
   const doPush = useCallback(async () => {
@@ -247,9 +258,10 @@ export function App(): JSX.Element {
     setCommitChanges(null)
     await refreshGraph()
     await refreshGithub()
+    void refreshAiUsage() // el mensaje pudo haber usado la IA
     const g = githubCfgRef.current
     if (g?.autoPush && g.connected && g.remote) await doPush()
-  }, [refreshGraph, refreshGithub, doPush])
+  }, [refreshGraph, refreshGithub, refreshAiUsage, doPush])
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {
@@ -317,7 +329,9 @@ export function App(): JSX.Element {
   // Al arrancar: restaurar vault y cargar config de IA/GitHub.
   useEffect(() => {
     void (async () => {
-      setAiConfig(await window.geode.ai.getConfig())
+      const cfg = await window.geode.ai.getConfig()
+      setAiConfig(cfg)
+      if (cfg.hasKey) void refreshAiUsage()
       const info = await window.geode.vault.current()
       if (!info) return
       setVault(info)
@@ -325,7 +339,7 @@ export function App(): JSX.Element {
       await refreshGraph()
       await refreshGithub()
     })()
-  }, [refreshTree, refreshGraph, refreshGithub])
+  }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage])
 
   // Ctrl/Cmd+S: abre el diálogo de guardar versión.
   useEffect(() => {
@@ -493,15 +507,68 @@ export function App(): JSX.Element {
             )}
           </div>
           <footer className="statusbar">
-            {openPath ? (
-              <>
-                <span>{stats.words} palabras</span>
-                <span>{stats.chars} caracteres</span>
-                <span>{stats.lines} líneas</span>
-              </>
-            ) : (
-              <span>Ninguna nota abierta</span>
-            )}
+            <div className="status-left">
+              {openPath ? (
+                <>
+                  <span>{stats.words} palabras</span>
+                  <span>{stats.chars} caracteres</span>
+                  <span>{stats.lines} líneas</span>
+                </>
+              ) : (
+                <span>Ninguna nota abierta</span>
+              )}
+            </div>
+
+            <div className="status-right">
+              <div className="status-item">
+                <Cloud size={14} className={githubCfg?.connected ? 'st-ok' : 'st-off'} />
+                <span>{githubCfg?.connected ? 'GitHub' : 'sin GitHub'}</span>
+                <div className="status-pop">
+                  {githubCfg?.connected ? (
+                    <>
+                      <div className="pop-title"><Cloud size={13} /> GitHub</div>
+                      <div className="pop-row"><span>Cuenta</span><b>{githubCfg.login}</b></div>
+                      <div className="pop-row"><span>Repo</span><b>{githubCfg.remote ?? 'sin configurar'}</b></div>
+                      <div className="pop-row"><span>Sin pushear</span><b>{pushCount} commit(s)</b></div>
+                      <div className="pop-row"><span>Auto-push</span><b>{githubCfg.autoPush ? 'sí' : 'no'}</b></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="pop-title"><Cloud size={13} /> GitHub</div>
+                      <div className="pop-note">No conectado. Conectá tu cuenta en Ajustes (⚙).</div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {aiConfig?.hasKey && (
+                <div className="status-item">
+                  <Coins size={14} className="st-ok" />
+                  <span>{aiUsage ? formatUsd(aiUsage.usage) : '—'}</span>
+                  <div className="status-pop">
+                    <div className="pop-title"><Coins size={13} /> OpenRouter</div>
+                    {aiUsage ? (
+                      <>
+                        <div className="pop-row"><span>Gastado</span><b>{formatUsd(aiUsage.usage)}</b></div>
+                        <div className="pop-row">
+                          <span>Límite</span>
+                          <b>{aiUsage.limit != null ? formatUsd(aiUsage.limit) : 'sin límite'}</b>
+                        </div>
+                        {aiUsage.limit != null && (
+                          <div className="pop-row">
+                            <span>Restante</span>
+                            <b>{formatUsd(Math.max(0, aiUsage.limit - aiUsage.usage))}</b>
+                          </div>
+                        )}
+                        <div className="pop-row"><span>Modelo</span><b>{aiConfig.model ?? '—'}</b></div>
+                      </>
+                    ) : (
+                      <div className="pop-note">Cargando uso…</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </footer>
         </main>
 
@@ -525,7 +592,7 @@ export function App(): JSX.Element {
 
       {settingsOpen && (
         <SettingsModal
-          onClose={() => { setSettingsOpen(false); void refreshGithub() }}
+          onClose={() => { setSettingsOpen(false); void refreshGithub(); void refreshAiUsage() }}
           onConfigChange={setAiConfig}
         />
       )}
@@ -536,6 +603,7 @@ export function App(): JSX.Element {
           onInsert={(text) => {
             editorRef.current?.replaceRange(aiEdit.from, aiEdit.to, text)
             setAiEdit(null)
+            void refreshAiUsage()
           }}
           onClose={() => setAiEdit(null)}
         />
@@ -572,6 +640,12 @@ export function App(): JSX.Element {
 function parentDir(path: string): string {
   const i = path.lastIndexOf('/')
   return i === -1 ? '' : path.slice(0, i)
+}
+
+/** Formatea un monto en USD, con más decimales para montos chicos. */
+function formatUsd(amount: number): string {
+  if (amount === 0) return '$0'
+  return amount < 1 ? `$${amount.toFixed(4)}` : `$${amount.toFixed(2)}`
 }
 
 /** Nombre de una tab: basename sin extensión .md. */

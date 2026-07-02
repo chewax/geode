@@ -455,12 +455,91 @@ button.primary {
 
 .statusbar {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
   padding: 6px 14px;
   border-top: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
   font-size: 12px;
+}
+
+.status-left {
+  display: flex;
+  gap: 16px;
+}
+
+.status-right {
+  display: flex;
+  gap: 14px;
+}
+
+.status-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: default;
+}
+
+.status-item .st-ok {
+  color: #68d391;
+}
+
+.status-item .st-off {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.status-pop {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: 150%;
+  min-width: 220px;
+  max-width: 340px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+}
+
+.status-item:hover .status-pop {
+  display: block;
+}
+
+.pop-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.pop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 2px 0;
+}
+
+.pop-row span {
+  color: var(--muted);
+}
+
+.pop-row b {
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-all;
+  text-align: right;
+}
+
+.pop-note {
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 /* ── Árbol de versiones ─────────────────────────────────────────────────── */

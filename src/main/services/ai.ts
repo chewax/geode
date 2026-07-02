@@ -1,4 +1,4 @@
-import type { AiModel } from '@shared/ipc'
+import type { AiModel, AiUsage } from '@shared/ipc'
 
 /**
  * Generación de mensajes de commit por IA (ver ARCHITECTURE.md §3).
@@ -136,4 +136,20 @@ export class OpenRouterProvider implements AiMessageProvider {
 /** Lista de modelos sin necesitar un modelo elegido todavía (para los ajustes). */
 export async function listOpenRouterModels(key: string): Promise<AiModel[]> {
   return new OpenRouterProvider(key, '').listModels()
+}
+
+/** Uso/gasto de la API key en OpenRouter (crédito consumido y límite, en USD). */
+export async function getOpenRouterUsage(key: string): Promise<AiUsage> {
+  const res = await fetch(`${OPENROUTER}/auth/key`, {
+    headers: { Authorization: `Bearer ${key}` }
+  })
+  if (!res.ok) throw new Error(`OpenRouter /auth/key devolvió ${res.status}`)
+  const j = (await res.json()) as {
+    data?: { label?: string; usage?: number; limit?: number | null }
+  }
+  return {
+    label: j.data?.label ?? null,
+    usage: j.data?.usage ?? 0,
+    limit: j.data?.limit ?? null
+  }
 }

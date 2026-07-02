@@ -1,6 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
-import { join } from 'path'
-import { IPC, type AppInfo, type AiConfig, type GithubConfig } from '@shared/ipc'
+import { join, basename } from 'path'
+import { stat } from 'node:fs/promises'
+import { IPC, type AppInfo, type AiConfig, type GithubConfig, type VaultInfo } from '@shared/ipc'
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
 import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage } from './services/ai'
@@ -14,6 +15,7 @@ import {
 import {
   loadSettings,
   saveSettings,
+  rememberVault,
   setAiKey,
   clearAiKey,
   getAiKey,
@@ -112,12 +114,36 @@ function registerIpcHandlers(): void {
     const info = await vault.openDialog()
     if (info) {
       await gitService.ensureRepo(info.root)
-      await saveSettings({ lastVault: info.root })
+      await rememberVault(info.root)
     }
     return info
   })
 
   ipcMain.handle(IPC.vaultCurrent, () => vault.getInfo())
+
+  ipcMain.handle(IPC.vaultList, async (): Promise<VaultInfo[]> => {
+    const { knownVaults } = await loadSettings()
+    const out: VaultInfo[] = []
+    for (const root of knownVaults ?? []) {
+      try {
+        if ((await stat(root)).isDirectory()) out.push({ root, name: basename(root) })
+      } catch {
+        // La carpeta se movió o borró: la omitimos del selector.
+      }
+    }
+    return out
+  })
+
+  ipcMain.handle(IPC.vaultSwitch, async (_e, root: string): Promise<VaultInfo | null> => {
+    try {
+      const info = await vault.setRoot(root)
+      await gitService.ensureRepo(info.root)
+      await rememberVault(info.root)
+      return info
+    } catch {
+      return null
+    }
+  })
   ipcMain.handle(IPC.vaultTree, () => vault.tree())
   ipcMain.handle(IPC.vaultReadNote, (_e, path: string) => vault.readNote(path))
   ipcMain.handle(IPC.vaultWriteNote, (_e, path: string, content: string) =>
@@ -279,6 +305,7 @@ async function restoreLastVault(): Promise<void> {
   try {
     await vault.setRoot(lastVault)
     await gitService.ensureRepo(lastVault)
+    await rememberVault(lastVault) // asegura que el último vault esté en knownVaults
   } catch {
     // La carpeta se movió o borró: arrancamos sin vault, sin romper.
   }

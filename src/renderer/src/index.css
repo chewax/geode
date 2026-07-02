@@ -197,44 +197,175 @@ button.primary {
   display: flex;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* ── Sidebar (explorador estilo Obsidian: toolbar · árbol · footer) ──────── */
 .sidebar {
   width: 250px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--panel);
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.sidebar-head {
+.sidebar-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
+}
+
+.sidebar-toolbar .icon-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.sidebar-toolbar .icon-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border);
+}
+
+/* Zona scrolleable del árbol: ocupa el alto entre toolbar y footer. */
+.sidebar-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Barra inferior: selector de bóveda + ayuda + ajustes. */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
   background: var(--panel);
 }
 
-.vault-name {
-  font-weight: 600;
+.sidebar-footer-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.sidebar-footer .icon-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.sidebar-footer .icon-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border);
+}
+
+.sidebar-footer .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Selector de bóveda (popover hacia arriba) ───────────────────────────── */
+.vault-switcher {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.vault-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
   font-size: 13px;
+}
+
+.vault-trigger:hover {
+  background: var(--panel-2);
+  border-color: var(--border);
+}
+
+.vault-trigger .twisty {
+  color: var(--muted);
+}
+
+.vault-trigger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.vault-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.vault-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 61;
+  min-width: 220px;
+  max-width: 300px;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.vault-menu li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vault-menu li:hover {
+  background: rgba(183, 148, 246, 0.14);
+}
+
+.vault-menu .sel {
+  color: var(--accent);
+}
+
+.vault-menu-name {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sidebar-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
+.vault-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  padding: 0 !important;
+  background: var(--border);
+  cursor: default !important;
 }
 
-.sidebar-actions button {
-  padding: 2px 8px;
+.vault-menu-sep:hover {
+  background: var(--border) !important;
+}
+
+.vault-menu-manage {
+  color: var(--muted);
 }
 
 .tree,
@@ -248,8 +379,11 @@ button.primary {
   padding: 6px 4px;
 }
 
+/* Guía vertical + sangría para que se vea claro qué está dentro de qué. */
 .tree-children {
-  padding-left: 14px;
+  margin-left: 16px;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
 }
 
 .tree-dir,
@@ -286,13 +420,22 @@ button.primary {
   color: var(--muted);
 }
 
-.tree-file:hover {
+.tree-file:hover,
+.tree-dir:hover {
   background: var(--panel-2);
 }
 
 .tree-file.active {
   background: var(--panel-2);
   color: var(--accent);
+}
+
+/* Fila enfocada por teclado: es la que borra Supr/Del. */
+.tree-dir:focus-visible,
+.tree-file:focus-visible {
+  outline: none;
+  background: var(--panel-2);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .tree-empty {

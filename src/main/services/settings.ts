@@ -10,6 +10,8 @@ import { atomicWrite } from '../fs/atomic'
  */
 export interface Settings {
   lastVault?: string
+  /** Bóvedas abiertas alguna vez, más reciente primero. Para el selector de bóveda. */
+  knownVaults?: string[]
   ai?: {
     enabled?: boolean
     model?: string
@@ -63,6 +65,19 @@ function decryptSecret(value: string, encrypted: boolean): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Marca `root` como bóveda activa: lo guarda como `lastVault` y lo mueve al
+ * frente de `knownVaults` (dedup). Base del selector de bóveda estilo Obsidian.
+ */
+export async function rememberVault(root: string): Promise<void> {
+  const settings = await loadSettings()
+  const known = (settings.knownVaults ?? []).filter((v) => v !== root)
+  known.unshift(root)
+  settings.lastVault = root
+  settings.knownVaults = known
+  await saveSettings(settings)
 }
 
 /** Guarda la API key de IA cifrada (si se puede) sin tocar el resto de ajustes. */

@@ -3,7 +3,6 @@ import type { JSX } from 'react'
 import {
   FilePlus,
   FolderPlus,
-  FolderOpen,
   Settings as SettingsIcon,
   Save,
   GitBranch,
@@ -15,11 +14,16 @@ import {
   GitMerge,
   GitBranchPlus,
   Cloud,
-  Coins
+  Coins,
+  ArrowDownUp,
+  FoldVertical,
+  UnfoldVertical,
+  HelpCircle
 } from 'lucide-react'
 import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
+import { VaultSwitcher } from './VaultSwitcher'
 import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
@@ -30,7 +34,12 @@ const AUTOSAVE_MS = 600
 
 export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
+  const [vaults, setVaults] = useState<VaultInfo[]>([])
   const [tree, setTree] = useState<TreeNode[]>([])
+  // Explorador estilo Obsidian: orden A-Z/Z-A y colapsar/expandir todo.
+  const [sortAsc, setSortAsc] = useState(true)
+  const [allExpanded, setAllExpanded] = useState(true)
+  const [collapseVersion, setCollapseVersion] = useState(0)
   const [openPath, setOpenPath] = useState<string | null>(null)
   const [content, setContent] = useState('')
   const [status, setStatus] = useState<SaveStatus>('none')
@@ -53,8 +62,6 @@ export function App(): JSX.Element {
   headRef.current = graph?.head ?? { oid: null, branch: null }
   const startingWorkRef = useRef(false)
   const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
-  const githubCfgRef = useRef<GithubConfig | null>(null)
-  githubCfgRef.current = githubCfg
   const [pushCount, setPushCount] = useState(0)
   const [pushing, setPushing] = useState(false)
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
@@ -65,6 +72,10 @@ export function App(): JSX.Element {
   const saveTimerRef = useRef<number | null>(null)
   const openPathRef = useRef<string | null>(null)
   openPathRef.current = openPath
+
+  const refreshVaults = useCallback(async () => {
+    setVaults(await window.geode.vault.list())
+  }, [])
 
   const refreshTree = useCallback(async () => {
     const t = await window.geode.vault.tree()
@@ -189,7 +200,27 @@ export function App(): JSX.Element {
     setTabs([])
     await refreshTree()
     await refreshGraph()
-  }, [refreshTree, refreshGraph])
+    await refreshGithub()
+    await refreshVaults()
+  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults])
+
+  /** Cambia a una bóveda ya conocida (selector de bóveda). */
+  const switchVault = useCallback(async (root: string) => {
+    const info = await window.geode.vault.switch(root)
+    if (!info) {
+      await refreshVaults() // la carpeta ya no existe: la sacamos del selector
+      return
+    }
+    setVault(info)
+    setOpenPath(null)
+    setContent('')
+    setStatus('none')
+    setTabs([])
+    await refreshTree()
+    await refreshGraph()
+    await refreshGithub()
+    await refreshVaults()
+  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults])
 
   const newNoteIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createNote(dir)
@@ -263,9 +294,8 @@ export function App(): JSX.Element {
     await refreshGraph()
     await refreshGithub()
     void refreshAiUsage() // el mensaje pudo haber usado la IA
-    const g = githubCfgRef.current
-    if (g?.autoPush && g.connected && g.remote) await doPush()
-  }, [refreshGraph, refreshGithub, refreshAiUsage, doPush])
+    // El push es SIEMPRE manual (botón Push). Guardar versión nunca sube al remoto.
+  }, [refreshGraph, refreshGithub, refreshAiUsage])
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {
@@ -342,8 +372,9 @@ export function App(): JSX.Element {
       await refreshTree()
       await refreshGraph()
       await refreshGithub()
+      await refreshVaults()
     })()
-  }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage])
+  }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage, refreshVaults])
 
   // Ctrl/Cmd+S: abre el diálogo de guardar versión.
   useEffect(() => {
@@ -363,6 +394,14 @@ export function App(): JSX.Element {
     const lines = content.split('\n').length
     return { chars, words, lines }
   }, [content])
+
+  const sortedTree = useMemo(() => sortTree(tree, sortAsc), [tree, sortAsc])
+
+  /** Colapsa o expande todas las carpetas del árbol de una. */
+  const toggleCollapseAll = useCallback(() => {
+    setAllExpanded((v) => !v)
+    setCollapseVersion((n) => n + 1)
+  }, [])
 
   const onProd = graph?.head.branch === 'main'
   const workBranch = graph?.head.branch && graph.head.branch !== 'main' ? graph.head.branch : null
@@ -437,41 +476,69 @@ export function App(): JSX.Element {
               <UploadCloud size={15} /> {pushing ? 'Push…' : pushCount > 0 ? `Push (${pushCount})` : 'Push'}
             </button>
           )}
-          <button className="icon-btn" title="Ajustes" onClick={() => setSettingsOpen(true)}>
-            <SettingsIcon size={16} />
-          </button>
         </div>
       </header>
 
       <div className="body">
         <aside className="sidebar">
-          <div className="sidebar-head">
-            <span className="vault-name" title={vault.root}>{vault.name}</span>
-            <div className="sidebar-actions">
-              <button className="icon-btn" title="Nueva nota" onClick={() => void newNoteIn('')}>
-                <FilePlus size={16} />
+          <div className="sidebar-toolbar">
+            <button className="icon-btn" title="Nueva nota" onClick={() => void newNoteIn('')}>
+              <FilePlus size={16} />
+            </button>
+            <button className="icon-btn" title="Nueva carpeta" onClick={() => void newFolderIn('')}>
+              <FolderPlus size={16} />
+            </button>
+            <button
+              className="icon-btn"
+              title={sortAsc ? 'Orden A→Z (click: Z→A)' : 'Orden Z→A (click: A→Z)'}
+              onClick={() => setSortAsc((v) => !v)}
+            >
+              <ArrowDownUp size={16} />
+            </button>
+            <button
+              className="icon-btn"
+              title={allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+              onClick={toggleCollapseAll}
+            >
+              {allExpanded ? <FoldVertical size={16} /> : <UnfoldVertical size={16} />}
+            </button>
+          </div>
+
+          <div className="sidebar-tree">
+            {tree.length > 0 ? (
+              <FileTree
+                nodes={sortedTree}
+                openPath={openPath}
+                editingPath={editingPath}
+                defaultExpanded={allExpanded}
+                collapseVersion={collapseVersion}
+                onOpen={(p) => void openNote(p)}
+                onContext={(node, x, y) => setMenu({ node, x, y })}
+                onRename={(node, name) => void renameNode(node, name)}
+                onRenameCancel={() => setEditingPath(null)}
+                onDelete={(node) => void deleteNode(node)}
+              />
+            ) : (
+              <p className="tree-empty">Vault vacío. Creá una nota con ＋ o una carpeta con 📁.</p>
+            )}
+          </div>
+
+          <div className="sidebar-footer">
+            <VaultSwitcher
+              current={vault}
+              vaults={vaults}
+              onSwitch={(root) => void switchVault(root)}
+              onManage={() => void openVault()}
+            />
+            <div className="sidebar-footer-actions">
+              <button className="icon-btn" title="Ayuda" disabled>
+                <HelpCircle size={16} />
               </button>
-              <button className="icon-btn" title="Nueva carpeta" onClick={() => void newFolderIn('')}>
-                <FolderPlus size={16} />
-              </button>
-              <button className="icon-btn" title="Cambiar de vault" onClick={() => void openVault()}>
-                <FolderOpen size={16} />
+              <button className="icon-btn" title="Ajustes" onClick={() => setSettingsOpen(true)}>
+                <SettingsIcon size={16} />
               </button>
             </div>
           </div>
-          {tree.length > 0 ? (
-            <FileTree
-              nodes={tree}
-              openPath={openPath}
-              editingPath={editingPath}
-              onOpen={(p) => void openNote(p)}
-              onContext={(node, x, y) => setMenu({ node, x, y })}
-              onRename={(node, name) => void renameNode(node, name)}
-              onRenameCancel={() => setEditingPath(null)}
-            />
-          ) : (
-            <p className="tree-empty">Vault vacío. Creá una nota con ＋ o una carpeta con 📁.</p>
-          )}
         </aside>
 
         <main className="main">
@@ -643,6 +710,19 @@ export function App(): JSX.Element {
       )}
     </div>
   )
+}
+
+/**
+ * Ordena el árbol para el explorador: carpetas primero, luego notas; alfabético
+ * (asc/desc) dentro de cada grupo. Recursivo. No muta el árbol original.
+ */
+function sortTree(nodes: TreeNode[], asc: boolean): TreeNode[] {
+  const dir = asc ? 1 : -1
+  return [...nodes]
+    .sort((a, b) =>
+      a.isDir === b.isDir ? a.name.localeCompare(b.name) * dir : a.isDir ? -1 : 1
+    )
+    .map((n) => (n.children ? { ...n, children: sortTree(n.children, asc) } : n))
 }
 
 /** Carpeta padre de una ruta relativa ('' si está en la raíz). */

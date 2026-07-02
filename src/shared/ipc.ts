@@ -12,6 +12,8 @@ export const IPC = {
   appInfo: 'geode:app-info',
   vaultOpen: 'geode:vault-open',
   vaultCurrent: 'geode:vault-current',
+  vaultList: 'geode:vault-list',
+  vaultSwitch: 'geode:vault-switch',
   vaultTree: 'geode:vault-tree',
   vaultReadNote: 'geode:vault-read-note',
   vaultWriteNote: 'geode:vault-write-note',
@@ -79,6 +81,10 @@ export interface VaultApi {
   open(): Promise<VaultInfo | null>
   /** Vault activo (restaurado del último uso), o null. */
   current(): Promise<VaultInfo | null>
+  /** Bóvedas conocidas (abiertas alguna vez y que aún existen), más reciente primero. */
+  list(): Promise<VaultInfo[]>
+  /** Cambia a una bóveda ya conocida por su ruta. null si ya no existe. */
+  switch(root: string): Promise<VaultInfo | null>
   /** Árbol de carpetas y notas .md del vault activo. */
   tree(): Promise<TreeNode[]>
   /** Lee una nota por su ruta relativa. */

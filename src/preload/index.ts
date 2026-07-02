@@ -12,6 +12,8 @@ const api: GeodeApi = {
   vault: {
     open: () => ipcRenderer.invoke(IPC.vaultOpen),
     current: () => ipcRenderer.invoke(IPC.vaultCurrent),
+    list: () => ipcRenderer.invoke(IPC.vaultList),
+    switch: (root) => ipcRenderer.invoke(IPC.vaultSwitch, root),
     tree: () => ipcRenderer.invoke(IPC.vaultTree),
     readNote: (path) => ipcRenderer.invoke(IPC.vaultReadNote, path),
     writeNote: (path, content) => ipcRenderer.invoke(IPC.vaultWriteNote, path, content),

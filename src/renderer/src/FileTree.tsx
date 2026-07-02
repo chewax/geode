@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX, KeyboardEvent } from 'react'
 import { ChevronDown, ChevronRight, Folder, FileText } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
@@ -8,10 +8,16 @@ export interface FileTreeProps {
   openPath: string | null
   /** Ruta que está en edición de nombre (input inline), o null. */
   editingPath: string | null
+  /** Estado por defecto de las carpetas (para colapsar/expandir todo). */
+  defaultExpanded: boolean
+  /** Cambia cada vez que se pide colapsar/expandir todo: reinicia el estado. */
+  collapseVersion: number
   onOpen: (path: string) => void
   onContext: (node: TreeNode, x: number, y: number) => void
   onRename: (node: TreeNode, newName: string) => void
   onRenameCancel: () => void
+  /** Del/Supr sobre el elemento enfocado. */
+  onDelete: (node: TreeNode) => void
 }
 
 /** Nombre visible de un nodo (las notas se muestran sin la extensión .md). */
@@ -31,10 +37,22 @@ export function FileTree(props: FileTreeProps): JSX.Element {
 }
 
 function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, 'nodes'>): JSX.Element {
-  const [expanded, setExpanded] = useState(true)
-  const { openPath, editingPath, onOpen, onContext, onRename, onRenameCancel } = props
+  const { openPath, editingPath, defaultExpanded, collapseVersion, onOpen, onContext, onRename, onRenameCancel, onDelete } = props
+  const [expanded, setExpanded] = useState(defaultExpanded)
+
+  // "Colapsar/expandir todo": al cambiar la señal, reiniciar al estado pedido.
+  useEffect(() => setExpanded(defaultExpanded), [collapseVersion, defaultExpanded])
 
   const editing = editingPath === node.path
+
+  // Del/Supr borra el elemento enfocado. Se ignora si el foco está en el input
+  // de renombrar (target ≠ currentTarget) para no borrar mientras se escribe.
+  const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    if (e.key === 'Delete' && e.target === e.currentTarget) {
+      e.preventDefault()
+      onDelete(node)
+    }
+  }
 
   const nameEl = editing ? (
     <NameInput initial={displayName(node)} onCommit={(v) => onRename(node, v)} onCancel={onRenameCancel} />
@@ -47,7 +65,9 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
       <li>
         <div
           className="tree-dir"
+          tabIndex={0}
           onClick={() => setExpanded((v) => !v)}
+          onKeyDown={onKeyDown}
           onContextMenu={(e) => {
             e.preventDefault()
             onContext(node, e.clientX, e.clientY)
@@ -71,7 +91,9 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
   return (
     <li
       className={`tree-file${openPath === node.path ? ' active' : ''}`}
+      tabIndex={0}
       onClick={() => !editing && onOpen(node.path)}
+      onKeyDown={onKeyDown}
       onContextMenu={(e) => {
         e.preventDefault()
         onContext(node, e.clientX, e.clientY)

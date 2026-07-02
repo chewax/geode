@@ -17,10 +17,24 @@ const PROD = 'main'
  * Asigna una columna (lane) a cada commit según la topología del DAG, para
  * dibujar un grafo estilo git (ramas paralelas + merges). Procesa los commits
  * de más nuevo a más viejo manteniendo "lanes activas" que esperan a un padre.
+ *
+ * `seedTips` reserva lanes por adelantado para los tips de rama, en orden de
+ * prioridad (main = lane 0). Así una rama que va ADELANTADA respecto de main
+ * (todavía sin merge, topológicamente una línea recta) se dibuja igual en su
+ * propio carril desde el tip, en vez de colapsar sobre la línea de main. El
+ * caso del merge sigue saliendo solo, vía el segundo padre del commit de merge.
  */
-function assignLanes(commits: { oid: string; parents: string[] }[]): Map<string, number> {
+function assignLanes(
+  commits: { oid: string; parents: string[] }[],
+  seedTips: string[] = []
+): Map<string, number> {
   const lane = new Map<string, number>()
   const active: (string | null)[] = [] // active[i] = oid que la lane i está esperando
+
+  // Sembrar un carril por tip de rama (main primero → lane 0).
+  for (const tip of seedTips) {
+    if (!active.includes(tip)) active.push(tip)
+  }
 
   const firstFree = (): number => {
     const i = active.indexOf(null)
@@ -249,7 +263,19 @@ export class GitService {
     // topología del DAG, para que ramas y merges se vean aunque la rama de
     // trabajo ya se haya cerrado tras el merge.
     const commits = [...commitsMap.values()].sort((a, b) => b.timestamp - a.timestamp)
-    const lanes = assignLanes(commits)
+
+    // Tips de rama en orden de prioridad para sembrar los carriles: prod (main)
+    // primero (lane 0), el resto por tip más nuevo. Así una rama de trabajo
+    // adelantada respecto de main se ve bifurcada desde que arranca.
+    const seedTips = [...branches]
+      .sort((a, b) => {
+        if (a.name === PROD) return -1
+        if (b.name === PROD) return 1
+        return (commitsMap.get(b.tip)?.timestamp ?? 0) - (commitsMap.get(a.tip)?.timestamp ?? 0)
+      })
+      .map((b) => b.tip)
+
+    const lanes = assignLanes(commits, seedTips)
     for (const c of commits) c.lane = lanes.get(c.oid) ?? 0
 
     return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine, pushed }

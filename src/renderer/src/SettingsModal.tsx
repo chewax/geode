@@ -92,10 +92,6 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     setRemoteInput(cfg.remote ?? '') // muestra la URL ya normalizada (SSH→HTTPS)
   }
 
-  const toggleAutoPush = async (autoPush: boolean): Promise<void> => {
-    setGithub(await window.geode.github.setAutoPush(autoPush))
-  }
-
   const saveKey = async (): Promise<void> => {
     if (!keyInput.trim()) return
     setError(null)
@@ -250,15 +246,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               </button>
             </div>
 
-            <label className="toggle-row">
-              <input
-                type="checkbox"
-                checked={github.autoPush}
-                disabled={!github.remote}
-                onChange={(e) => void toggleAutoPush(e.target.checked)}
-              />
-              Pushear automáticamente al guardar cada versión
-            </label>
+            <p className="hint">
+              El push al remoto es siempre manual: usá el botón <b>Push</b> de la barra superior.
+            </p>
           </>
         )}
 

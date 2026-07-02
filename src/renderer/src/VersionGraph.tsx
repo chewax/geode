@@ -1,29 +1,62 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { X, Cloud } from 'lucide-react'
-import type { GitGraph } from '@shared/ipc'
+import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, Trash2 } from 'lucide-react'
+import type { GitBranchRef, GitCommitNode, GitGraph } from '@shared/ipc'
 
 interface VersionGraphProps {
   graph: GitGraph
   onSelect: (oid: string) => void
   onClose: () => void
+  onAddTag: (oid: string, name: string) => void
+  onRemoveTag: (name: string) => void
+  /** Borra una rama; devuelve si se borró (false = cancelado/error). */
+  onDeleteBranch: (name: string, merged: boolean) => Promise<boolean>
+  /** Crea una rama desde el commit dado (y cambia a ella). */
+  onCreateBranch: (fromOid: string) => void
 }
 
 const ROW = 54
 const LANE = 18
 const PAD = 16
 const DOT = 5
+/** Nombre de la rama de producción (coincide con PROD del servicio git). */
+const PROD = 'main'
 // Colores por columna (lane). El 0 es la línea principal.
 const LANE_COLORS = ['#b794f6', '#63b3ed', '#68d391', '#f6ad55', '#fc8181', '#f687b3']
 
 /**
  * Árbol de versiones de todo el vault, estilo git. Cada commit es un punto en
  * su columna (lane); las aristas van a los padres. La línea de HEAD se muestra
- * plena y el resto atenuado. Click en un commit = checkout (mover HEAD ahí);
- * si es un commit viejo, editar después bifurca automáticamente.
+ * plena y el resto atenuado. Click en un commit = checkout (mover HEAD ahí).
+ *
+ * Etiquetas (tags de git): cada fila muestra sus etiquetas como chips y un botón
+ * para editarlas. La barra superior permite filtrar el árbol por etiqueta.
  */
-export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): JSX.Element {
+export function VersionGraph({
+  graph,
+  onSelect,
+  onClose,
+  onAddTag,
+  onRemoveTag,
+  onDeleteBranch,
+  onCreateBranch
+}: VersionGraphProps): JSX.Element {
   const { commits, head, onCurrentLine, branches } = graph
+
+  // Editor de etiquetas abierto sobre un commit (posición del click).
+  const [editor, setEditor] = useState<{ oid: string; x: number; y: number } | null>(null)
+  // Etiquetas seleccionadas para filtrar (vacío = sin filtro).
+  const [filter, setFilter] = useState<string[]>([])
+  // Popover de búsqueda de etiquetas para filtrar (escala a infinitas etiquetas).
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+  // Ramas seleccionadas para filtrar + popover de ramas.
+  const [branchFilter, setBranchFilter] = useState<string[]>([])
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false)
+
+  const toggleFilter = (t: string): void =>
+    setFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]))
+  const toggleBranchFilter = (name: string): void =>
+    setBranchFilter((f) => (f.includes(name) ? f.filter((x) => x !== name) : [...f, name]))
 
   const model = useMemo(() => {
     const index = new Map(commits.map((c, i) => [c.oid, i]))
@@ -34,38 +67,107 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
       list.push(b.name)
       tipToBranch.set(b.tip, list)
     }
+    const oidToTags = new Map<string, string[]>()
+    for (const t of graph.tags) {
+      const list = oidToTags.get(t.oid) ?? []
+      list.push(t.name)
+      oidToTags.set(t.oid, list)
+    }
     const maxLane = commits.reduce((m, c) => Math.max(m, c.lane), 0)
     const pushedSet = new Set(graph.pushed)
-    return { index, onLine, tipToBranch, maxLane, pushedSet }
-  }, [commits, onCurrentLine, branches, graph.pushed])
+
+    // Ancestros (incluido) de un tip, recorriendo padres. Para filtrar por rama
+    // y para saber qué ramas ya están fusionadas en main (podables sin pérdida).
+    const parentsOf = new Map(commits.map((c) => [c.oid, c.parents]))
+    const ancestors = (tip: string): Set<string> => {
+      const seen = new Set<string>()
+      const stack = [tip]
+      while (stack.length) {
+        const oid = stack.pop() as string
+        if (seen.has(oid)) continue
+        seen.add(oid)
+        for (const p of parentsOf.get(oid) ?? []) stack.push(p)
+      }
+      return seen
+    }
+    const mainTip = branches.find((b) => b.name === PROD)?.tip
+    const mainReachable = mainTip ? ancestors(mainTip) : new Set<string>()
+
+    return { index, onLine, tipToBranch, oidToTags, maxLane, pushedSet, parentsOf, ancestors, mainReachable }
+  }, [commits, onCurrentLine, branches, graph.tags, graph.pushed])
+
+  const allTags = useMemo(
+    () => [...new Set(graph.tags.map((t) => t.name))].sort((a, b) => a.localeCompare(b)),
+    [graph.tags]
+  )
 
   const laneX = (lane: number): number => PAD + lane * LANE
   const rowY = (i: number): number => i * ROW + ROW / 2
-  const gutterW = PAD * 2 + model.maxLane * LANE
-  const svgH = Math.max(commits.length * ROW, ROW)
 
-  // Aristas commit → padre. La línea baja RECTA en la columna del hijo (para que
-  // las ramas se vean paralelas) y sólo hace una "S" (ogee) al entrar en la
-  // columna del padre, junto al punto de bifurcación — como git.
+  const tagsOf = (oid: string): string[] => model.oidToTags.get(oid) ?? []
+
+  // Commits alcanzables desde las ramas filtradas (unión de sus ancestros).
+  const branchVisible = useMemo(() => {
+    if (branchFilter.length === 0) return null
+    const set = new Set<string>()
+    for (const name of branchFilter) {
+      const b = branches.find((x) => x.name === name)
+      if (b) for (const oid of model.ancestors(b.tip)) set.add(oid)
+    }
+    return set
+  }, [branchFilter, branches, model])
+
+  // Commits visibles según el filtro. El grafo se dibuja SIEMPRE (mostrar/ocultar
+  // líneas), nunca se cambia a una lista tipo git log.
+  const visible = commits.filter(
+    (c) =>
+      (filter.length === 0 || tagsOf(c.oid).some((t) => filter.includes(t))) &&
+      (!branchVisible || branchVisible.has(c.oid))
+  )
+
+  // Layout sobre el subconjunto visible: fila por índice visible y lanes
+  // compactadas (se cierran los huecos de las líneas ocultas).
+  const rowIndex = new Map(visible.map((c, i) => [c.oid, i]))
+  const usedLanes = [...new Set(visible.map((c) => c.lane))].sort((a, b) => a - b)
+  const laneMap = new Map(usedLanes.map((l, i) => [l, i]))
+  const laneOf = (c: GitCommitNode): number => laneMap.get(c.lane) ?? 0
+  const colorOf = (c: GitCommitNode): string => LANE_COLORS[Math.min(laneOf(c), LANE_COLORS.length - 1)]
+  const gutterW = PAD * 2 + Math.max(usedLanes.length - 1, 0) * LANE
+  const svgH = Math.max(visible.length * ROW, ROW)
+
+  // Ancestro visible más cercano de un oid (puentea commits ocultos por el
+  // filtro, p. ej. al filtrar por etiqueta). Mantiene el grafo conectado.
+  const nearestVisible = (oid: string): string | null => {
+    const seen = new Set<string>()
+    const queue = [oid]
+    while (queue.length) {
+      const o = queue.shift() as string
+      if (seen.has(o)) continue
+      seen.add(o)
+      if (rowIndex.has(o)) return o
+      for (const p of model.parentsOf.get(o) ?? []) queue.push(p)
+    }
+    return null
+  }
+
+  // Aristas commit → ancestro visible (puenteando lo oculto).
   const edges: JSX.Element[] = []
-  commits.forEach((c, i) => {
+  visible.forEach((c, i) => {
     for (const parent of c.parents) {
-      const pi = model.index.get(parent)
+      const target = nearestVisible(parent)
+      const pi = target === null ? undefined : rowIndex.get(target)
       if (pi === undefined) continue
-      const parentLane = commits[pi].lane
-      const x1 = laneX(c.lane)
+      const x1 = laneX(laneOf(c))
       const y1 = rowY(i)
-      const x2 = laneX(parentLane)
+      const x2 = laneX(laneOf(visible[pi]))
       const y2 = rowY(pi)
-      // La arista lleva el color de la rama del hijo (la línea que se bifurca).
-      const color = LANE_COLORS[Math.min(c.lane, LANE_COLORS.length - 1)]
+      const color = colorOf(c)
       const dim = !model.onLine.has(c.oid)
 
       let d: string
       if (x1 === x2) {
-        d = `M ${x1} ${y1} L ${x2} ${y2}` // misma columna: recta vertical
+        d = `M ${x1} ${y1} L ${x2} ${y2}`
       } else {
-        // Tramo recto vertical en la columna del hijo, luego S hacia la del padre.
         const curveH = Math.min(ROW, y2 - y1)
         const bend = y2 - curveH
         const mid = y2 - curveH / 2
@@ -73,17 +175,78 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
       }
 
       edges.push(
-        <path
-          key={`${c.oid}-${parent}`}
-          d={d}
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          opacity={dim ? 0.25 : 0.9}
-        />
+        <path key={`${c.oid}-${parent}`} d={d} fill="none" stroke={color} strokeWidth={2} opacity={dim ? 0.25 : 0.9} />
       )
     }
   })
+
+  /** Contenido de una fila de commit. `graphRow` alinea el alto con el SVG. */
+  const renderRow = (c: GitCommitNode, graphRow: boolean): JSX.Element => {
+    const isHead = head.oid === c.oid
+    const dim = graphRow && !model.onLine.has(c.oid)
+    const tips = model.tipToBranch.get(c.oid) ?? []
+    const tags = tagsOf(c.oid)
+    return (
+      <li
+        key={c.oid}
+        className={`graph-row${isHead ? ' head' : ''}${dim ? ' dim' : ''}`}
+        style={graphRow ? { height: ROW } : undefined}
+        onClick={() => !isHead && onSelect(c.oid)}
+        title={isHead ? 'Estás en esta versión' : 'Ir a esta versión (checkout)'}
+      >
+        <div className="row-top">
+          <span className="g-msg" title={c.message}>{c.message}</span>
+          {tips.map((name) => (
+            <span key={name} className={`chip${name === head.branch ? ' current' : ''}`}>{name}</span>
+          ))}
+          {tags.map((t) => (
+            <span key={t} className="chip tag-chip"><Tag size={10} /> {t}</span>
+          ))}
+          {isHead && <span className="chip head-chip">HEAD</span>}
+          {model.pushedSet.has(c.oid) && (
+            <span className="chip pushed-chip" title="Última versión subida a GitHub">
+              <Cloud size={11} /> en GitHub
+            </span>
+          )}
+          <button
+            className="tag-btn"
+            title="Crear rama desde esta versión"
+            aria-label="Crear rama desde esta versión"
+            onClick={(e) => {
+              e.stopPropagation()
+              onCreateBranch(c.oid)
+            }}
+          >
+            <GitBranchPlus size={13} />
+          </button>
+          <button
+            className="tag-btn"
+            title="Etiquetas"
+            aria-label="Editar etiquetas"
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditor({ oid: c.oid, x: e.clientX, y: e.clientY })
+            }}
+          >
+            <Tag size={13} />
+          </button>
+        </div>
+        <div className="g-meta">
+          {new Date(c.timestamp).toLocaleString()} · {c.oid.slice(0, 7)}
+        </div>
+      </li>
+    )
+  }
+
+  // Ramas ya fusionadas en main: se pueden podar sin perder versiones.
+  const mergedBranchNames = new Set(
+    branches.filter((b) => b.name !== PROD && model.mainReachable.has(b.tip)).map((b) => b.name)
+  )
+
+  const handleDeleteBranch = async (name: string): Promise<void> => {
+    const ok = await onDeleteBranch(name, mergedBranchNames.has(name))
+    if (ok) setBranchFilter((f) => f.filter((x) => x !== name))
+  }
 
   return (
     <aside className="graph">
@@ -92,20 +255,84 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
         <button className="icon-btn" title="Cerrar" onClick={onClose}><X size={15} /></button>
       </div>
 
+      {(allTags.length > 0 || branches.length > 1) && (
+        <div className="tag-filter">
+          {allTags.length > 0 && (
+            <button
+              className={`tag-filter-btn${filter.length ? ' on' : ''}`}
+              title="Filtrar por etiqueta"
+              onClick={() => { setFilterMenuOpen((o) => !o); setBranchMenuOpen(false) }}
+            >
+              <ListFilter size={13} /> Etiquetas{filter.length ? ` (${filter.length})` : ''}
+            </button>
+          )}
+          {branches.length > 1 && (
+            <button
+              className={`tag-filter-btn${branchFilter.length ? ' on' : ''}`}
+              title="Filtrar y podar ramas"
+              onClick={() => { setBranchMenuOpen((o) => !o); setFilterMenuOpen(false) }}
+            >
+              <GitBranch size={13} /> Ramas{branchFilter.length ? ` (${branchFilter.length})` : ''}
+            </button>
+          )}
+
+          {filter.map((t) => (
+            <span key={t} className="chip tag-chip removable">
+              <Tag size={10} /> {t}
+              <button className="chip-x" title="Quitar filtro" onClick={() => toggleFilter(t)}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {branchFilter.map((name) => (
+            <span key={name} className="chip branch-filter-chip removable">
+              <GitBranch size={10} /> {name}
+              <button className="chip-x" title="Quitar filtro" onClick={() => toggleBranchFilter(name)}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+
+          {filterMenuOpen && (
+            <TagFilterMenu
+              allTags={allTags}
+              selected={filter}
+              onToggle={toggleFilter}
+              onClear={() => setFilter([])}
+              onClose={() => setFilterMenuOpen(false)}
+            />
+          )}
+          {branchMenuOpen && (
+            <BranchMenu
+              branches={branches}
+              currentBranch={head.branch}
+              selected={branchFilter}
+              mergedNames={mergedBranchNames}
+              onToggle={toggleBranchFilter}
+              onClear={() => setBranchFilter([])}
+              onDelete={handleDeleteBranch}
+              onClose={() => setBranchMenuOpen(false)}
+            />
+          )}
+        </div>
+      )}
+
       {commits.length === 0 ? (
         <p className="tree-empty">Todavía no hay versiones. Editá y guardá una nota.</p>
+      ) : visible.length === 0 ? (
+        <p className="tree-empty">Ninguna versión con ese filtro.</p>
       ) : (
         <div className="graph-body" style={{ minHeight: svgH }}>
           <svg className="graph-svg" width={gutterW} height={svgH} style={{ width: gutterW }}>
             {edges}
-            {commits.map((c, i) => {
+            {visible.map((c, i) => {
               const isHead = head.oid === c.oid
               const dim = !model.onLine.has(c.oid)
-              const color = LANE_COLORS[Math.min(c.lane, LANE_COLORS.length - 1)]
+              const color = colorOf(c)
               return (
                 <g key={c.oid} opacity={dim ? 0.35 : 1}>
                   <circle
-                    cx={laneX(c.lane)}
+                    cx={laneX(laneOf(c))}
                     cy={rowY(i)}
                     r={isHead ? DOT + 2 : DOT}
                     fill={isHead ? color : '#1c1c22'}
@@ -118,41 +345,244 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
           </svg>
 
           <ul className="graph-rows" style={{ paddingLeft: gutterW }}>
-            {commits.map((c) => {
-              const isHead = head.oid === c.oid
-              const dim = !model.onLine.has(c.oid)
-              const tips = model.tipToBranch.get(c.oid) ?? []
-              return (
-                <li
-                  key={c.oid}
-                  className={`graph-row${isHead ? ' head' : ''}${dim ? ' dim' : ''}`}
-                  style={{ height: ROW }}
-                  onClick={() => !isHead && onSelect(c.oid)}
-                  title={isHead ? 'Estás en esta versión' : 'Ir a esta versión (checkout)'}
-                >
-                  <div className="row-top">
-                    <span className="g-msg" title={c.message}>{c.message}</span>
-                    {tips.map((name) => (
-                      <span key={name} className={`chip${name === head.branch ? ' current' : ''}`}>
-                        {name}
-                      </span>
-                    ))}
-                    {isHead && <span className="chip head-chip">HEAD</span>}
-                    {model.pushedSet.has(c.oid) && (
-                      <span className="chip pushed-chip" title="Última versión subida a GitHub">
-                        <Cloud size={11} /> en GitHub
-                      </span>
-                    )}
-                  </div>
-                  <div className="g-meta">
-                    {new Date(c.timestamp).toLocaleString()} · {c.oid.slice(0, 7)}
-                  </div>
-                </li>
-              )
-            })}
+            {visible.map((c) => renderRow(c, true))}
           </ul>
         </div>
       )}
+
+      {editor && (
+        <TagEditor
+          x={editor.x}
+          y={editor.y}
+          tags={tagsOf(editor.oid)}
+          allTags={allTags}
+          onAdd={(name) => onAddTag(editor.oid, name)}
+          onRemove={(name) => onRemoveTag(name)}
+          onClose={() => setEditor(null)}
+        />
+      )}
     </aside>
+  )
+}
+
+interface TagEditorProps {
+  x: number
+  y: number
+  tags: string[]
+  allTags: string[]
+  onAdd: (name: string) => void
+  onRemove: (name: string) => void
+  onClose: () => void
+}
+
+/** Popover para agregar/quitar etiquetas de un commit. */
+function TagEditor({ x, y, tags, allTags, onAdd, onRemove, onClose }: TagEditorProps): JSX.Element {
+  const [value, setValue] = useState('')
+  const suggestions = allTags.filter((t) => !tags.includes(t))
+
+  const submit = (): void => {
+    const v = value.trim()
+    if (!v) return
+    onAdd(v)
+    setValue('')
+  }
+
+  // Clamp para que el popover no se salga de la ventana.
+  const left = Math.min(x, window.innerWidth - 260)
+  const top = Math.min(y, window.innerHeight - 220)
+
+  return (
+    <div
+      className="ctx-overlay"
+      onClick={onClose}
+      onContextMenu={(e) => { e.preventDefault(); onClose() }}
+    >
+      <div className="tag-editor" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
+        <div className="tag-editor-title"><Tag size={13} /> Etiquetas</div>
+
+        {tags.length > 0 && (
+          <div className="tag-editor-current">
+            {tags.map((t) => (
+              <span key={t} className="chip tag-chip removable">
+                {t}
+                <button className="chip-x" title="Quitar etiqueta" onClick={() => onRemove(t)}>
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="tag-editor-add">
+          <input
+            className="tag-input"
+            autoFocus
+            placeholder="Nueva etiqueta…"
+            list="tag-suggestions"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); submit() }
+              else if (e.key === 'Escape') { e.preventDefault(); onClose() }
+            }}
+          />
+          <datalist id="tag-suggestions">
+            {suggestions.map((s) => <option key={s} value={s} />)}
+          </datalist>
+          <button className="icon-btn" title="Agregar" onClick={submit}><Plus size={15} /></button>
+        </div>
+
+        <p className="tag-hint">Los espacios se convierten en guiones. Debe ser única.</p>
+      </div>
+    </div>
+  )
+}
+
+interface TagFilterMenuProps {
+  allTags: string[]
+  selected: string[]
+  onToggle: (name: string) => void
+  onClear: () => void
+  onClose: () => void
+}
+
+/**
+ * Popover con búsqueda para filtrar por etiqueta. En vez de listar todas las
+ * etiquetas (no escala), se buscan al tipear; solo los filtros activos ocupan
+ * lugar en la barra. Soporta catálogos de etiquetas arbitrariamente grandes.
+ */
+function TagFilterMenu({ allTags, selected, onToggle, onClear, onClose }: TagFilterMenuProps): JSX.Element {
+  const [q, setQ] = useState('')
+  const query = q.trim().toLowerCase()
+  const shown = query ? allTags.filter((t) => t.toLowerCase().includes(query)) : allTags
+
+  return (
+    <>
+      <div className="vault-overlay" onClick={onClose} />
+      <div className="tag-filter-menu" onClick={(e) => e.stopPropagation()}>
+        <input
+          className="tag-input"
+          autoFocus
+          placeholder="Buscar etiqueta…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { e.preventDefault(); onClose() }
+          }}
+        />
+        <ul className="tag-filter-list">
+          {shown.length === 0 ? (
+            <li className="tag-filter-empty">Sin resultados</li>
+          ) : (
+            shown.map((t) => (
+              <li
+                key={t}
+                className={selected.includes(t) ? 'sel' : ''}
+                onClick={() => onToggle(t)}
+              >
+                <Tag size={12} className="tag-filter-icon" />
+                <span className="vault-menu-name">{t}</span>
+                {selected.includes(t) && <Check size={14} />}
+              </li>
+            ))
+          )}
+        </ul>
+        {selected.length > 0 && (
+          <button className="link-btn tag-filter-clear" onClick={onClear}>
+            Limpiar filtros ({selected.length})
+          </button>
+        )}
+      </div>
+    </>
+  )
+}
+
+interface BranchMenuProps {
+  branches: GitBranchRef[]
+  currentBranch: string | null
+  selected: string[]
+  mergedNames: Set<string>
+  onToggle: (name: string) => void
+  onClear: () => void
+  onDelete: (name: string) => void
+  onClose: () => void
+}
+
+/**
+ * Popover de ramas: filtrar por rama y podar ramas stale. Buscador para escalar.
+ * main y la rama actual no se pueden borrar; las fusionadas se marcan como
+ * seguras. Click en la fila filtra; el tacho borra (con confirmación en App).
+ */
+function BranchMenu({
+  branches,
+  currentBranch,
+  selected,
+  mergedNames,
+  onToggle,
+  onClear,
+  onDelete,
+  onClose
+}: BranchMenuProps): JSX.Element {
+  const [q, setQ] = useState('')
+  const query = q.trim().toLowerCase()
+  const sorted = [...branches].sort((a, b) =>
+    a.name === PROD ? -1 : b.name === PROD ? 1 : a.name.localeCompare(b.name)
+  )
+  const shown = query ? sorted.filter((b) => b.name.toLowerCase().includes(query)) : sorted
+
+  return (
+    <>
+      <div className="vault-overlay" onClick={onClose} />
+      <div className="tag-filter-menu" onClick={(e) => e.stopPropagation()}>
+        <input
+          className="tag-input"
+          autoFocus
+          placeholder="Buscar rama…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }}
+        />
+        <ul className="tag-filter-list">
+          {shown.length === 0 ? (
+            <li className="tag-filter-empty">Sin resultados</li>
+          ) : (
+            shown.map((b) => {
+              const isProd = b.name === PROD
+              const isCurrent = b.name === currentBranch
+              const merged = mergedNames.has(b.name)
+              const canDelete = !isProd && !isCurrent
+              return (
+                <li
+                  key={b.name}
+                  className={selected.includes(b.name) ? 'sel' : ''}
+                  onClick={() => onToggle(b.name)}
+                >
+                  <GitBranch size={12} className="tag-filter-icon" />
+                  <span className="vault-menu-name">{b.name}</span>
+                  {isProd && <span className="branch-tag prod">prod</span>}
+                  {isCurrent && <span className="branch-tag current">actual</span>}
+                  {!isProd && merged && <span className="branch-tag merged">fusionada</span>}
+                  {selected.includes(b.name) && <Check size={14} />}
+                  {canDelete && (
+                    <button
+                      className="branch-del"
+                      title={merged ? 'Borrar rama (ya fusionada)' : 'Borrar rama (no fusionada)'}
+                      onClick={(e) => { e.stopPropagation(); onDelete(b.name) }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </li>
+              )
+            })
+          )}
+        </ul>
+        {selected.length > 0 && (
+          <button className="link-btn tag-filter-clear" onClick={onClear}>
+            Limpiar filtros ({selected.length})
+          </button>
+        )}
+      </div>
+    </>
   )
 }

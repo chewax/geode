@@ -32,8 +32,11 @@ export const IPC = {
   gitChanges: 'geode:git-changes',
   gitPush: 'geode:git-push',
   gitPendingPush: 'geode:git-pending-push',
-  gitStartWork: 'geode:git-start-work',
-  gitMergeToProd: 'geode:git-merge-to-prod',
+  gitCreateBranch: 'geode:git-create-branch',
+  gitMergeBranch: 'geode:git-merge-branch',
+  gitAddTag: 'geode:git-add-tag',
+  gitRemoveTag: 'geode:git-remove-tag',
+  gitDeleteBranch: 'geode:git-delete-branch',
   githubGetConfig: 'geode:github-get-config',
   githubStartDeviceFlow: 'geode:github-start-device-flow',
   githubCompleteDeviceFlow: 'geode:github-complete-device-flow',
@@ -135,6 +138,15 @@ export interface GitCommitNode {
 export interface GitBranchRef {
   name: string
   tip: string
+  /** Rama de origen a la que se integra al mergear (undefined para main). */
+  base?: string
+}
+
+/** Una etiqueta (tag de git) apuntando a un commit. */
+export interface GitTagRef {
+  name: string
+  /** Oid del commit etiquetado. */
+  oid: string
 }
 
 /** Grafo de commits de todo el vault, para el árbol de versiones. */
@@ -142,6 +154,8 @@ export interface GitGraph {
   /** Commits de todas las ramas, más nuevo primero. */
   commits: GitCommitNode[]
   branches: GitBranchRef[]
+  /** Etiquetas (tags de git) del vault. */
+  tags: GitTagRef[]
   /** HEAD actual: su oid y la rama si está adjunto (null = detached). */
   head: { oid: string | null; branch: string | null }
   /** Oids que están en la línea de HEAD (ancestros incluido); el resto se atenúa. */
@@ -163,10 +177,19 @@ export interface GitApi {
   push(): Promise<{ branch: string; oid: string }>
   /** Commits de la rama actual sin pushear. */
   pendingPush(): Promise<number>
-  /** Arranca una rama de trabajo si estás en prod/detached. Devuelve la rama (o null). */
-  startWork(): Promise<string | null>
-  /** Mergea la rama de trabajo actual a prod (main) y vuelve a prod. */
-  mergeToProd(message?: string): Promise<void>
+  /** Crea una rama desde un commit (por defecto HEAD) y cambia a ella. Devuelve el nombre. */
+  createBranch(fromOid: string, name?: string): Promise<string>
+  /** Integra la rama actual a su rama de origen (base) y cambia a la base. */
+  mergeBranch(): Promise<void>
+  /**
+   * Etiqueta un commit (tag de git liviano). El nombre se sanea a un ref válido
+   * (espacios → guiones). Devuelve el nombre final aplicado. Lanza si ya existe.
+   */
+  addTag(oid: string, name: string): Promise<string>
+  /** Borra una etiqueta por su nombre. */
+  removeTag(name: string): Promise<void>
+  /** Borra una rama por su nombre. Lanza si es prod (main) o la rama actual. */
+  deleteBranch(name: string): Promise<void>
 }
 
 // ── GitHub (device flow + push del vault) ───────────────────────────────────

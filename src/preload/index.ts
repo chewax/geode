@@ -40,8 +40,11 @@ const api: GeodeApi = {
     changes: () => ipcRenderer.invoke(IPC.gitChanges),
     push: () => ipcRenderer.invoke(IPC.gitPush),
     pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush),
-    startWork: () => ipcRenderer.invoke(IPC.gitStartWork),
-    mergeToProd: (message) => ipcRenderer.invoke(IPC.gitMergeToProd, message)
+    createBranch: (fromOid, name) => ipcRenderer.invoke(IPC.gitCreateBranch, fromOid, name),
+    mergeBranch: () => ipcRenderer.invoke(IPC.gitMergeBranch),
+    addTag: (oid, name) => ipcRenderer.invoke(IPC.gitAddTag, oid, name),
+    removeTag: (name) => ipcRenderer.invoke(IPC.gitRemoveTag, name),
+    deleteBranch: (name) => ipcRenderer.invoke(IPC.gitDeleteBranch, name)
   },
   github: {
     getConfig: () => ipcRenderer.invoke(IPC.githubGetConfig),

@@ -6,7 +6,6 @@ import {
   Settings as SettingsIcon,
   Save,
   GitBranch,
-  AlertTriangle,
   Pencil,
   Trash2,
   X,
@@ -18,13 +17,15 @@ import {
   ArrowDownUp,
   FoldVertical,
   UnfoldVertical,
-  HelpCircle,
-  Gem
+  HelpCircle
 } from 'lucide-react'
+import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
+import { BranchSwitcher } from './BranchSwitcher'
+import { BranchDialog } from './BranchDialog'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
@@ -52,6 +53,8 @@ export function App(): JSX.Element {
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
+  // Commit desde el cual crear una rama (abre el diálogo de nombre); null = cerrado.
+  const [branchFrom, setBranchFrom] = useState<string | null>(null)
   const [editingPath, setEditingPath] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
   const [tabs, setTabs] = useState<string[]>([])
@@ -59,10 +62,6 @@ export function App(): JSX.Element {
   tabsRef.current = tabs
   const editorRef = useRef<EditorHandle>(null)
   const [aiEdit, setAiEdit] = useState<EditorContext | null>(null)
-  // HEAD actual (prod / rama de trabajo / detached) y flag de arranque de rama.
-  const headRef = useRef<{ oid: string | null; branch: string | null }>({ oid: null, branch: null })
-  headRef.current = graph?.head ?? { oid: null, branch: null }
-  const startingWorkRef = useRef(false)
   const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
   const [pushCount, setPushCount] = useState(0)
   const [pushing, setPushing] = useState(false)
@@ -74,6 +73,8 @@ export function App(): JSX.Element {
   const saveTimerRef = useRef<number | null>(null)
   const openPathRef = useRef<string | null>(null)
   openPathRef.current = openPath
+  const headOidRef = useRef<string | null>(null)
+  headOidRef.current = graph?.head.oid ?? null
 
   const refreshVaults = useCallback(async () => {
     setVaults(await window.geode.vault.list())
@@ -119,12 +120,6 @@ export function App(): JSX.Element {
     }
   }, [refreshGithub, refreshGraph])
 
-  /** Arranca una rama de trabajo manualmente (estando en prod). */
-  const startWork = useCallback(async () => {
-    await window.geode.git.startWork()
-    await refreshGraph()
-  }, [refreshGraph])
-
   /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
   const flush = useCallback(async () => {
     if (saveTimerRef.current !== null) {
@@ -147,18 +142,9 @@ export function App(): JSX.Element {
     setStatus('saving')
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => void flush(), AUTOSAVE_MS)
-
-    // Modelo prod: editar estando en prod (main) arranca una rama de trabajo.
-    const head = headRef.current
-    if (head.branch === 'main' && head.oid && !startingWorkRef.current) {
-      startingWorkRef.current = true
-      void (async () => {
-        await window.geode.git.startWork()
-        await refreshGraph()
-        startingWorkRef.current = false
-      })()
-    }
-  }, [flush, refreshGraph])
+    // Sin auto-branch: editar commitea en la rama actual (incluida main). Las
+    // ramas se crean a mano con el botón de rama.
+  }, [flush])
 
   const loadIntoEditor = useCallback((path: string, text: string) => {
     setOpenPath(path)
@@ -329,14 +315,14 @@ export function App(): JSX.Element {
     await refreshGithub()
   }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
 
-  /** Integra la rama de trabajo actual a prod y vuelve a prod. */
-  const mergeToProd = useCallback(async () => {
+  /** Integra la rama actual a su rama de origen (base) y cambia a la base. */
+  const mergeBranch = useCallback(async () => {
     await flush()
     // No perder cambios sin versionar: se guardan como una versión antes del merge.
     if ((await window.geode.git.changes()).length > 0) {
       await window.geode.git.commit(`Cambios ${new Date().toLocaleString()}`)
     }
-    await window.geode.git.mergeToProd()
+    await window.geode.git.mergeBranch()
     const t = await refreshTree()
     const path = openPathRef.current
     if (path && new Set(flattenPaths(t)).has(path)) {
@@ -349,6 +335,77 @@ export function App(): JSX.Element {
     await refreshGraph()
     await refreshGithub()
   }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+
+  /**
+   * Crea una rama desde un commit (por defecto HEAD) y cambia a ella. Si sale de
+   * otra versión, avisa si hay cambios sin versionar (el checkout los descarta).
+   */
+  const createBranchAt = useCallback(async (fromOid: string, name: string) => {
+    await flush()
+    const switching = fromOid !== headOidRef.current
+    if (switching) {
+      const pending = await window.geode.git.changes()
+      if (
+        pending.length > 0 &&
+        !window.confirm(
+          `Tenés ${pending.length} cambio(s) sin guardar como versión.\n` +
+            'Crear la rama desde otra versión los descarta.\n\n¿Continuar?'
+        )
+      ) {
+        return
+      }
+    }
+    try {
+      await window.geode.git.createBranch(fromOid, name)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo crear la rama')
+      return
+    }
+    const t = await refreshTree()
+    const p = openPathRef.current
+    if (p && new Set(flattenPaths(t)).has(p)) {
+      loadIntoEditor(p, await window.geode.vault.readNote(p))
+    } else {
+      setOpenPath(null)
+      setContent('')
+      setStatus('none')
+    }
+    await refreshGraph()
+    await refreshGithub()
+  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+
+  /** Etiqueta un commit (tag de git). Avisa si el nombre ya existe. */
+  const addTag = useCallback(async (oid: string, name: string) => {
+    try {
+      await window.geode.git.addTag(oid, name)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo agregar la etiqueta')
+      return
+    }
+    await refreshGraph()
+  }, [refreshGraph])
+
+  const removeTag = useCallback(async (name: string) => {
+    await window.geode.git.removeTag(name)
+    await refreshGraph()
+  }, [refreshGraph])
+
+  /** Borra una rama (podar stale). Confirma según esté fusionada o no. Devuelve si se borró. */
+  const deleteBranch = useCallback(async (name: string, merged: boolean): Promise<boolean> => {
+    const warn = merged
+      ? `La rama "${name}" ya está fusionada en main: se puede borrar sin perder versiones.`
+      : `⚠ La rama "${name}" tiene versiones que NO están en main. Si la borrás, se pierden.`
+    if (!window.confirm(`${warn}\n\n¿Borrar la rama?`)) return false
+    try {
+      await window.geode.git.deleteBranch(name)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo borrar la rama')
+      return false
+    }
+    await refreshGraph()
+    await refreshGithub()
+    return true
+  }, [refreshGraph, refreshGithub])
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
@@ -405,9 +462,9 @@ export function App(): JSX.Element {
     setCollapseVersion((n) => n + 1)
   }, [])
 
-  const onProd = graph?.head.branch === 'main'
-  const workBranch = graph?.head.branch && graph.head.branch !== 'main' ? graph.head.branch : null
-  const detached = !!graph && graph.head.oid !== null && graph.head.branch === null
+  const hasHead = !!graph?.head.oid
+  // Se puede mergear si la rama actual tiene una base a la cual integrar.
+  const canMerge = !!graph?.branches.find((b) => b.name === graph.head.branch)?.base
   const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
 
   // Red de seguridad: si el preload no cargó, window.geode no existe.
@@ -443,38 +500,41 @@ export function App(): JSX.Element {
     <div className="shell">
       <header className="titlebar">
         <div className="tb-left">
-          <Gem size={15} className="tb-gem" />
+          <img className="tb-logo" src={logoUrl} alt="Geode" />
           <span className="tb-doc" title={openPath ?? vault.name}>
             {openPath ? tabName(openPath) : vault.name}
           </span>
-          {onProd && (
-            <span className="branch-chip prod" title="Estás en prod. Editar abre una rama de trabajo.">
-              prod
-            </span>
-          )}
-          {workBranch && <span className="branch-chip work" title="Rama de trabajo">{workBranch}</span>}
-          {detached && (
-            <span className="detached" title="HEAD en una versión anterior">
-              <AlertTriangle size={13} /> versión anterior
-            </span>
-          )}
         </div>
 
         <div className="tb-right">
-          <span className="save-status">{statusLabel(status, savedAt)}</span>
           <div className="tb-actions">
-            {onProd && (
-              <button className="tb-btn" title="Empezar una rama de cambios" onClick={() => void startWork()}>
-                <GitBranchPlus size={15} /> Empezar cambios
+            {hasHead && (
+              <button
+                className="tb-btn icon"
+                title="Crear una rama desde esta versión"
+                aria-label="Crear una rama desde esta versión"
+                onClick={() => graph?.head.oid && setBranchFrom(graph.head.oid)}
+              >
+                <GitBranchPlus size={15} />
               </button>
             )}
-            {workBranch && (
-              <button className="tb-btn" title="Integrar la rama a prod" onClick={() => void mergeToProd()}>
-                <GitMerge size={15} /> Merge
+            {canMerge && (
+              <button
+                className="tb-btn icon"
+                title="Integrar la rama a su rama de origen"
+                aria-label="Integrar la rama a su rama de origen"
+                onClick={() => void mergeBranch()}
+              >
+                <GitMerge size={15} />
               </button>
             )}
-            <button className="tb-btn cta" title="Crear versión (Ctrl+S)" onClick={() => void openCommitDialog()}>
-              <Save size={15} /> Guardar versión
+            <button
+              className="tb-btn icon cta"
+              title="Crear versión (Ctrl+S)"
+              aria-label="Crear versión"
+              onClick={() => void openCommitDialog()}
+            >
+              <Save size={15} />
             </button>
             <button
               className={`tb-btn icon${graphOpen ? ' active' : ''}`}
@@ -610,9 +670,21 @@ export function App(): JSX.Element {
               ) : (
                 <span>Ninguna nota abierta</span>
               )}
+              {statusLabel(status, savedAt) && (
+                <span className="save-status">{statusLabel(status, savedAt)}</span>
+              )}
             </div>
 
             <div className="status-right">
+              {graph && graph.head.oid && (
+                <BranchSwitcher
+                  branches={graph.branches}
+                  head={graph.head}
+                  menuUp
+                  onSwitch={(tip) => void goToVersion(tip)}
+                />
+              )}
+
               <div className="status-item">
                 <Cloud size={14} className={githubCfg?.connected ? 'st-ok' : 'st-off'} />
                 <span>{githubCfg?.connected ? 'GitHub' : 'sin GitHub'}</span>
@@ -675,9 +747,24 @@ export function App(): JSX.Element {
             graph={graph}
             onSelect={(oid) => void goToVersion(oid)}
             onClose={() => setGraphOpen(false)}
+            onAddTag={(oid, name) => void addTag(oid, name)}
+            onRemoveTag={(name) => void removeTag(name)}
+            onDeleteBranch={deleteBranch}
+            onCreateBranch={(oid) => setBranchFrom(oid)}
           />
         )}
       </div>
+
+      {branchFrom && (
+        <BranchDialog
+          onConfirm={(name) => {
+            const oid = branchFrom
+            setBranchFrom(null)
+            void createBranchAt(oid, name)
+          }}
+          onClose={() => setBranchFrom(null)}
+        />
+      )}
 
       {commitChanges && (
         <CommitDialog

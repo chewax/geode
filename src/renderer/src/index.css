@@ -144,9 +144,12 @@ button.primary {
   min-width: 0;
 }
 
-.tb-gem {
-  color: var(--accent);
+.tb-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
   flex-shrink: 0;
+  -webkit-user-drag: none;
 }
 
 .tb-doc {
@@ -1177,4 +1180,371 @@ button.primary {
   color: var(--muted);
   font-size: 12px;
   text-align: center;
+}
+
+/* ── Etiquetas (tags de versión) ────────────────────────────────────────── */
+.chip.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  border-color: rgba(183, 148, 246, 0.5);
+  background: rgba(183, 148, 246, 0.12);
+}
+
+/* Botón para editar etiquetas en cada fila del grafo (tenue, se realza al hover). */
+.tag-btn {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 3px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.45;
+}
+
+.graph-row:hover .tag-btn {
+  opacity: 1;
+}
+
+.tag-btn:hover {
+  border: none;
+  color: var(--accent);
+  background: rgba(183, 148, 246, 0.14);
+}
+
+/* Barra de filtro por etiqueta: solo botón + filtros activos (escala a ∞ etiquetas). */
+.tag-filter {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tag-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.tag-filter-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.tag-filter-btn.on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(183, 148, 246, 0.12);
+}
+
+/* Popover con búsqueda de etiquetas. */
+.tag-filter-menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  left: 12px;
+  z-index: 61;
+  width: 230px;
+  padding: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.tag-filter-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.tag-filter-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tag-filter-list li:hover {
+  background: rgba(183, 148, 246, 0.14);
+}
+
+.tag-filter-list li.sel {
+  color: var(--accent);
+}
+
+.tag-filter-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.tag-filter-empty {
+  padding: 10px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  cursor: default;
+}
+
+.tag-filter-empty:hover {
+  background: transparent;
+}
+
+.tag-filter-clear {
+  margin-top: 8px;
+}
+
+/* Chip de filtro de rama (distinto del de etiqueta). */
+.chip.branch-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #63b3ed;
+  border-color: rgba(99, 179, 237, 0.5);
+  background: rgba(99, 179, 237, 0.12);
+}
+
+.chip.branch-filter-chip.removable {
+  gap: 4px;
+  padding-right: 4px;
+}
+
+/* Badges de rama dentro del popover (prod / actual / fusionada). */
+.branch-tag {
+  flex-shrink: 0;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.branch-tag.prod {
+  color: #68d391;
+  border-color: rgba(104, 211, 145, 0.5);
+}
+
+.branch-tag.current {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.branch-tag.merged {
+  color: var(--muted);
+}
+
+/* Botón de borrar rama en el popover. */
+.branch-del {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.branch-del:hover {
+  border: none;
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.14);
+  opacity: 1;
+}
+
+/* ── Selector de rama en la status bar (estilo VS Code) ─────────────────── */
+.branch-switcher {
+  position: relative;
+}
+
+/* Ítem plano, integrado con el resto de la status bar (sin pill). */
+.branch-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.branch-switch:hover {
+  background: var(--panel-2);
+  border-color: var(--border);
+}
+
+.branch-switch-chevron {
+  opacity: 0.6;
+}
+
+/* Color por estado (semántico), manteniéndose plano. */
+.branch-switch.prod {
+  color: #68d391;
+}
+
+.branch-switch.work {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.branch-switch.detached {
+  color: #f6ad55;
+}
+
+.branch-switch-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 61;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Variante que abre hacia arriba (status bar al pie de la ventana). */
+.branch-switch-menu.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.branch-switch-menu li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.branch-switch-menu li:hover {
+  background: rgba(183, 148, 246, 0.14);
+}
+
+.branch-switch-menu li.sel {
+  color: var(--accent);
+}
+
+/* Popover editor de etiquetas. */
+.tag-editor {
+  position: fixed;
+  z-index: 210;
+  width: 240px;
+  padding: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.tag-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tag-editor-current {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.chip.tag-chip.removable {
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.chip-x:hover {
+  border: none;
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tag-editor-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.tag-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tag-hint {
+  margin: 8px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.branch-modal {
+  width: 420px;
 }

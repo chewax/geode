@@ -1,11 +1,12 @@
 import fs from 'node:fs'
 import os from 'node:os'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
 import { createPatch } from 'diff'
 import type { GitCommitNode, GitGraph } from '@shared/ipc'
+import { atomicWrite } from '../fs/atomic'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
 const IGNORED_TOP = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
@@ -71,6 +72,21 @@ function assignLanes(
 }
 
 /**
+ * Convierte un texto libre en un nombre de tag de git válido: espacios → guiones
+ * y se quitan los caracteres prohibidos en un ref (~^:?*[\, control, etc.). Así
+ * el usuario escribe "borrador final" y queda "borrador-final".
+ */
+function sanitizeTagName(raw: string): string {
+  let name = raw.trim().replace(/\s+/g, '-')
+  name = name.replace(/[~^:?*[\]\\\x00-\x20\x7f]/g, '') // eslint-disable-line no-control-regex
+  name = name.replace(/@\{/g, '')
+  name = name.replace(/\.{2,}/g, '.').replace(/\/{2,}/g, '/')
+  name = name.replace(/^[-./]+|[-./]+$/g, '')
+  if (name.endsWith('.lock')) name = name.slice(0, -'.lock'.length)
+  return name
+}
+
+/**
  * Capa 2 del versionado (ver ARCHITECTURE.md §3): commits Git con sentido.
  *
  * Modelo de historial: el usuario ve un ÁRBOL de todo el vault, como git. "Ir a
@@ -106,8 +122,9 @@ export class GitService {
 
   /**
    * Commitea los cambios del vault. Devuelve el oid, o null si no había nada.
-   * Si HEAD está detached (el usuario editó parado en una versión vieja),
-   * bifurca: commitea y adjunta HEAD a una rama nueva sin tocar los archivos.
+   * Se commitea DIRECTO en la rama actual (incluida main): las ramas se crean a
+   * mano. Única excepción: si HEAD está detached (viendo una versión vieja), se
+   * bifurca a una rama nueva para no perder el commit en un estado sin rama.
    *
    * Detección de cambios INMUNE al "racy git": no usamos el atajo por stat de
    * isomorphic-git (pierde ediciones del mismo tamaño en el mismo segundo);
@@ -117,12 +134,11 @@ export class GitService {
     const changes = await this.pendingChanges(dir)
     if (changes.length === 0) return null
 
-    // Nunca se commitea a prod (main). Si ya hay commits y estamos en prod o en
-    // detached (viendo una versión vieja), arrancamos una rama de trabajo antes
-    // de commitear. Excepción: repo sin commits → el primer commit crea prod.
-    if (await this.headOid(dir)) {
-      const branch = await this.currentBranch(dir)
-      if (!branch || branch === PROD) await this.startWork(dir)
+    // Detached (sin rama): bifurca antes de commitear para no perder el commit.
+    // Estar en una rama —incluida main— commitea directo en ella.
+    const head = await this.headOid(dir)
+    if (head && !(await this.currentBranch(dir))) {
+      await this.createBranch(dir, head, '', { noCheckout: true })
     }
 
     for (const change of changes) {
@@ -136,58 +152,131 @@ export class GitService {
     return git.commit({ fs, dir, message, author: this.author() })
   }
 
-  /**
-   * Arranca (o continúa) una rama de trabajo. Si estamos en prod (main) o en
-   * detached, crea una rama nueva en HEAD y la adjunta SIN tocar el working dir
-   * (noCheckout), para no pisar lo que se está escribiendo. Si ya estamos en una
-   * rama de trabajo, no hace nada. Devuelve la rama, o null si el repo no tiene
-   * commits todavía (ahí el primer commit hace bootstrap de prod).
-   */
-  async startWork(dir: string): Promise<string | null> {
-    if (!(await this.headOid(dir))) return null // repo sin commits: bootstrap a prod
-    const branch = await this.currentBranch(dir)
-    if (branch && branch !== PROD) return branch // ya estás trabajando
+  // ── Metadata de ramas (.geode/branches.json): guarda de qué rama salió cada
+  // rama, para poder integrarla "a su base". .geode está fuera del versionado.
+  private branchMetaPath(dir: string): string {
+    return join(dir, '.geode', 'branches.json')
+  }
 
-    const name = await this.nextWorkBranch(dir)
-    await git.branch({ fs, dir, ref: name })
-    await git.checkout({ fs, dir, ref: name, noCheckout: true })
+  private async readBranchMeta(dir: string): Promise<Record<string, { base: string }>> {
+    try {
+      return JSON.parse(await readFile(this.branchMetaPath(dir), 'utf8'))
+    } catch {
+      return {}
+    }
+  }
+
+  private async writeBranchMeta(dir: string, meta: Record<string, { base: string }>): Promise<void> {
+    await mkdir(join(dir, '.geode'), { recursive: true })
+    await atomicWrite(this.branchMetaPath(dir), JSON.stringify(meta, null, 2))
+  }
+
+  /** Ramas cuyo historial contiene `oid` (oid es el tip o un ancestro del tip). */
+  private async branchesContaining(dir: string, oid: string): Promise<string[]> {
+    const out: string[] = []
+    for (const name of await git.listBranches({ fs, dir })) {
+      const tip = await git.resolveRef({ fs, dir, ref: name })
+      if (tip === oid || (await git.isDescendent({ fs, dir, oid: tip, ancestor: oid, depth: -1 }))) {
+        out.push(name)
+      }
+    }
+    return out
+  }
+
+  /** Rama base para una rama nueva creada en `oid`: la que contiene ese commit
+   * (prioriza la rama `prefer`, luego main). */
+  private async resolveBase(dir: string, oid: string, prefer: string | null): Promise<string> {
+    const containing = await this.branchesContaining(dir, oid)
+    if (prefer && containing.includes(prefer)) return prefer
+    if (containing.includes(PROD)) return PROD
+    return containing[0] ?? PROD
+  }
+
+  /**
+   * Crea una rama en `fromOid` (por defecto HEAD) y cambia a ella. Guarda su
+   * rama de origen (base) para poder integrarla después. `noCheckout` la crea
+   * sin tocar el working dir (para el caso de commit desde detached).
+   */
+  async createBranch(
+    dir: string,
+    fromOid: string,
+    rawName = '',
+    opts: { base?: string; noCheckout?: boolean } = {}
+  ): Promise<string> {
+    const name = sanitizeTagName(rawName) || (await this.nextWorkBranch(dir))
+    const existing = await git.listBranches({ fs, dir })
+    if (existing.includes(name)) throw new Error(`Ya existe una rama "${name}"`)
+
+    const base = opts.base ?? (await this.resolveBase(dir, fromOid, await this.currentBranch(dir)))
+    await git.writeRef({ fs, dir, ref: `refs/heads/${name}`, value: fromOid, force: false })
+
+    const meta = await this.readBranchMeta(dir)
+    meta[name] = { base }
+    await this.writeBranchMeta(dir, meta)
+
+    // Si la rama sale del commit actual, adjuntamos HEAD sin tocar el working dir
+    // (preserva ediciones sin versionar). Si sale de otro commit, cambiamos a él.
+    const sameAsHead = fromOid === (await this.headOid(dir))
+    await git.checkout({ fs, dir, ref: name, noCheckout: opts.noCheckout ?? sameAsHead, force: true })
     return name
   }
 
   /**
-   * Mergea la rama de trabajo actual a prod (main) y vuelve a prod. Crea un
-   * merge commit (no fast-forward) para conservar la topología de rama+merge en
-   * el árbol, y cierra (borra) la rama de trabajo.
+   * Integra la rama actual a SU RAMA DE ORIGEN (base) por REBASE y cambia a la
+   * base. Los commits propios de la rama pasan a la historia LINEAL de la base
+   * (sin merge commit), así no queda un carril separado. Se borra la rama al
+   * final: como sus commits ya están en la base, el histórico se conserva.
    *
-   * Single-device: prod no diverge mientras trabajás, así que el árbol de la
-   * rama es el resultado del merge. El merge 3-way (multi-dispositivo) se suma
-   * después sin cambiar esta interfaz.
+   * Caso normal (la base es ancestro de la rama): fast-forward, commits intactos.
+   * Si divergieron, se reproducen sobre el tip de la base. Single-device: "gana"
+   * la rama, sin merge 3-way.
    */
-  async mergeToProd(dir: string, message: string): Promise<void> {
+  async mergeBranch(dir: string): Promise<void> {
     const branch = await this.currentBranch(dir)
-    if (!branch || branch === PROD) throw new Error('No estás en una rama de trabajo')
+    if (!branch) throw new Error('HEAD detached: no hay rama para integrar')
 
+    const meta = await this.readBranchMeta(dir)
+    const base = meta[branch]?.base
+    if (!base) throw new Error(`La rama "${branch}" no tiene una base a la cual integrar`)
+    if (base === branch) throw new Error('La rama es su propia base')
+
+    const baseTip = await git.resolveRef({ fs, dir, ref: base }).catch(() => null)
+    if (!baseTip) throw new Error(`La rama base "${base}" ya no existe`)
     const branchTip = await git.resolveRef({ fs, dir, ref: branch })
-    const { commit } = await git.readCommit({ fs, dir, oid: branchTip })
-    const mainTip = await git.resolveRef({ fs, dir, ref: PROD }).catch(() => null)
 
-    if (mainTip) {
-      await git.commit({
-        fs,
-        dir,
-        ref: `refs/heads/${PROD}`,
-        tree: commit.tree,
-        parent: [mainTip, branchTip],
-        message,
-        author: this.author()
-      })
-    } else {
-      // Prod no existía aún: la rama se convierte en prod.
-      await git.writeRef({ fs, dir, ref: `refs/heads/${PROD}`, value: branchTip, force: true })
+    const [mergeBase] = await git.findMergeBase({ fs, dir, oids: [baseTip, branchTip] })
+    if (mergeBase === baseTip) {
+      // Fast-forward: la base avanza al tip de la rama; commits sin reescribir.
+      await git.writeRef({ fs, dir, ref: `refs/heads/${base}`, value: branchTip, force: true })
+    } else if (mergeBase !== branchTip) {
+      // Divergieron: reproducir los commits propios de la rama sobre la base.
+      const log = await git.log({ fs, dir, ref: branchTip })
+      const toReplay = []
+      for (const entry of log) {
+        if (entry.oid === mergeBase) break
+        toReplay.push(entry)
+      }
+      toReplay.reverse() // más viejo primero
+      let parent = baseTip
+      for (const entry of toReplay) {
+        parent = await git.commit({
+          fs,
+          dir,
+          ref: `refs/heads/${base}`,
+          tree: entry.commit.tree,
+          parent: [parent],
+          message: entry.commit.message,
+          author: entry.commit.author,
+          committer: entry.commit.author
+        })
+      }
     }
+    // mergeBase === branchTip: la rama no aportaba nada nuevo; la base queda igual.
 
-    await git.checkout({ fs, dir, ref: PROD, force: true })
+    await git.checkout({ fs, dir, ref: base, force: true })
     await git.deleteBranch({ fs, dir, ref: branch })
+    delete meta[branch]
+    await this.writeBranchMeta(dir, meta)
   }
 
   /**
@@ -215,12 +304,13 @@ export class GitService {
   /** Grafo de commits de TODO el vault (todas las ramas), para el árbol. */
   async graph(dir: string, pushed: string[] = []): Promise<GitGraph> {
     const branchNames = await git.listBranches({ fs, dir })
+    const branchMeta = await this.readBranchMeta(dir)
     const commitsMap = new Map<string, GitCommitNode>()
-    const branches: { name: string; tip: string }[] = []
+    const branches: { name: string; tip: string; base?: string }[] = []
 
     for (const name of branchNames) {
       const tip = await git.resolveRef({ fs, dir, ref: name })
-      branches.push({ name, tip })
+      branches.push({ name, tip, base: branchMeta[name]?.base })
       let log
       try {
         log = await git.log({ fs, dir, ref: name })
@@ -278,7 +368,59 @@ export class GitService {
     const lanes = assignLanes(commits, seedTips)
     for (const c of commits) c.lane = lanes.get(c.oid) ?? 0
 
-    return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine, pushed }
+    // Etiquetas: cada tag apunta a un commit. Los tags anotados se "pelan" hasta
+    // el commit destino; los livianos (los que crea la app) ya lo son.
+    const tags: { name: string; oid: string }[] = []
+    for (const name of await git.listTags({ fs, dir })) {
+      let oid = await git.resolveRef({ fs, dir, ref: name }).catch(() => null)
+      if (!oid) continue
+      try {
+        let obj = await git.readObject({ fs, dir, oid })
+        while (obj.type === 'tag') {
+          oid = (obj.object as { object: string }).object
+          obj = await git.readObject({ fs, dir, oid })
+        }
+      } catch {
+        /* si no se puede leer, dejamos el oid ya resuelto */
+      }
+      tags.push({ name, oid })
+    }
+
+    return { commits, branches, tags, head: { oid: headOid, branch: headBranch }, onCurrentLine, pushed }
+  }
+
+  /**
+   * Etiqueta un commit con un tag liviano. Sanea el nombre a un ref de git
+   * válido (espacios → guiones). Devuelve el nombre final. Lanza si ya existe.
+   */
+  async addTag(dir: string, oid: string, rawName: string): Promise<string> {
+    const name = sanitizeTagName(rawName)
+    if (!name) throw new Error('Nombre de etiqueta inválido')
+    const existing = await git.listTags({ fs, dir })
+    if (existing.includes(name)) throw new Error(`Ya existe una etiqueta "${name}"`)
+    await git.tag({ fs, dir, ref: name, object: oid })
+    return name
+  }
+
+  /** Borra una etiqueta por su nombre. */
+  async removeTag(dir: string, name: string): Promise<void> {
+    await git.deleteTag({ fs, dir, ref: name })
+  }
+
+  /**
+   * Borra una rama. No permite borrar prod (main) ni la rama actual (HEAD), para
+   * no dejar el repo en un estado raro. El resto se puede podar (limpiar stale).
+   */
+  async deleteBranch(dir: string, name: string): Promise<void> {
+    if (name === PROD) throw new Error('No se puede borrar la rama principal (main)')
+    const current = await git.currentBranch({ fs, dir, fullname: false })
+    if (name === current) throw new Error('No se puede borrar la rama actual; cambiá de versión primero')
+    await git.deleteBranch({ fs, dir, ref: name })
+    const meta = await this.readBranchMeta(dir)
+    if (meta[name]) {
+      delete meta[name]
+      await this.writeBranchMeta(dir, meta)
+    }
   }
 
   /** Rama actual, o null si HEAD está detached. */

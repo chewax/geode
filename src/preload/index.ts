@@ -42,6 +42,7 @@ const api: GeodeApi = {
     pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush),
     createBranch: (fromOid, name) => ipcRenderer.invoke(IPC.gitCreateBranch, fromOid, name),
     mergeBranch: () => ipcRenderer.invoke(IPC.gitMergeBranch),
+    commitDiff: (oid) => ipcRenderer.invoke(IPC.gitCommitDiff, oid),
     addTag: (oid, name) => ipcRenderer.invoke(IPC.gitAddTag, oid, name),
     removeTag: (name) => ipcRenderer.invoke(IPC.gitRemoveTag, name),
     deleteBranch: (name) => ipcRenderer.invoke(IPC.gitDeleteBranch, name)

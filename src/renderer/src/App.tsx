@@ -29,6 +29,7 @@ import { VaultSwitcher } from './VaultSwitcher'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
 import { MarkdownPreview } from './MarkdownPreview'
+import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
@@ -59,6 +60,8 @@ export function App(): JSX.Element {
   const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
   // Commit desde el cual crear una rama (abre el diálogo de nombre); null = cerrado.
   const [branchFrom, setBranchFrom] = useState<string | null>(null)
+  // Commit cuyo diff se está viendo (abre el visor de cambios); null = cerrado.
+  const [diffOid, setDiffOid] = useState<string | null>(null)
   const [editingPath, setEditingPath] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
   const [tabs, setTabs] = useState<string[]>([])
@@ -780,9 +783,12 @@ export function App(): JSX.Element {
             onRemoveTag={(name) => void removeTag(name)}
             onDeleteBranch={deleteBranch}
             onCreateBranch={(oid) => setBranchFrom(oid)}
+            onShowDiff={(oid) => setDiffOid(oid)}
           />
         )}
       </div>
+
+      {diffOid && <DiffView oid={diffOid} onClose={() => setDiffOid(null)} />}
 
       {branchFrom && (
         <BranchDialog

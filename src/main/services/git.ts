@@ -544,6 +544,53 @@ export class GitService {
     return out.trim()
   }
 
+  /** Blobs (ruta→oid) del árbol de un commit. Solo archivos, no carpetas. */
+  private async treeBlobs(dir: string, ref: string): Promise<Map<string, string>> {
+    const map = new Map<string, string>()
+    await git.walk({
+      fs,
+      dir,
+      trees: [TREE({ ref })],
+      map: async (filepath, [entry]) => {
+        if (!entry || filepath === '.') return
+        if ((await entry.type()) === 'blob') map.set(filepath, await entry.oid())
+      }
+    })
+    return map
+  }
+
+  /**
+   * Diff de una versión contra su primer padre: qué cambió en ese commit. Notas
+   * de texto con patch unificado (jsdiff); binarios solo como estado. Para el
+   * visor de cambios por versión.
+   */
+  async commitDiff(dir: string, oid: string): Promise<{ path: string; status: 'added' | 'modified' | 'deleted'; patch: string }[]> {
+    const { commit } = await git.readCommit({ fs, dir, oid })
+    const parent = commit.parent[0] ?? null
+
+    const curr = await this.treeBlobs(dir, oid)
+    const prev = parent ? await this.treeBlobs(dir, parent) : new Map<string, string>()
+    const paths = [...new Set([...curr.keys(), ...prev.keys()])].sort((a, b) => a.localeCompare(b))
+
+    const out: { path: string; status: 'added' | 'modified' | 'deleted'; patch: string }[] = []
+    for (const path of paths) {
+      const c = curr.get(path)
+      const p = prev.get(path)
+      if (c && p && c === p) continue // sin cambios
+
+      const status: 'added' | 'modified' | 'deleted' = !p ? 'added' : !c ? 'deleted' : 'modified'
+      const oldText = p && parent ? await this.safeReadAt(dir, parent, path) : ''
+      const newText = c ? await this.safeReadAt(dir, oid, path) : ''
+
+      const patch =
+        this.looksBinary(oldText) || this.looksBinary(newText)
+          ? `Archivo binario (${status})`
+          : createPatch(path, oldText, newText, '', '')
+      out.push({ path, status, patch })
+    }
+    return out
+  }
+
   /** Heurística simple: un byte NUL sugiere contenido binario (no diffeable como texto). */
   private looksBinary(text: string): boolean {
     return text.includes(String.fromCharCode(0))

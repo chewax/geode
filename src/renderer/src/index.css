@@ -1664,3 +1664,101 @@ button.primary {
 .branch-modal {
   width: 420px;
 }
+
+/* ── Visor de cambios (diff por versión) ─────────────────────────────────── */
+.diff-modal {
+  width: 780px;
+}
+
+.diff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.diff-head h2 {
+  margin: 0;
+}
+
+.diff-oid {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.7em;
+  color: var(--accent);
+}
+
+.diff-files {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.diff-file {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diff-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.diff-file-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.diff-file-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.diff-file-head.added { color: #68d391; }
+.diff-file-head.deleted { color: #ff6b6b; }
+.diff-file-head.modified { color: var(--accent); }
+
+.diff-body {
+  margin: 0;
+  padding: 6px 0;
+  max-height: 320px;
+  overflow: auto;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-ln {
+  padding: 0 12px;
+}
+
+.diff-ln.add {
+  background: rgba(104, 211, 145, 0.14);
+  color: #9ae6b4;
+}
+
+.diff-ln.del {
+  background: rgba(255, 107, 107, 0.14);
+  color: #feb2b2;
+}
+
+.diff-ln.hunk {
+  color: var(--muted);
+  background: var(--panel-2);
+}
+
+.diff-ln.ctx {
+  color: var(--text);
+}

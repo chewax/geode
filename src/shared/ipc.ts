@@ -34,6 +34,7 @@ export const IPC = {
   gitPendingPush: 'geode:git-pending-push',
   gitCreateBranch: 'geode:git-create-branch',
   gitMergeBranch: 'geode:git-merge-branch',
+  gitCommitDiff: 'geode:git-commit-diff',
   gitAddTag: 'geode:git-add-tag',
   gitRemoveTag: 'geode:git-remove-tag',
   gitDeleteBranch: 'geode:git-delete-branch',
@@ -149,6 +150,14 @@ export interface GitTagRef {
   oid: string
 }
 
+/** Cambio de un archivo en una versión (respecto de su padre). */
+export interface FileDiff {
+  path: string
+  status: 'added' | 'modified' | 'deleted'
+  /** Patch unificado (jsdiff) o nota para binarios. */
+  patch: string
+}
+
 /** Grafo de commits de todo el vault, para el árbol de versiones. */
 export interface GitGraph {
   /** Commits de todas las ramas, más nuevo primero. */
@@ -181,6 +190,8 @@ export interface GitApi {
   createBranch(fromOid: string, name?: string): Promise<string>
   /** Integra la rama actual a su rama de origen (base) y cambia a la base. */
   mergeBranch(): Promise<void>
+  /** Cambios de una versión respecto de su padre (para el visor de diff). */
+  commitDiff(oid: string): Promise<FileDiff[]>
   /**
    * Etiqueta un commit (tag de git liviano). El nombre se sanea a un ref válido
    * (espacios → guiones). Devuelve el nombre final aplicado. Lanza si ya existe.

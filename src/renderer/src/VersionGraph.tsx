@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, Trash2, Eye, EyeOff } from 'lucide-react'
+import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, GitCompare, Trash2, Eye, EyeOff } from 'lucide-react'
 import type { GitBranchRef, GitCommitNode, GitGraph } from '@shared/ipc'
 
 interface VersionGraphProps {
@@ -13,6 +13,8 @@ interface VersionGraphProps {
   onDeleteBranch: (name: string, merged: boolean) => Promise<boolean>
   /** Crea una rama desde el commit dado (y cambia a ella). */
   onCreateBranch: (fromOid: string) => void
+  /** Abre el visor de cambios de la versión (diff vs su padre). */
+  onShowDiff: (oid: string) => void
 }
 
 const ROW = 54
@@ -39,7 +41,8 @@ export function VersionGraph({
   onAddTag,
   onRemoveTag,
   onDeleteBranch,
-  onCreateBranch
+  onCreateBranch,
+  onShowDiff
 }: VersionGraphProps): JSX.Element {
   const { commits, head, onCurrentLine, branches } = graph
 
@@ -210,6 +213,17 @@ export function VersionGraph({
               <Cloud size={11} /> en GitHub
             </span>
           )}
+          <button
+            className="tag-btn"
+            title="Ver cambios de esta versión"
+            aria-label="Ver cambios de esta versión"
+            onClick={(e) => {
+              e.stopPropagation()
+              onShowDiff(c.oid)
+            }}
+          >
+            <GitCompare size={13} />
+          </button>
           <button
             className="tag-btn"
             title="Crear rama desde esta versión"

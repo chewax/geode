@@ -190,6 +190,7 @@ function registerIpcHandlers(): void {
     gitService.createBranch(requireRoot(), fromOid, name ?? '')
   )
   ipcMain.handle(IPC.gitMergeBranch, () => gitService.mergeBranch(requireRoot()))
+  ipcMain.handle(IPC.gitCommitDiff, (_e, oid: string) => gitService.commitDiff(requireRoot(), oid))
   ipcMain.handle(IPC.gitAddTag, (_e, oid: string, name: string) =>
     gitService.addTag(requireRoot(), oid, name)
   )

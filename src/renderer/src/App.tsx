@@ -390,22 +390,33 @@ export function App(): JSX.Element {
     await refreshGraph()
   }, [refreshGraph])
 
-  /** Borra una rama (podar stale). Confirma según esté fusionada o no. Devuelve si se borró. */
+  /** Borra/descarta una rama. Confirma según esté fusionada o no. Devuelve si se borró. */
   const deleteBranch = useCallback(async (name: string, merged: boolean): Promise<boolean> => {
     const warn = merged
-      ? `La rama "${name}" ya está fusionada en main: se puede borrar sin perder versiones.`
-      : `⚠ La rama "${name}" tiene versiones que NO están en main. Si la borrás, se pierden.`
+      ? `La rama "${name}" ya está fusionada: se puede descartar sin perder versiones.`
+      : `⚠ La rama "${name}" tiene versiones que NO están en su base. Si la borrás, se pierden.`
     if (!window.confirm(`${warn}\n\n¿Borrar la rama?`)) return false
+    await flush()
     try {
       await window.geode.git.deleteBranch(name)
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'No se pudo borrar la rama')
       return false
     }
+    // Borrar la rama actual cambia a su base: recargar árbol/editor.
+    const t = await refreshTree()
+    const p = openPathRef.current
+    if (p && new Set(flattenPaths(t)).has(p)) {
+      loadIntoEditor(p, await window.geode.vault.readNote(p))
+    } else {
+      setOpenPath(null)
+      setContent('')
+      setStatus('none')
+    }
     await refreshGraph()
     await refreshGithub()
     return true
-  }, [refreshGraph, refreshGithub])
+  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 

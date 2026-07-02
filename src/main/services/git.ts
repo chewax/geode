@@ -354,16 +354,30 @@ export class GitService {
     // trabajo ya se haya cerrado tras el merge.
     const commits = [...commitsMap.values()].sort((a, b) => b.timestamp - a.timestamp)
 
-    // Tips de rama en orden de prioridad para sembrar los carriles: prod (main)
-    // primero (lane 0), el resto por tip más nuevo. Así una rama de trabajo
-    // adelantada respecto de main se ve bifurcada desde que arranca.
-    const seedTips = [...branches]
-      .sort((a, b) => {
-        if (a.name === PROD) return -1
-        if (b.name === PROD) return 1
-        return (commitsMap.get(b.tip)?.timestamp ?? 0) - (commitsMap.get(a.tip)?.timestamp ?? 0)
-      })
-      .map((b) => b.tip)
+    // Tips que sembramos como carriles: solo los "hoja" (los que NO son ancestros
+    // de otro tip). Así una rama que apunta a un commit INTERIOR de otra no
+    // reserva un carril fantasma ni le roba el carril a la otra: queda como una
+    // marca sobre la misma línea hasta que tenga commits propios (ahí bifurca).
+    // main siempre se siembra (carril 0), aunque esté por detrás de una rama.
+    const allTips = branches.map((b) => b.tip)
+    const leafTips: string[] = []
+    for (const b of branches) {
+      if (b.name === PROD) continue
+      let isAncestorOfAnother = false
+      for (const other of allTips) {
+        if (other === b.tip) continue
+        if (await git.isDescendent({ fs, dir, oid: other, ancestor: b.tip, depth: -1 })) {
+          isAncestorOfAnother = true
+          break
+        }
+      }
+      if (!isAncestorOfAnother) leafTips.push(b.tip)
+    }
+    leafTips.sort(
+      (a, b) => (commitsMap.get(b)?.timestamp ?? 0) - (commitsMap.get(a)?.timestamp ?? 0)
+    )
+    const prodTip = branches.find((b) => b.name === PROD)?.tip
+    const seedTips = prodTip ? [prodTip, ...leafTips] : leafTips
 
     const lanes = assignLanes(commits, seedTips)
     for (const c of commits) c.lane = lanes.get(c.oid) ?? 0
@@ -408,15 +422,21 @@ export class GitService {
   }
 
   /**
-   * Borra una rama. No permite borrar prod (main) ni la rama actual (HEAD), para
-   * no dejar el repo en un estado raro. El resto se puede podar (limpiar stale).
+   * Borra/descarta una rama. No permite borrar prod (main). Si es la rama ACTUAL
+   * (p. ej. la creaste por error), primero cambia a su base (o main) y luego la
+   * borra — así se puede descartar sin tener que mergearla.
    */
   async deleteBranch(dir: string, name: string): Promise<void> {
     if (name === PROD) throw new Error('No se puede borrar la rama principal (main)')
-    const current = await git.currentBranch({ fs, dir, fullname: false })
-    if (name === current) throw new Error('No se puede borrar la rama actual; cambiá de versión primero')
-    await git.deleteBranch({ fs, dir, ref: name })
     const meta = await this.readBranchMeta(dir)
+
+    if (name === (await git.currentBranch({ fs, dir, fullname: false }))) {
+      const base = meta[name]?.base ?? PROD
+      const target = (await git.resolveRef({ fs, dir, ref: base }).catch(() => null)) ? base : PROD
+      await git.checkout({ fs, dir, ref: target, force: true })
+    }
+
+    await git.deleteBranch({ fs, dir, ref: name })
     if (meta[name]) {
       delete meta[name]
       await this.writeBranchMeta(dir, meta)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, Trash2 } from 'lucide-react'
+import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, Trash2, Eye, EyeOff } from 'lucide-react'
 import type { GitBranchRef, GitCommitNode, GitGraph } from '@shared/ipc'
 
 interface VersionGraphProps {
@@ -49,14 +49,14 @@ export function VersionGraph({
   const [filter, setFilter] = useState<string[]>([])
   // Popover de búsqueda de etiquetas para filtrar (escala a infinitas etiquetas).
   const [filterMenuOpen, setFilterMenuOpen] = useState(false)
-  // Ramas seleccionadas para filtrar + popover de ramas.
-  const [branchFilter, setBranchFilter] = useState<string[]>([])
+  // Ramas OCULTAS (todas visibles por defecto; togglear oculta esa rama).
+  const [hiddenBranches, setHiddenBranches] = useState<string[]>([])
   const [branchMenuOpen, setBranchMenuOpen] = useState(false)
 
   const toggleFilter = (t: string): void =>
     setFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]))
-  const toggleBranchFilter = (name: string): void =>
-    setBranchFilter((f) => (f.includes(name) ? f.filter((x) => x !== name) : [...f, name]))
+  const toggleBranchHidden = (name: string): void =>
+    setHiddenBranches((f) => (f.includes(name) ? f.filter((x) => x !== name) : [...f, name]))
 
   const model = useMemo(() => {
     const index = new Map(commits.map((c, i) => [c.oid, i]))
@@ -106,16 +106,18 @@ export function VersionGraph({
 
   const tagsOf = (oid: string): string[] => model.oidToTags.get(oid) ?? []
 
-  // Commits alcanzables desde las ramas filtradas (unión de sus ancestros).
+  // Commits visibles por rama = unión de ancestros de las ramas NO ocultas. Un
+  // commit compartido sigue visible si alguna rama visible lo alcanza; se ocultan
+  // solo los commits exclusivos de las ramas ocultas.
   const branchVisible = useMemo(() => {
-    if (branchFilter.length === 0) return null
+    if (hiddenBranches.length === 0) return null
     const set = new Set<string>()
-    for (const name of branchFilter) {
-      const b = branches.find((x) => x.name === name)
-      if (b) for (const oid of model.ancestors(b.tip)) set.add(oid)
+    for (const b of branches) {
+      if (hiddenBranches.includes(b.name)) continue
+      for (const oid of model.ancestors(b.tip)) set.add(oid)
     }
     return set
-  }, [branchFilter, branches, model])
+  }, [hiddenBranches, branches, model])
 
   // Commits visibles según el filtro. El grafo se dibuja SIEMPRE (mostrar/ocultar
   // líneas), nunca se cambia a una lista tipo git log.
@@ -245,7 +247,7 @@ export function VersionGraph({
 
   const handleDeleteBranch = async (name: string): Promise<void> => {
     const ok = await onDeleteBranch(name, mergedBranchNames.has(name))
-    if (ok) setBranchFilter((f) => f.filter((x) => x !== name))
+    if (ok) setHiddenBranches((f) => f.filter((x) => x !== name))
   }
 
   return (
@@ -268,11 +270,11 @@ export function VersionGraph({
           )}
           {branches.length > 1 && (
             <button
-              className={`tag-filter-btn${branchFilter.length ? ' on' : ''}`}
-              title="Filtrar y podar ramas"
+              className={`tag-filter-btn${hiddenBranches.length ? ' on' : ''}`}
+              title="Mostrar/ocultar y podar ramas"
               onClick={() => { setBranchMenuOpen((o) => !o); setFilterMenuOpen(false) }}
             >
-              <GitBranch size={13} /> Ramas{branchFilter.length ? ` (${branchFilter.length})` : ''}
+              <GitBranch size={13} /> Ramas{hiddenBranches.length ? ` (${hiddenBranches.length} ocultas)` : ''}
             </button>
           )}
 
@@ -284,10 +286,10 @@ export function VersionGraph({
               </button>
             </span>
           ))}
-          {branchFilter.map((name) => (
+          {hiddenBranches.map((name) => (
             <span key={name} className="chip branch-filter-chip removable">
-              <GitBranch size={10} /> {name}
-              <button className="chip-x" title="Quitar filtro" onClick={() => toggleBranchFilter(name)}>
+              <EyeOff size={10} /> {name}
+              <button className="chip-x" title="Mostrar de nuevo" onClick={() => toggleBranchHidden(name)}>
                 <X size={11} />
               </button>
             </span>
@@ -306,10 +308,10 @@ export function VersionGraph({
             <BranchMenu
               branches={branches}
               currentBranch={head.branch}
-              selected={branchFilter}
+              hidden={hiddenBranches}
               mergedNames={mergedBranchNames}
-              onToggle={toggleBranchFilter}
-              onClear={() => setBranchFilter([])}
+              onToggle={toggleBranchHidden}
+              onShowAll={() => setHiddenBranches([])}
               onDelete={handleDeleteBranch}
               onClose={() => setBranchMenuOpen(false)}
             />
@@ -500,26 +502,26 @@ function TagFilterMenu({ allTags, selected, onToggle, onClear, onClose }: TagFil
 interface BranchMenuProps {
   branches: GitBranchRef[]
   currentBranch: string | null
-  selected: string[]
+  hidden: string[]
   mergedNames: Set<string>
   onToggle: (name: string) => void
-  onClear: () => void
+  onShowAll: () => void
   onDelete: (name: string) => void
   onClose: () => void
 }
 
 /**
- * Popover de ramas: filtrar por rama y podar ramas stale. Buscador para escalar.
- * main y la rama actual no se pueden borrar; las fusionadas se marcan como
- * seguras. Click en la fila filtra; el tacho borra (con confirmación en App).
+ * Popover de ramas: muestra/oculta líneas del grafo y poda ramas. Buscador para
+ * escalar. Click en la fila (o el ojo) alterna visibilidad; el tacho borra (con
+ * confirmación en App). main es indestructible; la actual se puede descartar.
  */
 function BranchMenu({
   branches,
   currentBranch,
-  selected,
+  hidden,
   mergedNames,
   onToggle,
-  onClear,
+  onShowAll,
   onDelete,
   onClose
 }: BranchMenuProps): JSX.Element {
@@ -550,19 +552,24 @@ function BranchMenu({
               const isProd = b.name === PROD
               const isCurrent = b.name === currentBranch
               const merged = mergedNames.has(b.name)
-              const canDelete = !isProd && !isCurrent
+              const isHidden = hidden.includes(b.name)
+              const canDelete = !isProd // la actual se descarta cambiando a su base
               return (
                 <li
                   key={b.name}
-                  className={selected.includes(b.name) ? 'sel' : ''}
+                  className={isHidden ? 'off' : ''}
+                  title={isHidden ? 'Oculta — click para mostrar' : 'Visible — click para ocultar'}
                   onClick={() => onToggle(b.name)}
                 >
-                  <GitBranch size={12} className="tag-filter-icon" />
+                  {isHidden ? (
+                    <EyeOff size={12} className="tag-filter-icon" />
+                  ) : (
+                    <Eye size={12} className="tag-filter-icon" />
+                  )}
                   <span className="vault-menu-name">{b.name}</span>
                   {isProd && <span className="branch-tag prod">prod</span>}
                   {isCurrent && <span className="branch-tag current">actual</span>}
                   {!isProd && merged && <span className="branch-tag merged">fusionada</span>}
-                  {selected.includes(b.name) && <Check size={14} />}
                   {canDelete && (
                     <button
                       className="branch-del"
@@ -577,9 +584,9 @@ function BranchMenu({
             })
           )}
         </ul>
-        {selected.length > 0 && (
-          <button className="link-btn tag-filter-clear" onClick={onClear}>
-            Limpiar filtros ({selected.length})
+        {hidden.length > 0 && (
+          <button className="link-btn tag-filter-clear" onClick={onShowAll}>
+            Mostrar todas ({hidden.length} ocultas)
           </button>
         )}
       </div>

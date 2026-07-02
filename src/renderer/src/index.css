@@ -1317,6 +1317,10 @@ button.primary {
   color: var(--accent);
 }
 
+.tag-filter-list li.off {
+  opacity: 0.5;
+}
+
 .tag-filter-icon {
   flex-shrink: 0;
   opacity: 0.7;

@@ -29,7 +29,8 @@ export const IPC = {
   aiSetModel: 'geode:ai-set-model',
   aiSetEnabled: 'geode:ai-set-enabled',
   aiListModels: 'geode:ai-list-models',
-  aiSuggestMessage: 'geode:ai-suggest-message'
+  aiSuggestMessage: 'geode:ai-suggest-message',
+  aiGenerateText: 'geode:ai-generate-text'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -155,6 +156,8 @@ export interface AiApi {
   listModels(): Promise<AiModel[]>
   /** Genera un mensaje de commit a partir del diff pendiente. '' si no hay cambios. */
   suggestMessage(): Promise<string>
+  /** Asistente de escritura: genera texto para el editor según una instrucción. */
+  generateText(instruction: string, selection: string, before: string): Promise<string>
 }
 
 // ── Superficie completa expuesta en window.geode ───────────────────────────

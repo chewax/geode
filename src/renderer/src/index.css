@@ -576,8 +576,29 @@ button.primary {
 }
 
 .modal h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 4px;
   font-size: 18px;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+
+.quick-actions button {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.quick-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .modal-sub {

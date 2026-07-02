@@ -151,6 +151,17 @@ function registerIpcHandlers(): void {
     const provider = new OpenRouterProvider(key, ai.model)
     return provider.generateMessage(diff)
   })
+
+  ipcMain.handle(
+    IPC.aiGenerateText,
+    async (_e, instruction: string, selection: string, before: string): Promise<string> => {
+      const key = await getAiKey()
+      const { ai } = await loadSettings()
+      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+      const provider = new OpenRouterProvider(key, ai.model)
+      return provider.generateText(instruction, selection, before)
+    }
+  )
 }
 
 /** Reabre el último vault si todavía existe. */

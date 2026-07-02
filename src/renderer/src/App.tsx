@@ -13,11 +13,12 @@ import {
   X
 } from 'lucide-react'
 import type { AiConfig, GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
-import { CodeMirrorEditor } from './editor/CodeMirrorEditor'
+import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
+import { AiPromptModal } from './AiPromptModal'
 
 type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
 const AUTOSAVE_MS = 600
@@ -40,6 +41,8 @@ export function App(): JSX.Element {
   const [tabs, setTabs] = useState<string[]>([])
   const tabsRef = useRef<string[]>([])
   tabsRef.current = tabs
+  const editorRef = useRef<EditorHandle>(null)
+  const [aiEdit, setAiEdit] = useState<EditorContext | null>(null)
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -228,6 +231,16 @@ export function App(): JSX.Element {
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
+  /** Ctrl+K en el editor: abre el asistente de IA sobre la selección/cursor. */
+  const requestAi = useCallback(() => {
+    if (!aiConfig?.hasKey || !aiConfig?.model) {
+      window.alert('Configurá la API key y el modelo de IA en Ajustes (⚙).')
+      return
+    }
+    const ctx = editorRef.current?.getContext()
+    if (ctx) setAiEdit(ctx)
+  }, [aiConfig])
+
   // Al arrancar: restaurar vault y cargar config de IA.
   useEffect(() => {
     void (async () => {
@@ -368,9 +381,11 @@ export function App(): JSX.Element {
           <div className="editor-pane">
             {openPath ? (
               <CodeMirrorEditor
+                ref={editorRef}
                 key={`${openPath}#${editorEpoch}`}
                 initialDoc={content}
                 onChange={handleChange}
+                onRequestAi={requestAi}
               />
             ) : (
               <div className="placeholder">Elegí una nota del panel, o creá una con ＋.</div>
@@ -409,6 +424,17 @@ export function App(): JSX.Element {
 
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} onConfigChange={setAiConfig} />
+      )}
+
+      {aiEdit && (
+        <AiPromptModal
+          context={aiEdit}
+          onInsert={(text) => {
+            editorRef.current?.replaceRange(aiEdit.from, aiEdit.to, text)
+            setAiEdit(null)
+          }}
+          onClose={() => setAiEdit(null)}
+        />
       )}
 
       {menu && (

@@ -25,6 +25,15 @@ Qué evitar:
 - No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
 - Si el cambio es muy chico, igual describí el TEMA de lo agregado, no el tamaño.`
 
+const WRITER_PROMPT = `Sos un asistente de escritura integrado en un editor de notas en markdown.
+El usuario te da una instrucción y (opcionalmente) un texto seleccionado o el contexto previo.
+
+Devolvé ÚNICAMENTE el texto que hay que insertar en el documento, listo para pegar:
+- En markdown cuando corresponda, pero sin envolverlo en bloques de código.
+- Sin preámbulos, sin explicaciones, sin comillas alrededor.
+- Escribí en el mismo idioma del contexto (por defecto, español).
+- Si la instrucción es reescribir/resumir/traducir el texto seleccionado, devolvé SOLO la nueva versión de ese texto.`
+
 /** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
 function toOneLine(text: string): string {
   const firstLine =
@@ -68,34 +77,59 @@ export class OpenRouterProvider implements AiMessageProvider {
   }
 
   async generateMessage(diff: string): Promise<string> {
+    const raw = await this.chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: diff }
+      ],
+      300,
+      0.2
+    )
+    return toOneLine(raw)
+  }
+
+  /**
+   * Asistente de escritura dentro del editor: sigue una instrucción del usuario
+   * sobre la selección (o el contexto previo si no hay selección) y devuelve el
+   * texto a insertar.
+   */
+  async generateText(instruction: string, selection: string, before: string): Promise<string> {
+    const user = selection.trim()
+      ? `Instrucción: ${instruction}\n\nTexto seleccionado:\n${selection}`
+      : `Instrucción: ${instruction}\n\nContexto previo (tu respuesta continúa donde termina):\n${before}`
+    return this.chat(
+      [
+        { role: 'system', content: WRITER_PROMPT },
+        { role: 'user', content: user }
+      ],
+      1000,
+      0.7
+    )
+  }
+
+  /** Llamada de chat a OpenRouter. Devuelve el contenido del mensaje. */
+  private async chat(
+    messages: { role: string; content: string }[],
+    maxTokens: number,
+    temperature: number
+  ): Promise<string> {
     const res = await fetch(`${OPENROUTER}/chat/completions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.key}`,
         'Content-Type': 'application/json',
-        // OpenRouter usa estos para atribución/ranking; no son obligatorios.
         'X-Title': 'Geode',
         'HTTP-Referer': 'https://github.com/chewax/geode'
       },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: 300,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: diff }
-        ]
-      })
+      body: JSON.stringify({ model: this.model, max_tokens: maxTokens, temperature, messages })
     })
     if (!res.ok) {
       throw new Error(`OpenRouter /chat devolvió ${res.status}: ${await res.text()}`)
     }
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[]
-    }
+    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] }
     const raw = json.choices?.[0]?.message?.content?.trim()
     if (!raw) throw new Error('El modelo devolvió una respuesta vacía')
-    return toOneLine(raw)
+    return raw
   }
 }
 

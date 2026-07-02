@@ -553,6 +553,15 @@ button.primary {
   font-weight: 700;
 }
 
+.chip.pushed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(104, 211, 145, 0.15);
+  border-color: rgba(104, 211, 145, 0.5);
+  color: #68d391;
+}
+
 /* ── Modales (guardar versión / ajustes) ────────────────────────────────── */
 .modal-overlay {
   position: fixed;

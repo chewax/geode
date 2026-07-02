@@ -131,7 +131,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.gitCommit, (_e, message?: string) =>
     gitService.commit(requireRoot(), message ?? autoCommitMessage())
   )
-  ipcMain.handle(IPC.gitGraph, () => gitService.graph(requireRoot()))
+  ipcMain.handle(IPC.gitGraph, async () => {
+    const { github } = await loadSettings()
+    return gitService.graph(requireRoot(), Object.values(github?.pushed ?? {}))
+  })
   ipcMain.handle(IPC.gitCheckout, (_e, oid: string) => gitService.checkout(requireRoot(), oid))
   ipcMain.handle(IPC.gitChanges, () => gitService.changes(requireRoot()))
 

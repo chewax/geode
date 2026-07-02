@@ -103,7 +103,7 @@ export class GitService {
   }
 
   /** Grafo de commits de TODO el vault (todas las ramas), para el árbol. */
-  async graph(dir: string): Promise<GitGraph> {
+  async graph(dir: string, pushed: string[] = []): Promise<GitGraph> {
     const branchNames = await git.listBranches({ fs, dir })
     const ordered = ['main', ...branchNames.filter((b) => b !== 'main')].filter((b) =>
       branchNames.includes(b)
@@ -159,7 +159,7 @@ export class GitService {
     }
 
     const commits = [...commitsMap.values()].sort((a, b) => b.timestamp - a.timestamp)
-    return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine }
+    return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine, pushed }
   }
 
   /** Rama actual, o null si HEAD está detached. */

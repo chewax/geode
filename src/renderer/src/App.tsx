@@ -81,8 +81,9 @@ export function App(): JSX.Element {
     } finally {
       setPushing(false)
       await refreshGithub()
+      await refreshGraph() // mover el chip "en GitHub" al commit recién pusheado
     }
-  }, [refreshGithub])
+  }, [refreshGithub, refreshGraph])
 
   /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
   const flush = useCallback(async () => {

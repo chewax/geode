@@ -121,6 +121,8 @@ export interface GitGraph {
   head: { oid: string | null; branch: string | null }
   /** Oids que están en la línea de HEAD (ancestros incluido); el resto se atenúa. */
   onCurrentLine: string[]
+  /** Último oid pusheado por rama (marca hasta dónde está en GitHub). */
+  pushed: string[]
 }
 
 export interface GitApi {

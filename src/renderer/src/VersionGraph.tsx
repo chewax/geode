@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { JSX } from 'react'
-import { X } from 'lucide-react'
+import { X, Cloud } from 'lucide-react'
 import type { GitGraph } from '@shared/ipc'
 
 interface VersionGraphProps {
@@ -35,8 +35,9 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
       tipToBranch.set(b.tip, list)
     }
     const maxLane = commits.reduce((m, c) => Math.max(m, c.lane), 0)
-    return { index, onLine, tipToBranch, maxLane }
-  }, [commits, onCurrentLine, branches])
+    const pushedSet = new Set(graph.pushed)
+    return { index, onLine, tipToBranch, maxLane, pushedSet }
+  }, [commits, onCurrentLine, branches, graph.pushed])
 
   const laneX = (lane: number): number => PAD + lane * LANE
   const rowY = (i: number): number => i * ROW + ROW / 2
@@ -137,6 +138,11 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
                       </span>
                     ))}
                     {isHead && <span className="chip head-chip">HEAD</span>}
+                    {model.pushedSet.has(c.oid) && (
+                      <span className="chip pushed-chip" title="Última versión subida a GitHub">
+                        <Cloud size={11} /> en GitHub
+                      </span>
+                    )}
                   </div>
                   <div className="g-meta">
                     {new Date(c.timestamp).toLocaleString()} · {c.oid.slice(0, 7)}

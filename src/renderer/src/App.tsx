@@ -10,9 +10,10 @@ import {
   AlertTriangle,
   Pencil,
   Trash2,
-  X
+  X,
+  UploadCloud
 } from 'lucide-react'
-import type { AiConfig, GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
+import type { AiConfig, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VersionGraph } from './VersionGraph'
@@ -43,6 +44,11 @@ export function App(): JSX.Element {
   tabsRef.current = tabs
   const editorRef = useRef<EditorHandle>(null)
   const [aiEdit, setAiEdit] = useState<EditorContext | null>(null)
+  const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
+  const githubCfgRef = useRef<GithubConfig | null>(null)
+  githubCfgRef.current = githubCfg
+  const [pushCount, setPushCount] = useState(0)
+  const [pushing, setPushing] = useState(false)
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -59,6 +65,24 @@ export function App(): JSX.Element {
   const refreshGraph = useCallback(async () => {
     setGraph(await window.geode.git.graph())
   }, [])
+
+  const refreshGithub = useCallback(async () => {
+    const cfg = await window.geode.github.getConfig()
+    setGithubCfg(cfg)
+    setPushCount(cfg.connected && cfg.remote ? await window.geode.git.pendingPush() : 0)
+  }, [])
+
+  const doPush = useCallback(async () => {
+    setPushing(true)
+    try {
+      await window.geode.git.push()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo pushear')
+    } finally {
+      setPushing(false)
+      await refreshGithub()
+    }
+  }, [refreshGithub])
 
   /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
   const flush = useCallback(async () => {
@@ -198,7 +222,10 @@ export function App(): JSX.Element {
     await window.geode.git.commit(message || fallback)
     setCommitChanges(null)
     await refreshGraph()
-  }, [refreshGraph])
+    await refreshGithub()
+    const g = githubCfgRef.current
+    if (g?.autoPush && g.connected && g.remote) await doPush()
+  }, [refreshGraph, refreshGithub, doPush])
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {
@@ -227,7 +254,8 @@ export function App(): JSX.Element {
       setStatus('none')
     }
     await refreshGraph()
-  }, [flush, refreshTree, loadIntoEditor, refreshGraph])
+    await refreshGithub()
+  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
@@ -241,7 +269,7 @@ export function App(): JSX.Element {
     if (ctx) setAiEdit(ctx)
   }, [aiConfig])
 
-  // Al arrancar: restaurar vault y cargar config de IA.
+  // Al arrancar: restaurar vault y cargar config de IA/GitHub.
   useEffect(() => {
     void (async () => {
       setAiConfig(await window.geode.ai.getConfig())
@@ -250,8 +278,9 @@ export function App(): JSX.Element {
       setVault(info)
       await refreshTree()
       await refreshGraph()
+      await refreshGithub()
     })()
-  }, [refreshTree, refreshGraph])
+  }, [refreshTree, refreshGraph, refreshGithub])
 
   // Ctrl/Cmd+S: abre el diálogo de guardar versión.
   useEffect(() => {
@@ -318,6 +347,15 @@ export function App(): JSX.Element {
           <button title="Árbol de versiones" className={graphOpen ? 'active' : ''} onClick={toggleGraph}>
             <GitBranch size={15} /> Versiones
           </button>
+          {githubCfg?.connected && githubCfg.remote && (
+            <button
+              title="Push a GitHub"
+              disabled={pushing || pushCount === 0}
+              onClick={() => void doPush()}
+            >
+              <UploadCloud size={15} /> {pushing ? 'Push…' : pushCount > 0 ? `Push (${pushCount})` : 'Push'}
+            </button>
+          )}
           <button className="icon-btn" title="Ajustes" onClick={() => setSettingsOpen(true)}>
             <SettingsIcon size={16} />
           </button>
@@ -423,7 +461,10 @@ export function App(): JSX.Element {
       )}
 
       {settingsOpen && (
-        <SettingsModal onClose={() => setSettingsOpen(false)} onConfigChange={setAiConfig} />
+        <SettingsModal
+          onClose={() => { setSettingsOpen(false); void refreshGithub() }}
+          onConfigChange={setAiConfig}
+        />
       )}
 
       {aiEdit && (

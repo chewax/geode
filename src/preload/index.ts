@@ -24,7 +24,17 @@ const api: GeodeApi = {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),
     graph: () => ipcRenderer.invoke(IPC.gitGraph),
     checkout: (oid) => ipcRenderer.invoke(IPC.gitCheckout, oid),
-    changes: () => ipcRenderer.invoke(IPC.gitChanges)
+    changes: () => ipcRenderer.invoke(IPC.gitChanges),
+    push: () => ipcRenderer.invoke(IPC.gitPush),
+    pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush)
+  },
+  github: {
+    getConfig: () => ipcRenderer.invoke(IPC.githubGetConfig),
+    startDeviceFlow: () => ipcRenderer.invoke(IPC.githubStartDeviceFlow),
+    completeDeviceFlow: () => ipcRenderer.invoke(IPC.githubCompleteDeviceFlow),
+    setRemote: (url) => ipcRenderer.invoke(IPC.githubSetRemote, url),
+    setAutoPush: (autoPush) => ipcRenderer.invoke(IPC.githubSetAutoPush, autoPush),
+    disconnect: () => ipcRenderer.invoke(IPC.githubDisconnect)
   },
   ai: {
     getConfig: () => ipcRenderer.invoke(IPC.aiGetConfig),

@@ -23,6 +23,14 @@ export const IPC = {
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
   gitChanges: 'geode:git-changes',
+  gitPush: 'geode:git-push',
+  gitPendingPush: 'geode:git-pending-push',
+  githubGetConfig: 'geode:github-get-config',
+  githubStartDeviceFlow: 'geode:github-start-device-flow',
+  githubCompleteDeviceFlow: 'geode:github-complete-device-flow',
+  githubSetRemote: 'geode:github-set-remote',
+  githubSetAutoPush: 'geode:github-set-auto-push',
+  githubDisconnect: 'geode:github-disconnect',
   aiGetConfig: 'geode:ai-get-config',
   aiSetKey: 'geode:ai-set-key',
   aiClearKey: 'geode:ai-clear-key',
@@ -124,6 +132,36 @@ export interface GitApi {
   checkout(oid: string): Promise<void>
   /** Rutas con cambios pendientes respecto de HEAD (lo que se versionaría). */
   changes(): Promise<string[]>
+  /** Pushea la rama actual al remoto configurado. */
+  push(): Promise<{ branch: string; oid: string }>
+  /** Commits de la rama actual sin pushear. */
+  pendingPush(): Promise<number>
+}
+
+// ── GitHub (device flow + push del vault) ───────────────────────────────────
+
+export interface GithubConfig {
+  connected: boolean
+  login: string | null
+  /** URL del repo del vault donde se pushea. */
+  remote: string | null
+  autoPush: boolean
+}
+
+export interface DeviceFlowStart {
+  userCode: string
+  verificationUri: string
+}
+
+export interface GithubApi {
+  getConfig(): Promise<GithubConfig>
+  /** Inicia el device flow: devuelve el código a mostrar y abre github.com. */
+  startDeviceFlow(): Promise<DeviceFlowStart>
+  /** Espera a que el usuario autorice; guarda el token. Devuelve la config. */
+  completeDeviceFlow(): Promise<GithubConfig>
+  setRemote(url: string): Promise<GithubConfig>
+  setAutoPush(autoPush: boolean): Promise<GithubConfig>
+  disconnect(): Promise<GithubConfig>
 }
 
 // ── IA (mensajes de commit) ─────────────────────────────────────────────────
@@ -170,4 +208,5 @@ export interface GeodeApi {
   vault: VaultApi
   git: GitApi
   ai: AiApi
+  github: GithubApi
 }

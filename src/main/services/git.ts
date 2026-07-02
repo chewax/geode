@@ -3,6 +3,7 @@ import os from 'node:os'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
+import http from 'isomorphic-git/http/node'
 import { createPatch } from 'diff'
 import type { GitCommitNode, GitGraph } from '@shared/ipc'
 
@@ -159,6 +160,66 @@ export class GitService {
 
     const commits = [...commitsMap.values()].sort((a, b) => b.timestamp - a.timestamp)
     return { commits, branches, head: { oid: headOid, branch: headBranch }, onCurrentLine }
+  }
+
+  /** Rama actual, o null si HEAD está detached. */
+  async currentBranch(dir: string): Promise<string | null> {
+    return (await git.currentBranch({ fs, dir, fullname: false })) ?? null
+  }
+
+  /** Configura (o reemplaza) el remoto 'origin' del vault. */
+  async setRemote(dir: string, url: string): Promise<void> {
+    const remotes = await git.listRemotes({ fs, dir })
+    if (remotes.some((r) => r.remote === 'origin')) {
+      await git.deleteRemote({ fs, dir, remote: 'origin' })
+    }
+    if (url) await git.addRemote({ fs, dir, remote: 'origin', url })
+  }
+
+  /**
+   * Cantidad de commits de la rama actual que no se pushearon aún, contando
+   * desde el último oid pusheado (que el caller persiste en settings). Si no hay
+   * uno, cuenta todos los commits de la rama.
+   */
+  async aheadCount(dir: string, sinceOid: string | null): Promise<number> {
+    const branch = await git.currentBranch({ fs, dir, fullname: false })
+    if (!branch) return 0
+    let log
+    try {
+      log = await git.log({ fs, dir, ref: branch })
+    } catch {
+      return 0
+    }
+    if (!sinceOid) return log.length
+    let n = 0
+    for (const c of log) {
+      if (c.oid === sinceOid) break
+      n++
+    }
+    return n
+  }
+
+  /**
+   * Pushea la rama actual al remoto. Devuelve la rama y el oid pusheado (para
+   * que el caller lo guarde y pueda contar pendientes). El auth va sobre HTTPS
+   * con el token de OAuth (device flow); isomorphic-git no soporta SSH.
+   */
+  async push(dir: string, url: string, token: string): Promise<{ branch: string; oid: string }> {
+    const branch = await git.currentBranch({ fs, dir, fullname: false })
+    if (!branch) throw new Error('HEAD está en una versión anterior (detached): no hay rama para pushear')
+
+    await git.push({
+      fs,
+      http,
+      dir,
+      url,
+      remote: 'origin',
+      ref: branch,
+      onAuth: () => ({ username: 'x-access-token', password: token })
+    })
+
+    const oid = await git.resolveRef({ fs, dir, ref: branch })
+    return { branch, oid }
   }
 
   /** Contenido de una nota tal como estaba en un commit dado. */

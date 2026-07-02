@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw } from 'lucide-react'
-import type { AiConfig, AiModel } from '@shared/ipc'
+import { Check, RefreshCw, Cloud } from 'lucide-react'
+import type { AiConfig, AiModel, DeviceFlowStart, GithubConfig } from '@shared/ipc'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -26,6 +26,12 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const [loadingModels, setLoadingModels] = useState(false)
   const [filter, setFilter] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // GitHub
+  const [github, setGithub] = useState<GithubConfig | null>(null)
+  const [remoteInput, setRemoteInput] = useState('')
+  const [device, setDevice] = useState<DeviceFlowStart | null>(null)
+  const [connecting, setConnecting] = useState(false)
 
   const apply = useCallback(
     (c: AiConfig) => {
@@ -55,8 +61,38 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       const c = await window.geode.ai.getConfig()
       apply(c)
       if (c.hasKey) void loadModels()
+      const g = await window.geode.github.getConfig()
+      setGithub(g)
+      setRemoteInput(g.remote ?? '')
     })()
   }, [apply, loadModels])
+
+  const connectGithub = async (): Promise<void> => {
+    setConnecting(true)
+    setError(null)
+    try {
+      setDevice(await window.geode.github.startDeviceFlow())
+      const cfg = await window.geode.github.completeDeviceFlow() // espera la autorización
+      setGithub(cfg)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo conectar con GitHub')
+    } finally {
+      setConnecting(false)
+      setDevice(null)
+    }
+  }
+
+  const disconnectGithub = async (): Promise<void> => {
+    setGithub(await window.geode.github.disconnect())
+  }
+
+  const saveRemote = async (): Promise<void> => {
+    setGithub(await window.geode.github.setRemote(remoteInput.trim()))
+  }
+
+  const toggleAutoPush = async (autoPush: boolean): Promise<void> => {
+    setGithub(await window.geode.github.setAutoPush(autoPush))
+  }
 
   const saveKey = async (): Promise<void> => {
     if (!keyInput.trim()) return
@@ -173,6 +209,56 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
           />
           Generar resúmenes de versión con IA
         </label>
+
+        <hr className="modal-hr" />
+        <h2><Cloud size={18} /> GitHub — guardar en tu repo</h2>
+        <p className="modal-sub">
+          Conectá tu cuenta y elegí el repo donde se guardan (push) los commits de tu vault.
+        </p>
+
+        {github?.connected ? (
+          <div className="key-row">
+            <span className="key-set"><Check size={14} /> Conectado como {github.login}</span>
+            <button onClick={() => void disconnectGithub()}>Desconectar</button>
+          </div>
+        ) : device ? (
+          <div className="device-box">
+            <p>Ingresá este código en GitHub (se abrió en tu navegador):</p>
+            <div className="device-code">{device.userCode}</div>
+            <p className="hint">{device.verificationUri} — esperando autorización…</p>
+          </div>
+        ) : (
+          <button onClick={() => void connectGithub()} disabled={connecting}>
+            {connecting ? 'conectando…' : 'Conectar con GitHub'}
+          </button>
+        )}
+
+        {github?.connected && (
+          <>
+            <label className="field-label">URL del repo</label>
+            <div className="key-row">
+              <input
+                className="text-input"
+                placeholder="https://github.com/usuario/mis-notas.git"
+                value={remoteInput}
+                onChange={(e) => setRemoteInput(e.target.value)}
+              />
+              <button onClick={() => void saveRemote()} disabled={remoteInput.trim() === (github.remote ?? '')}>
+                Guardar
+              </button>
+            </div>
+
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={github.autoPush}
+                disabled={!github.remote}
+                onChange={(e) => void toggleAutoPush(e.target.checked)}
+              />
+              Pushear automáticamente al guardar cada versión
+            </label>
+          </>
+        )}
 
         {error && <p className="modal-error">⚠ {error}</p>}
 

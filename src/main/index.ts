@@ -1,19 +1,39 @@
 import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
-import { IPC, type AppInfo, type AiConfig } from '@shared/ipc'
+import { IPC, type AppInfo, type AiConfig, type GithubConfig } from '@shared/ipc'
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
 import { OpenRouterProvider, listOpenRouterModels } from './services/ai'
+import { requestDeviceCode, pollForToken, getLogin, type DeviceCode } from './services/github'
 import {
   loadSettings,
   saveSettings,
   setAiKey,
   clearAiKey,
-  getAiKey
+  getAiKey,
+  setGithubToken,
+  getGithubToken,
+  clearGithub
 } from './services/settings'
+
+// OAuth App de Geode (client IDs son públicos; device flow no usa secret).
+const GITHUB_CLIENT_ID = 'Ov23liOW1wfZr6QhxLVY'
 
 const vault = new VaultService()
 const gitService = new GitService()
+
+/** Device flow en curso, entre startDeviceFlow y completeDeviceFlow. */
+let pendingDeviceCode: DeviceCode | null = null
+
+async function githubConfig(): Promise<GithubConfig> {
+  const { github } = await loadSettings()
+  return {
+    connected: !!github?.token,
+    login: github?.login ?? null,
+    remote: github?.remote ?? null,
+    autoPush: github?.autoPush ?? false
+  }
+}
 
 async function aiConfig(): Promise<AiConfig> {
   const { ai } = await loadSettings()
@@ -162,6 +182,75 @@ function registerIpcHandlers(): void {
       return provider.generateText(instruction, selection, before)
     }
   )
+
+  // ── GitHub / push ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.githubGetConfig, () => githubConfig())
+
+  ipcMain.handle(IPC.githubStartDeviceFlow, async () => {
+    pendingDeviceCode = await requestDeviceCode(GITHUB_CLIENT_ID)
+    void shell.openExternal(pendingDeviceCode.verificationUri)
+    return {
+      userCode: pendingDeviceCode.userCode,
+      verificationUri: pendingDeviceCode.verificationUri
+    }
+  })
+
+  ipcMain.handle(IPC.githubCompleteDeviceFlow, async () => {
+    if (!pendingDeviceCode) throw new Error('No hay un device flow en curso')
+    const token = await pollForToken(GITHUB_CLIENT_ID, pendingDeviceCode)
+    pendingDeviceCode = null
+    const login = await getLogin(token)
+    await setGithubToken(token, login)
+    return githubConfig()
+  })
+
+  ipcMain.handle(IPC.githubSetRemote, async (_e, url: string) => {
+    const settings = await loadSettings()
+    settings.github = { ...settings.github, remote: url }
+    await saveSettings(settings)
+    if (vault.getInfo()) await gitService.setRemote(requireRoot(), url)
+    return githubConfig()
+  })
+
+  ipcMain.handle(IPC.githubSetAutoPush, async (_e, autoPush: boolean) => {
+    const settings = await loadSettings()
+    settings.github = { ...settings.github, autoPush }
+    await saveSettings(settings)
+    return githubConfig()
+  })
+
+  ipcMain.handle(IPC.githubDisconnect, async () => {
+    await clearGithub()
+    return githubConfig()
+  })
+
+  ipcMain.handle(IPC.gitPendingPush, async () => {
+    const info = vault.getInfo()
+    if (!info) return 0
+    const { github } = await loadSettings()
+    const branch = await gitService.currentBranch(info.root)
+    const sinceOid = branch ? (github?.pushed?.[branch] ?? null) : null
+    return gitService.aheadCount(info.root, sinceOid)
+  })
+
+  ipcMain.handle(IPC.gitPush, async () => {
+    const settings = await loadSettings()
+    const token = await getGithubToken()
+    const url = settings.github?.remote
+    if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
+    if (!url) throw new Error('Configurá la URL del repo en Ajustes')
+
+    const root = requireRoot()
+    await gitService.setRemote(root, url)
+    const { branch, oid } = await gitService.push(root, url, token)
+
+    // Recordar el oid pusheado por rama, para el contador de pendientes.
+    const pushed = { ...settings.github?.pushed, [branch]: oid }
+    settings.github = { ...settings.github, pushed }
+    await saveSettings(settings)
+    return { branch, oid }
+  })
 }
 
 /** Reabre el último vault si todavía existe. */

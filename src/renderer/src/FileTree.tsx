@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, KeyboardEvent } from 'react'
-import { ChevronDown, ChevronRight, Folder, FileText } from 'lucide-react'
+import { ChevronDown, ChevronRight, Folder, FileText, Trash2 } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
 
 export interface FileTreeProps {
@@ -60,6 +60,21 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
     <span className="node-label">{displayName(node)}</span>
   )
 
+  // Botón de eliminar que aparece al pasar el mouse por la fila.
+  const delBtn = editing ? null : (
+    <button
+      className="node-del"
+      title="Eliminar"
+      aria-label="Eliminar"
+      onClick={(e) => {
+        e.stopPropagation()
+        onDelete(node)
+      }}
+    >
+      <Trash2 size={13} />
+    </button>
+  )
+
   if (node.isDir) {
     return (
       <li>
@@ -76,6 +91,7 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
           {expanded ? <ChevronDown className="twisty" size={14} /> : <ChevronRight className="twisty" size={14} />}
           <Folder className="node-icon" size={15} />
           {nameEl}
+          {delBtn}
         </div>
         {expanded && node.children && node.children.length > 0 && (
           <ul className="tree-children">
@@ -102,6 +118,7 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
     >
       <FileText className="node-icon" size={15} />
       {nameEl}
+      {delBtn}
     </li>
   )
 }

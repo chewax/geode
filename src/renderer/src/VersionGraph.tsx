@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { JSX } from 'react'
+import { X } from 'lucide-react'
 import type { GitGraph } from '@shared/ipc'
 
 interface VersionGraphProps {
@@ -87,7 +88,7 @@ export function VersionGraph({ graph, onSelect, onClose }: VersionGraphProps): J
     <aside className="graph">
       <div className="graph-head">
         <span>Árbol de versiones</span>
-        <button title="Cerrar" onClick={onClose}>✕</button>
+        <button className="icon-btn" title="Cerrar" onClick={onClose}><X size={15} /></button>
       </div>
 
       {commits.length === 0 ? (

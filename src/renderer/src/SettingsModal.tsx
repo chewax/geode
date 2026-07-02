@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
+import { Check, RefreshCw } from 'lucide-react'
 import type { AiConfig, AiModel } from '@shared/ipc'
 
 interface SettingsModalProps {
@@ -96,7 +97,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
         <label className="field-label">API key de OpenRouter</label>
         {config?.hasKey ? (
           <div className="key-row">
-            <span className="key-set">✓ Key guardada</span>
+            <span className="key-set"><Check size={14} /> Key guardada</span>
             <button onClick={() => void clearKey()}>Quitar</button>
           </div>
         ) : (
@@ -130,8 +131,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
-              <button onClick={() => void loadModels()} disabled={loadingModels}>
-                {loadingModels ? 'cargando…' : '↻'}
+              <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title="Recargar modelos">
+                <RefreshCw size={15} className={loadingModels ? 'spin' : ''} />
               </button>
             </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { JSX, KeyboardEvent } from 'react'
+import { ChevronDown, ChevronRight, Folder, FileText } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
 
 export interface FileTreeProps {
@@ -38,7 +39,7 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
   const nameEl = editing ? (
     <NameInput initial={displayName(node)} onCommit={(v) => onRename(node, v)} onCancel={onRenameCancel} />
   ) : (
-    displayName(node)
+    <span className="node-label">{displayName(node)}</span>
   )
 
   if (node.isDir) {
@@ -52,7 +53,8 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
             onContext(node, e.clientX, e.clientY)
           }}
         >
-          <span className="twisty">{expanded ? '▾' : '▸'}</span>
+          {expanded ? <ChevronDown className="twisty" size={14} /> : <ChevronRight className="twisty" size={14} />}
+          <Folder className="node-icon" size={15} />
           {nameEl}
         </div>
         {expanded && node.children && node.children.length > 0 && (
@@ -76,6 +78,7 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
       }}
       title={node.path}
     >
+      <FileText className="node-icon" size={15} />
       {nameEl}
     </li>
   )

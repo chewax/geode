@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
 
 interface CommitDialogProps {
   /** Rutas que se van a versionar. */
@@ -68,7 +69,7 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
           Mensaje
           {aiReady && (
             <button className="link-btn" disabled={generating} onClick={() => void generate()}>
-              {generating ? 'generando…' : '↻ regenerar con IA'}
+              <RefreshCw size={12} /> {generating ? 'generando…' : 'regenerar con IA'}
             </button>
           )}
         </label>
@@ -90,7 +91,7 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
         {error && <p className="modal-error">⚠ {error}</p>}
 
         <p className="modal-warn">
-          ⚠ Esto crea una <strong>versión permanente</strong> en el historial (ledger).
+          <AlertTriangle size={13} /> Esto crea una <strong>versión permanente</strong> en el historial (ledger).
         </p>
 
         <div className="modal-actions">

@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
+import {
+  FilePlus,
+  FolderPlus,
+  FolderOpen,
+  Settings as SettingsIcon,
+  Save,
+  GitBranch,
+  AlertTriangle,
+  Pencil,
+  Trash2
+} from 'lucide-react'
 import type { AiConfig, GitGraph, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
@@ -253,18 +264,20 @@ export function App(): JSX.Element {
         <span className="doc-name">{openPath ?? vault.name}</span>
         {detached && (
           <span className="detached" title="HEAD en una versión anterior">
-            ⚠ versión anterior · editá para bifurcar
+            <AlertTriangle size={13} /> versión anterior · editá para bifurcar
           </span>
         )}
         <span className="save-status">{statusLabel(status, savedAt)}</span>
         <div className="topbar-actions">
           <button title="Crear versión (Ctrl+S)" onClick={() => void openCommitDialog()}>
-            Guardar versión
+            <Save size={15} /> Guardar versión
           </button>
           <button title="Árbol de versiones" className={graphOpen ? 'active' : ''} onClick={toggleGraph}>
-            Versiones
+            <GitBranch size={15} /> Versiones
           </button>
-          <button title="Ajustes" onClick={() => setSettingsOpen(true)}>⚙</button>
+          <button className="icon-btn" title="Ajustes" onClick={() => setSettingsOpen(true)}>
+            <SettingsIcon size={16} />
+          </button>
         </div>
       </header>
 
@@ -273,9 +286,15 @@ export function App(): JSX.Element {
           <div className="sidebar-head">
             <span className="vault-name" title={vault.root}>{vault.name}</span>
             <div className="sidebar-actions">
-              <button title="Nueva nota" onClick={() => void newNoteIn('')}>＋</button>
-              <button title="Nueva carpeta" onClick={() => void newFolderIn('')}>📁</button>
-              <button title="Cambiar de vault" onClick={() => void openVault()}>⏏</button>
+              <button className="icon-btn" title="Nueva nota" onClick={() => void newNoteIn('')}>
+                <FilePlus size={16} />
+              </button>
+              <button className="icon-btn" title="Nueva carpeta" onClick={() => void newFolderIn('')}>
+                <FolderPlus size={16} />
+              </button>
+              <button className="icon-btn" title="Cambiar de vault" onClick={() => void openVault()}>
+                <FolderOpen size={16} />
+              </button>
             </div>
           </div>
           {tree.length > 0 ? (
@@ -345,14 +364,20 @@ export function App(): JSX.Element {
           <ul className="ctx-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
             {menu.node.isDir && (
               <>
-                <li onClick={() => { setMenu(null); void newNoteIn(menu.node.path) }}>Nueva nota</li>
-                <li onClick={() => { setMenu(null); void newFolderIn(menu.node.path) }}>Nueva carpeta</li>
+                <li onClick={() => { setMenu(null); void newNoteIn(menu.node.path) }}>
+                  <FilePlus size={14} /> Nueva nota
+                </li>
+                <li onClick={() => { setMenu(null); void newFolderIn(menu.node.path) }}>
+                  <FolderPlus size={14} /> Nueva carpeta
+                </li>
                 <li className="ctx-sep" />
               </>
             )}
-            <li onClick={() => { setEditingPath(menu.node.path); setMenu(null) }}>Renombrar</li>
+            <li onClick={() => { setEditingPath(menu.node.path); setMenu(null) }}>
+              <Pencil size={14} /> Renombrar
+            </li>
             <li className="ctx-danger" onClick={() => { const n = menu.node; setMenu(null); void deleteNode(n) }}>
-              Eliminar
+              <Trash2 size={14} /> Eliminar
             </li>
           </ul>
         </div>

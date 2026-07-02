@@ -8,6 +8,9 @@
   --muted: #9a9aa6;
   --accent: #b794f6;
   --text: #e6e6ea;
+  /* Color reservado para HEAD (dónde estás parado). No está en la paleta de
+     carriles para que el chip HEAD no se confunda con ninguna rama. */
+  --head: #2dd4bf;
 }
 
 * {
@@ -1017,8 +1020,28 @@ button.primary {
   color: var(--accent);
 }
 
-.chip.head-chip {
+/* Chip de rama: borde en el color del carril (via style inline) e ícono. */
+.chip.branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+/* Rama actual: se llena para que salte a la vista cuál está en checkout. */
+.chip.branch-chip.current {
   background: var(--accent);
+  border-color: var(--accent) !important;
+  color: #16161a;
+  font-weight: 700;
+}
+.chip.branch-chip.current svg {
+  color: #16161a;
+}
+
+.chip.head-chip {
+  background: var(--head);
   color: #16161a;
   border: none;
   font-weight: 700;

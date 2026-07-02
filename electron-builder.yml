@@ -1,0 +1,37 @@
+appId: com.geode.app
+productName: Geode
+copyright: Copyright © 2026 Daniel Waksman
+
+directories:
+  # build/ contiene el icon.png 1024² del que electron-builder deriva el .ico.
+  buildResources: build
+  output: dist
+
+# Qué se empaqueta dentro del asar. Incluimos resources/ porque el proceso main
+# carga el ícono de la ventana desde ahí en runtime (join(dirname, ../../resources)).
+files:
+  - out/**/*
+  - resources/**/*
+  - package.json
+
+win:
+  target:
+    - nsis
+  # El ícono del .exe se genera automáticamente desde build/icon.png.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Geode
+
+# Publicación de releases en GitHub. releaseType: draft = el instalador se sube
+# a un release en BORRADOR; no queda visible hasta apretar "Publish" en GitHub.
+# El latest.yml adjunto habilita auto-updates (electron-updater) a futuro.
+publish:
+  provider: github
+  owner: chewax
+  repo: geode
+  releaseType: draft

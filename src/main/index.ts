@@ -1,7 +1,24 @@
-import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron'
 import { join, basename } from 'path'
+import { existsSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
+import iconPng from '../../resources/icon.png?asset'
+import iconIco from '../../resources/icon.ico?asset'
 import { IPC, type AppInfo, type AiConfig, type GithubConfig, type VaultInfo } from '@shared/ipc'
+
+// Ícono de la app (ventana + barra de tareas). Usamos el PNG porque nativeImage
+// lo carga de forma confiable en cualquier escala; el .ico queda para el
+// empaquetado del ejecutable (electron-builder). Lo cargamos como nativeImage
+// para poder verificar que la ruta resolvió (si no, se ve el ícono de Electron).
+const ICON_PATH = iconPng
+const APP_ICON = nativeImage.createFromPath(ICON_PATH)
+if (APP_ICON.isEmpty()) {
+  console.warn(`[icon] no se pudo cargar el ícono en: ${ICON_PATH} (existe=${existsSync(ICON_PATH)})`)
+} else {
+  console.log(`[icon] cargado: ${ICON_PATH} ${JSON.stringify(APP_ICON.getSize())}`)
+}
+// Silenciamos el "no usado" del .ico mientras no haya empaquetador.
+void iconIco
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
 import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage } from './services/ai'
@@ -69,6 +86,7 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    icon: APP_ICON,
     // Ventana sin marco nativo: usamos una title bar custom (ver App.tsx).
     frame: false,
     backgroundColor: '#16161a',
@@ -82,7 +100,10 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => mainWindow.show())
+  mainWindow.on('ready-to-show', () => {
+    if (!APP_ICON.isEmpty()) mainWindow.setIcon(APP_ICON)
+    mainWindow.show()
+  })
 
   // Avisar al renderer cuando cambia el estado de maximizado (para el ícono).
   const emitMaxState = (): void =>
@@ -343,6 +364,10 @@ async function restoreLastVault(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  // En Windows, el AppUserModelID asocia la ventana con el ícono/identidad de la
+  // app en la barra de tareas (sin esto usa el ícono genérico de Electron).
+  if (process.platform === 'win32') app.setAppUserModelId('com.geode.app')
+
   // Sin menú por defecto: sus aceleradores de edición (Ctrl+Y/Ctrl+Z/…)
   // secuestran las teclas antes de que lleguen al editor y rompen el redo.
   // El copiar/pegar sigue funcionando (lo maneja Chromium dentro del editor).

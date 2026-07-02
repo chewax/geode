@@ -202,7 +202,14 @@ export function VersionGraph({
         <div className="row-top">
           <span className="g-msg" title={c.message}>{c.message}</span>
           {tips.map((name) => (
-            <span key={name} className={`chip${name === head.branch ? ' current' : ''}`}>{name}</span>
+            <span
+              key={name}
+              className={`chip branch-chip${name === head.branch ? ' current' : ''}`}
+              style={{ borderColor: colorOf(c) }}
+              title={name === head.branch ? 'Rama actual' : `Rama ${name}`}
+            >
+              <GitBranch size={10} /> {name}
+            </span>
           ))}
           {tags.map((t) => (
             <span key={t} className="chip tag-chip"><Tag size={10} /> {t}</span>
@@ -345,8 +352,22 @@ export function VersionGraph({
               const isHead = head.oid === c.oid
               const dim = !model.onLine.has(c.oid)
               const color = colorOf(c)
+              // ¿Es cabeza de alguna rama? Se le pone un halo para que las ramas
+              // se reconozcan de un vistazo aunque compartan carril (no divergieron).
+              const isTip = model.tipToBranch.has(c.oid)
               return (
                 <g key={c.oid} opacity={dim ? 0.35 : 1}>
+                  {isTip && (
+                    <circle
+                      cx={laneX(laneOf(c))}
+                      cy={rowY(i)}
+                      r={(isHead ? DOT + 2 : DOT) + 3}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={1.5}
+                      opacity={0.55}
+                    />
+                  )}
                   <circle
                     cx={laneX(laneOf(c))}
                     cy={rowY(i)}

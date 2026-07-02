@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSX, KeyboardEvent } from 'react'
 import { ChevronDown, ChevronRight, Folder, FileText } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
@@ -117,8 +117,12 @@ function NameInput({
   onCancel: () => void
 }): JSX.Element {
   const [value, setValue] = useState(initial)
+  // Enter y blur pueden dispararse juntos; commit corre una sola vez.
+  const done = useRef(false)
 
   const commit = (): void => {
+    if (done.current) return
+    done.current = true
     const v = value.trim()
     if (!v || v === initial) onCancel()
     else onCommit(v)

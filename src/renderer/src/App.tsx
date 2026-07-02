@@ -650,7 +650,7 @@ export function App(): JSX.Element {
             {openPath ? (
               <CodeMirrorEditor
                 ref={editorRef}
-                key={`${openPath}#${editorEpoch}`}
+                reloadKey={`${openPath}#${editorEpoch}`}
                 initialDoc={content}
                 onChange={handleChange}
                 onRequestAi={requestAi}

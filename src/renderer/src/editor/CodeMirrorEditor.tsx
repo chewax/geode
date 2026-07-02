@@ -20,19 +20,28 @@ export interface EditorHandle {
 
 interface CodeMirrorEditorProps {
   initialDoc: string
+  /**
+   * Identidad del documento cargado (p. ej. `ruta#epoch`). Cuando cambia, se
+   * reemplaza el contenido del editor SIN remontarlo (preserva foco/cursor y
+   * evita el freeze al renombrar/crear notas).
+   */
+  reloadKey: string
   onChange?: (doc: string) => void
   /** Se invoca con Ctrl/Cmd+K para pedir asistencia de IA. */
   onRequestAi?: () => void
 }
 
 /**
- * Envoltorio React sobre un EditorView de CodeMirror 6. Expone un handle
- * imperativo para leer la selección e insertar texto (lo usa la IA del editor).
+ * Envoltorio React sobre un EditorView de CodeMirror 6. El view se crea una sola
+ * vez; al cambiar de nota (reloadKey) se reemplaza el documento por transacción,
+ * no por remontaje. Expone un handle imperativo (selección/insertar/foco).
  */
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ initialDoc, onChange, onRequestAi }, ref): JSX.Element {
+  function CodeMirrorEditor({ initialDoc, reloadKey, onChange, onRequestAi }, ref): JSX.Element {
     const hostRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
+    const docRef = useRef(initialDoc)
+    docRef.current = initialDoc
     const onChangeRef = useRef(onChange)
     onChangeRef.current = onChange
     const onRequestAiRef = useRef(onRequestAi)
@@ -88,6 +97,7 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         parent: hostRef.current
       })
       viewRef.current = view
+      view.focus()
 
       return () => {
         view.destroy()
@@ -95,6 +105,25 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    // Al cambiar de nota (o recargarla tras checkout/merge), reemplaza el doc en
+    // el MISMO view (sin remontar) y enfoca. No depende de `initialDoc` para no
+    // dispararse en cada tecla (initialDoc cambia con el contenido).
+    const firstReload = useRef(true)
+    useEffect(() => {
+      if (firstReload.current) {
+        firstReload.current = false
+        return
+      }
+      const view = viewRef.current
+      if (!view) return
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: docRef.current },
+        selection: { anchor: 0 }
+      })
+      view.focus()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reloadKey])
 
     return <div className="cm-host" ref={hostRef} />
   }

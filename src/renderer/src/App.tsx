@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { JSX } from 'react'
+import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
 import {
   FilePlus,
   FolderPlus,
@@ -21,10 +21,11 @@ import {
   Eye,
   PenLine,
   History,
+  Info,
   Command as CommandIcon
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
-import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
+import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
@@ -57,6 +58,7 @@ export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
   const [vaults, setVaults] = useState<VaultInfo[]>([])
   const [newVaultOpen, setNewVaultOpen] = useState(false)
+  const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [tree, setTree] = useState<TreeNode[]>([])
   // Explorador estilo Obsidian: orden A-Z/Z-A y colapsar/expandir todo.
   const [sortAsc, setSortAsc] = useState(true)
@@ -79,6 +81,15 @@ export function App(): JSX.Element {
   // Commit cuyo diff se está viendo (abre el visor de cambios); null = cerrado.
   const [diffOid, setDiffOid] = useState<string | null>(null)
   const [editingPath, setEditingPath] = useState<string | null>(null)
+  /** Nodo seleccionado en el árbol (archivo o carpeta): el "+" crea acá dentro. */
+  const [selected, setSelected] = useState<{ path: string; isDir: boolean } | null>(null)
+  /** Ruta a revelar en el árbol (auto-expande sus carpetas ancestro). */
+  const [revealPath, setRevealPath] = useState<string | null>(null)
+  /** Ancho del sidebar (px), redimensionable y persistido. */
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('geode.sidebarWidth'))
+    return Number.isFinite(saved) && saved >= 160 ? saved : 250
+  })
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
   const [tabs, setTabs] = useState<string[]>([])
   const tabsRef = useRef<string[]>([])
@@ -234,6 +245,7 @@ export function App(): JSX.Element {
     setContent('')
     setStatus('none')
     setTabs([])
+    setSelected(null)
     host.emit('vault:switch', { root: info.root, name: info.name })
     await refreshTree()
     await refreshGraph()
@@ -259,6 +271,8 @@ export function App(): JSX.Element {
   const newNoteIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createNote(dir)
     await refreshTree()
+    setRevealPath(node.path) // auto-expande la carpeta destino
+    setSelected({ path: node.path, isDir: false })
     await openNote(node.path)
     setEditingPath(node.path) // permitir nombrarla al toque
   }, [refreshTree, openNote])
@@ -266,8 +280,37 @@ export function App(): JSX.Element {
   const newFolderIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createFolder(dir)
     await refreshTree()
+    setRevealPath(node.path)
+    setSelected({ path: node.path, isDir: true })
     setEditingPath(node.path)
   }, [refreshTree])
+
+  /** Carpeta destino para crear: la seleccionada (o la de la nota seleccionada), o raíz. */
+  const createTargetDir = useCallback((): string => {
+    if (!selected) return ''
+    return selected.isDir ? selected.path : parentDir(selected.path)
+  }, [selected])
+
+  // Arrastre del divisor: sigue el mouse (clamp 160–520px), persiste al soltar.
+  const startSidebarResize = useCallback((e: ReactPointerEvent): void => {
+    e.preventDefault()
+    const onMove = (ev: PointerEvent): void => {
+      const w = Math.min(520, Math.max(160, ev.clientX))
+      setSidebarWidth(w)
+    }
+    const onUp = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.classList.remove('resizing-col')
+      setSidebarWidth((w) => {
+        localStorage.setItem('geode.sidebarWidth', String(w))
+        return w
+      })
+    }
+    document.body.classList.add('resizing-col')
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }, [])
 
   const renameNode = useCallback(async (node: TreeNode, rawName: string) => {
     setEditingPath(null)
@@ -289,6 +332,7 @@ export function App(): JSX.Element {
     const cur = openPathRef.current
     if (cur) setOpenPath(remap(cur))
     setTabs((prev) => prev.map(remap))
+    setSelected((s) => (s ? { ...s, path: remap(s.path) } : s))
     await refreshTree()
   }, [refreshTree])
 
@@ -300,6 +344,9 @@ export function App(): JSX.Element {
     if (!ok) return
     await window.geode.vault.delete(node.path)
     setTabs((prev) => prev.filter((p) => p !== node.path && !p.startsWith(`${node.path}/`)))
+    setSelected((s) =>
+      s && (s.path === node.path || s.path.startsWith(`${node.path}/`)) ? null : s
+    )
     const cur = openPathRef.current
     if (cur === node.path || (cur && cur.startsWith(`${node.path}/`))) {
       setOpenPath(null)
@@ -481,6 +528,7 @@ export function App(): JSX.Element {
   // Al arrancar: restaurar vault y cargar config de IA/GitHub.
   useEffect(() => {
     void (async () => {
+      setAppInfo(await window.geode.getAppInfo())
       const cfg = await window.geode.ai.getConfig()
       setAiConfig(cfg)
       if (cfg.hasKey) void refreshAiUsage()
@@ -748,12 +796,20 @@ export function App(): JSX.Element {
       </header>
 
       <div className="body">
-        <aside className="sidebar">
+        <aside className="sidebar" style={{ width: sidebarWidth }}>
           <div className="sidebar-toolbar">
-            <button className="icon-btn" title="Nueva nota" onClick={() => void newNoteIn('')}>
+            <button
+              className="icon-btn"
+              title={selected?.isDir ? `Nueva nota en "${selected.path}"` : 'Nueva nota'}
+              onClick={() => void newNoteIn(createTargetDir())}
+            >
               <FilePlus size={16} />
             </button>
-            <button className="icon-btn" title="Nueva carpeta" onClick={() => void newFolderIn('')}>
+            <button
+              className="icon-btn"
+              title={selected?.isDir ? `Nueva carpeta en "${selected.path}"` : 'Nueva carpeta'}
+              onClick={() => void newFolderIn(createTargetDir())}
+            >
               <FolderPlus size={16} />
             </button>
             <button
@@ -777,10 +833,13 @@ export function App(): JSX.Element {
               <FileTree
                 nodes={sortedTree}
                 openPath={openPath}
+                selectedPath={selected?.path ?? null}
                 editingPath={editingPath}
+                revealPath={revealPath}
                 defaultExpanded={allExpanded}
                 collapseVersion={collapseVersion}
                 onOpen={(p) => void openNote(p)}
+                onSelect={(node) => setSelected({ path: node.path, isDir: node.isDir })}
                 onContext={(node, x, y) => setMenu({ node, x, y })}
                 onRename={(node, name) => void renameNode(node, name)}
                 onRenameCancel={() => setEditingPath(null)}
@@ -809,6 +868,18 @@ export function App(): JSX.Element {
             </div>
           </div>
         </aside>
+
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          title="Arrastrar para redimensionar"
+          onPointerDown={startSidebarResize}
+          onDoubleClick={() => {
+            setSidebarWidth(250)
+            localStorage.setItem('geode.sidebarWidth', '250')
+          }}
+        />
 
         <main className="main">
           {tabs.length > 0 && (
@@ -929,6 +1000,21 @@ export function App(): JSX.Element {
                     ) : (
                       <div className="pop-note">Cargando uso…</div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {appInfo && (
+                <div className="status-item" title="Versión de Geode">
+                  <Info size={14} />
+                  <span>v{appInfo.appVersion}</span>
+                  <div className="status-pop">
+                    <div className="pop-title"><Info size={13} /> Geode</div>
+                    <div className="pop-row"><span>Versión</span><b>{appInfo.appVersion}</b></div>
+                    <div className="pop-row"><span>Electron</span><b>{appInfo.electronVersion}</b></div>
+                    <div className="pop-row"><span>Chromium</span><b>{appInfo.chromeVersion}</b></div>
+                    <div className="pop-row"><span>Node</span><b>{appInfo.nodeVersion}</b></div>
+                    <div className="pop-row"><span>Plataforma</span><b>{appInfo.platform}</b></div>
                   </div>
                 </div>
               )}

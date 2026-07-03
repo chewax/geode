@@ -6,13 +6,19 @@ import type { TreeNode } from '@shared/ipc'
 export interface FileTreeProps {
   nodes: TreeNode[]
   openPath: string | null
+  /** Nodo seleccionado (archivo o carpeta), resaltado. El "+" crea acá dentro. */
+  selectedPath: string | null
   /** Ruta que está en edición de nombre (input inline), o null. */
   editingPath: string | null
+  /** Ruta a revelar: sus carpetas ancestro se auto-expanden (p. ej. al crear). */
+  revealPath: string | null
   /** Estado por defecto de las carpetas (para colapsar/expandir todo). */
   defaultExpanded: boolean
   /** Cambia cada vez que se pide colapsar/expandir todo: reinicia el estado. */
   collapseVersion: number
   onOpen: (path: string) => void
+  /** Selecciona un nodo (click en archivo o carpeta). */
+  onSelect: (node: TreeNode) => void
   onContext: (node: TreeNode, x: number, y: number) => void
   onRename: (node: TreeNode, newName: string) => void
   onRenameCancel: () => void
@@ -25,25 +31,40 @@ function displayName(node: TreeNode): string {
   return node.isDir ? node.name : node.name.replace(/\.md$/i, '')
 }
 
+/** Sangría por nivel (px). El fondo de la fila llega hasta el borde; solo el
+ *  contenido se corre, como en VSCode. */
+const INDENT = 14
+
 /** Árbol de notas y carpetas. Carpetas colapsables; acciones por menú contextual. */
 export function FileTree(props: FileTreeProps): JSX.Element {
   return (
     <ul className="tree">
       {props.nodes.map((node) => (
-        <TreeItem key={node.path} node={node} {...props} />
+        <TreeItem key={node.path} node={node} depth={0} {...props} />
       ))}
     </ul>
   )
 }
 
-function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, 'nodes'>): JSX.Element {
-  const { openPath, editingPath, defaultExpanded, collapseVersion, onOpen, onContext, onRename, onRenameCancel, onDelete } = props
+function TreeItem({
+  node,
+  depth,
+  ...props
+}: { node: TreeNode; depth: number } & Omit<FileTreeProps, 'nodes'>): JSX.Element {
+  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete } = props
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   // "Colapsar/expandir todo": al cambiar la señal, reiniciar al estado pedido.
   useEffect(() => setExpanded(defaultExpanded), [collapseVersion, defaultExpanded])
 
+  // Auto-expandir si hay que revelar algo que está dentro de esta carpeta
+  // (p. ej. una nota recién creada, para que aparezca su input de nombre).
+  useEffect(() => {
+    if (node.isDir && revealPath && revealPath.startsWith(`${node.path}/`)) setExpanded(true)
+  }, [revealPath, node.isDir, node.path])
+
   const editing = editingPath === node.path
+  const selected = selectedPath === node.path
 
   // Del/Supr borra el elemento enfocado. Se ignora si el foco está en el input
   // de renombrar (target ≠ currentTarget) para no borrar mientras se escribe.
@@ -75,16 +96,24 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
     </button>
   )
 
+  // Sangría del contenido según profundidad (el fondo igual llega al borde).
+  const indent = { paddingLeft: 8 + depth * INDENT }
+
   if (node.isDir) {
     return (
       <li>
         <div
-          className="tree-dir"
+          className={`tree-dir${selected ? ' selected' : ''}`}
+          style={indent}
           tabIndex={0}
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => {
+            onSelect(node)
+            setExpanded((v) => !v)
+          }}
           onKeyDown={onKeyDown}
           onContextMenu={(e) => {
             e.preventDefault()
+            onSelect(node)
             onContext(node, e.clientX, e.clientY)
           }}
         >
@@ -96,7 +125,7 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
         {expanded && node.children && node.children.length > 0 && (
           <ul className="tree-children">
             {node.children.map((child) => (
-              <TreeItem key={child.path} node={child} {...props} />
+              <TreeItem key={child.path} node={child} depth={depth + 1} {...props} />
             ))}
           </ul>
         )}
@@ -106,16 +135,25 @@ function TreeItem({ node, ...props }: { node: TreeNode } & Omit<FileTreeProps, '
 
   return (
     <li
-      className={`tree-file${openPath === node.path ? ' active' : ''}`}
+      className={`tree-file${openPath === node.path ? ' active' : ''}${selected ? ' selected' : ''}`}
+      style={indent}
       tabIndex={0}
-      onClick={() => !editing && onOpen(node.path)}
+      onClick={() => {
+        if (editing) return
+        onSelect(node)
+        onOpen(node.path)
+      }}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => {
         e.preventDefault()
+        onSelect(node)
         onContext(node, e.clientX, e.clientY)
       }}
       title={node.path}
     >
+      {/* Espaciador del ancho del chevron, para que los iconos de archivos
+          queden alineados con los de las carpetas del mismo nivel. */}
+      <span className="twisty-spacer" />
       <FileText className="node-icon" size={15} />
       {nameEl}
       {delBtn}

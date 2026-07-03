@@ -318,6 +318,30 @@ button.primary {
   flex-direction: column;
 }
 
+/* Divisor arrastrable entre sidebar y editor (estilo VSCode: fino, se ilumina
+   al pasar el mouse; zona de agarre más ancha que la línea visible). */
+.sidebar-resizer {
+  flex: 0 0 auto;
+  width: 5px;
+  margin-left: -3px;
+  margin-right: -2px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 5;
+  transition: background 0.12s ease;
+}
+
+.sidebar-resizer:hover,
+body.resizing-col .sidebar-resizer {
+  background: var(--accent);
+}
+
+/* Mientras se arrastra: cursor global y sin selección de texto accidental. */
+body.resizing-col {
+  cursor: col-resize;
+  user-select: none;
+}
+
 .sidebar-toolbar {
   display: flex;
   align-items: center;
@@ -486,14 +510,14 @@ button.primary {
 }
 
 .tree {
-  padding: 6px 4px;
+  padding: 4px 0; /* sin padding lateral: el resalte de fila llega hasta el borde */
 }
 
-/* Guía vertical + sangría para que se vea claro qué está dentro de qué. */
+/* La sangría de los hijos la da el padding-left por profundidad de cada fila
+   (estilo VSCode), no un offset del contenedor: así el fondo va de lado a lado. */
 .tree-children {
-  margin-left: 16px;
-  padding-left: 20px;
-  border-left: 1px solid var(--border);
+  margin: 0;
+  padding: 0;
 }
 
 .tree-dir,
@@ -501,10 +525,15 @@ button.primary {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 4px 8px;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* Espaciador del ancho del chevron para alinear iconos de archivos con carpetas. */
+.twisty-spacer {
+  width: 14px;
+  flex-shrink: 0;
 }
 
 .tree-dir {
@@ -566,12 +595,15 @@ button.primary {
   background: rgba(255, 107, 107, 0.14);
 }
 
-/* Fila enfocada por teclado: es la que borra Supr/Del. */
+/* Selección/foco estilo VSCode: relleno de fila completo + contorno fino de 1px
+   (sin barra lateral). El contorno inset no desplaza el layout. */
+.tree-dir.selected,
+.tree-file.selected,
 .tree-dir:focus-visible,
 .tree-file:focus-visible {
   outline: none;
   background: var(--panel-2);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .tree-empty {

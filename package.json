@@ -1,6 +1,6 @@
 {
   "name": "geode",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Notas versionadas sobre Git — local-first, extensible.",
   "author": "Daniel Waksman <dwaksman@gmail.com>",
   "license": "UNLICENSED",

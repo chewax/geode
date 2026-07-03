@@ -3,10 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- CSP estricta: nada de recursos remotos ni eval en el renderer. -->
+    <!--
+      CSP: sin recursos remotos. 'unsafe-eval' habilita el loader de plugins
+      (Fase A, locales confiables): su código se evalúa en el renderer para
+      integrar paneles/comandos y compartir React/CodeMirror. En Fase B los
+      plugins pasan a un sandbox aislado y se vuelve a quitar 'unsafe-eval'.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
     />
     <title>Geode</title>
   </head>

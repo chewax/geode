@@ -32,6 +32,10 @@ export interface Settings {
     /** Último oid pusheado por rama, para contar commits pendientes. */
     pushed?: Record<string, string>
   }
+  plugins?: {
+    /** Activado por id de plugin. Ausente = desactivado (default seguro). */
+    enabled?: Record<string, boolean>
+  }
 }
 
 function settingsPath(): string {
@@ -127,5 +131,20 @@ export async function getGithubToken(): Promise<string | null> {
 export async function clearGithub(): Promise<void> {
   const settings = await loadSettings()
   delete settings.github
+  await saveSettings(settings)
+}
+
+// ── Plugins externos ─────────────────────────────────────────────────────────
+
+/** Mapa id→activado de los plugins externos. */
+export async function getPluginsEnabled(): Promise<Record<string, boolean>> {
+  return (await loadSettings()).plugins?.enabled ?? {}
+}
+
+/** Activa/desactiva un plugin externo (persistente). */
+export async function setPluginEnabled(id: string, enabled: boolean): Promise<void> {
+  const settings = await loadSettings()
+  const map = { ...settings.plugins?.enabled, [id]: enabled }
+  settings.plugins = { ...settings.plugins, enabled: map }
   await saveSettings(settings)
 }

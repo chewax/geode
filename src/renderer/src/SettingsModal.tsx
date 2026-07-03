@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle } from 'lucide-react'
-import type { AiConfig, AiModel, DeviceFlowStart, GithubConfig } from '@shared/ipc'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle } from 'lucide-react'
+import type {
+  AiConfig,
+  AiModel,
+  DeviceFlowStart,
+  GithubConfig,
+  InstalledPlugin
+} from '@shared/ipc'
 import { BUILTIN_PLUGINS } from './plugins'
 
 interface SettingsModalProps {
@@ -38,6 +44,12 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const [device, setDevice] = useState<DeviceFlowStart | null>(null)
   const [connecting, setConnecting] = useState(false)
 
+  // Plugins externos
+  const [extPlugins, setExtPlugins] = useState<InstalledPlugin[]>([])
+  const refreshPlugins = useCallback(async () => {
+    setExtPlugins(await window.geode.plugins.list())
+  }, [])
+
   const apply = useCallback(
     (c: AiConfig) => {
       setConfig(c)
@@ -69,8 +81,13 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       const g = await window.geode.github.getConfig()
       setGithub(g)
       setRemoteInput(g.remote ?? '')
+      void refreshPlugins()
     })()
-  }, [apply, loadModels])
+  }, [apply, loadModels, refreshPlugins])
+
+  const togglePlugin = async (id: string, enabled: boolean): Promise<void> => {
+    setExtPlugins(await window.geode.plugins.setEnabled(id, enabled))
+  }
 
   const connectGithub = async (): Promise<void> => {
     setConnecting(true)
@@ -286,10 +303,58 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             {section === 'plugins' && (
               <section className="settings-section">
                 <h2><Puzzle size={18} /> Plugins</h2>
+
+                <div className="ps-group-head">
+                  <h3>Instalados</h3>
+                  <div className="ps-actions">
+                    <button className="icon-btn" title="Recargar lista" onClick={() => void refreshPlugins()}>
+                      <RefreshCw size={14} />
+                    </button>
+                    <button onClick={() => void window.geode.plugins.openDir()}>
+                      <FolderOpen size={14} /> Abrir carpeta
+                    </button>
+                  </div>
+                </div>
                 <p className="modal-sub">
-                  Plugins internos activos. La API de plugins v1 es interna; la instalación de
-                  terceros llega más adelante.
+                  Poné cada plugin en su propia carpeta dentro de la carpeta de plugins, con un
+                  <code> plugin.json</code>. Los cambios de activación se aplican al reiniciar la app.
                 </p>
+
+                {extPlugins.length === 0 ? (
+                  <p className="plugin-empty">No hay plugins instalados todavía.</p>
+                ) : (
+                  <ul className="plugin-settings-list">
+                    {extPlugins.map((p) => (
+                      <li key={p.manifest.id} className="plugin-settings-row">
+                        <div className="ps-info">
+                          <div className="ps-name">
+                            {p.manifest.name}
+                            <span className="ps-ver">v{p.manifest.version}</span>
+                          </div>
+                          <div className="ps-id">{p.manifest.id}</div>
+                          {p.manifest.description && <div className="ps-desc">{p.manifest.description}</div>}
+                          {p.error && (
+                            <div className="ps-err"><AlertTriangle size={12} /> {p.error}</div>
+                          )}
+                        </div>
+                        {!p.error && (
+                          <label className="ps-toggle" title={p.enabled ? 'Activado' : 'Desactivado'}>
+                            <input
+                              type="checkbox"
+                              checked={p.enabled}
+                              onChange={(e) => void togglePlugin(p.manifest.id, e.target.checked)}
+                            />
+                            {p.enabled ? 'activado' : 'desactivado'}
+                          </label>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="ps-group-head">
+                  <h3>Internos</h3>
+                </div>
                 <ul className="plugin-settings-list">
                   {BUILTIN_PLUGINS.map((p) => (
                     <li key={p.id} className="plugin-settings-row">

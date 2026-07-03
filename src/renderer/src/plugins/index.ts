@@ -10,6 +10,8 @@ export { GeodeProvider, useGeode, usePluginRegistry } from './react'
 export { CommandPalette } from './CommandPalette'
 export { PluginPanels } from './PluginPanels'
 export { PluginStatusItems } from './PluginStatusBar'
+export { loadExternalPlugins } from './loader'
+export type { LoadResult } from './loader'
 export type { GeodePlugin, PluginContext, Command } from './types'
 
 /** Plugins internos que vienen con Geode (la "prueba de fuego" de la API v1). */

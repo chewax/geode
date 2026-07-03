@@ -38,8 +38,11 @@ import {
   getAiKey,
   setGithubToken,
   getGithubToken,
-  clearGithub
+  clearGithub,
+  getPluginsEnabled,
+  setPluginEnabled
 } from './services/settings'
+import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
 
 // OAuth App de Geode (client IDs son públicos; device flow no usa secret).
 const GITHUB_CLIENT_ID = 'Ov23liOW1wfZr6QhxLVY'
@@ -278,6 +281,21 @@ function registerIpcHandlers(): void {
     const key = await getAiKey()
     return key ? getOpenRouterUsage(key) : null
   })
+
+  // ── Plugins externos (descubrimiento + gestión; la carga la hace el renderer) ─
+
+  ipcMain.handle(IPC.pluginsList, async () => listPlugins(await getPluginsEnabled()))
+
+  ipcMain.handle(IPC.pluginsOpenDir, () => openPluginsDir())
+
+  ipcMain.handle(IPC.pluginsSetEnabled, async (_e, id: string, enabled: boolean) => {
+    await setPluginEnabled(id, enabled)
+    return listPlugins(await getPluginsEnabled())
+  })
+
+  ipcMain.handle(IPC.pluginsReadSource, async (_e, id: string) =>
+    readPluginSource(id, await getPluginsEnabled())
+  )
 
   // ── GitHub / push ─────────────────────────────────────────────────────────
 

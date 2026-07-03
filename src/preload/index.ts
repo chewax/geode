@@ -66,6 +66,12 @@ const api: GeodeApi = {
     generateText: (instruction, selection, before) =>
       ipcRenderer.invoke(IPC.aiGenerateText, instruction, selection, before),
     usage: () => ipcRenderer.invoke(IPC.aiUsage)
+  },
+  plugins: {
+    list: () => ipcRenderer.invoke(IPC.pluginsList),
+    openDir: () => ipcRenderer.invoke(IPC.pluginsOpenDir),
+    setEnabled: (id, enabled) => ipcRenderer.invoke(IPC.pluginsSetEnabled, id, enabled),
+    readSource: (id) => ipcRenderer.invoke(IPC.pluginsReadSource, id)
   }
 }
 

@@ -1,0 +1,10 @@
+{
+  "id": "hola-mundo",
+  "name": "Hola Mundo",
+  "version": "1.0.0",
+  "description": "Plugin externo de ejemplo: agrega un comando que inserta un saludo.",
+  "author": "Geode",
+  "main": "main.js",
+  "minAppVersion": "0.4.0",
+  "permissions": []
+}

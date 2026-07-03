@@ -43,6 +43,7 @@ import {
   PluginPanels,
   PluginStatusItems,
   activatePlugins,
+  loadExternalPlugins,
   BUILTIN_PLUGINS
 } from './plugins'
 
@@ -541,6 +542,20 @@ export function App(): JSX.Element {
       notify: (m) => setToast(m)
     })
     const offPlugins = activatePlugins(host, BUILTIN_PLUGINS)
+
+    // Plugins externos: la carga es async (lee la fuente por IPC y la evalúa),
+    // así que se activan aparte y se limpian en el unmount aunque lleguen tarde.
+    let offExternal: { dispose: () => void } | null = null
+    let cancelled = false
+    void (async () => {
+      const { plugins, errors } = await loadExternalPlugins()
+      if (cancelled) return
+      offExternal = activatePlugins(host, plugins)
+      if (errors.length > 0) {
+        setToast(`Plugins con error: ${errors.map((e) => e.id).join(', ')}`)
+      }
+    })()
+
     const api = (): typeof commandApiRef.current => commandApiRef.current
     const cmds = [
       host.registerCommand({ id: 'core.saveVersion', title: 'Guardar versión', category: 'Núcleo', shortcut: 'Ctrl+S', run: () => api().saveVersion() }),
@@ -552,7 +567,12 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.merge', title: 'Integrar rama a su base', category: 'Git', run: () => api().merge(), isEnabled: () => api().canMerge }),
       host.registerCommand({ id: 'core.push', title: 'Push a GitHub', category: 'Git', run: () => api().push(), isEnabled: () => api().pushEnabled })
     ]
-    return () => { cmds.forEach((c) => c.dispose()); offPlugins.dispose() }
+    return () => {
+      cancelled = true
+      cmds.forEach((c) => c.dispose())
+      offPlugins.dispose()
+      offExternal?.dispose()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

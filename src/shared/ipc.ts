@@ -52,7 +52,11 @@ export const IPC = {
   aiListModels: 'geode:ai-list-models',
   aiSuggestMessage: 'geode:ai-suggest-message',
   aiGenerateText: 'geode:ai-generate-text',
-  aiUsage: 'geode:ai-usage'
+  aiUsage: 'geode:ai-usage',
+  pluginsList: 'geode:plugins-list',
+  pluginsOpenDir: 'geode:plugins-open-dir',
+  pluginsSetEnabled: 'geode:plugins-set-enabled',
+  pluginsReadSource: 'geode:plugins-read-source'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -274,6 +278,49 @@ export interface AiApi {
   usage(): Promise<AiUsage | null>
 }
 
+// ── Plugins externos (Fase A: locales confiables, cargados en runtime) ──────
+
+/**
+ * Manifiesto de un plugin externo (`plugin.json` en su carpeta). El campo
+ * `permissions` está RESERVADO para el sandbox (Fase B): hoy es solo informativo,
+ * pero se declara desde ya para no romper el formato al hacerlo cumplir.
+ */
+export interface PluginManifest {
+  id: string
+  name: string
+  version: string
+  description?: string
+  author?: string
+  /** Archivo de entrada CommonJS, relativo a la carpeta del plugin. */
+  main: string
+  /** Versión mínima de Geode requerida (semver). */
+  minAppVersion?: string
+  /** Permisos declarados. Reservado para el sandbox; hoy informativo. */
+  permissions?: string[]
+}
+
+/** Un plugin externo instalado en la carpeta de plugins. */
+export interface InstalledPlugin {
+  manifest: PluginManifest
+  /** Carpeta absoluta del plugin (para abrir/gestionar). */
+  dir: string
+  /** Si el usuario lo tiene activado. */
+  enabled: boolean
+  /** Motivo por el que el manifiesto no se pudo leer/validar, si aplica. */
+  error?: string
+}
+
+export interface PluginsApi {
+  /** Plugins externos encontrados en la carpeta de plugins. */
+  list(): Promise<InstalledPlugin[]>
+  /** Abre la carpeta de plugins en el explorador del SO. */
+  openDir(): Promise<void>
+  /** Activa/desactiva un plugin (persistente). Devuelve la lista actualizada. */
+  setEnabled(id: string, enabled: boolean): Promise<InstalledPlugin[]>
+  /** Código fuente del entry de un plugin, para que el renderer lo cargue. */
+  readSource(id: string): Promise<string>
+}
+
 // ── Superficie completa expuesta en window.geode ───────────────────────────
 
 export interface GeodeApi {
@@ -286,4 +333,5 @@ export interface GeodeApi {
   git: GitApi
   ai: AiApi
   github: GithubApi
+  plugins: PluginsApi
 }

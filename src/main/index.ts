@@ -27,6 +27,8 @@ import {
   pollForToken,
   getLogin,
   normalizeRemoteUrl,
+  listRepos,
+  createRepo,
   type DeviceCode
 } from './services/github'
 import {
@@ -191,6 +193,48 @@ function registerIpcHandlers(): void {
       return null
     }
   })
+
+  ipcMain.handle(
+    IPC.vaultCloneFromGithub,
+    async (_e, cloneUrl: string): Promise<VaultInfo | null> => {
+      const token = await getGithubToken()
+      if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
+      const dir = await vault.pickFolder('Elegí una carpeta VACÍA donde clonar el repo')
+      if (!dir) return null
+      if (!(await vault.isEmptyDir(dir))) {
+        throw new Error('La carpeta no está vacía. Elegí (o creá) una carpeta vacía para clonar.')
+      }
+      const url = normalizeRemoteUrl(cloneUrl)
+      await gitService.clone(dir, url, token)
+      const info = await vault.setRoot(dir)
+      await gitService.setRemote(dir, url)
+      const settings = await loadSettings()
+      settings.github = { ...settings.github, remote: url }
+      await saveSettings(settings)
+      await rememberVault(dir)
+      return info
+    }
+  )
+
+  ipcMain.handle(
+    IPC.vaultCreateWithRepo,
+    async (_e, name: string, isPrivate: boolean): Promise<VaultInfo | null> => {
+      const token = await getGithubToken()
+      if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
+      const dir = await vault.pickFolder('Elegí la carpeta para la bóveda nueva')
+      if (!dir) return null
+      await gitService.ensureRepo(dir) // init repo local (rama main)
+      const repo = await createRepo(token, name, isPrivate) // crea el repo en GitHub
+      const info = await vault.setRoot(dir)
+      await gitService.setRemote(dir, repo.cloneUrl)
+      const settings = await loadSettings()
+      settings.github = { ...settings.github, remote: repo.cloneUrl }
+      await saveSettings(settings)
+      await rememberVault(dir)
+      return info
+    }
+  )
+
   ipcMain.handle(IPC.vaultTree, () => vault.tree())
   ipcMain.handle(IPC.vaultReadNote, (_e, path: string) => vault.readNote(path))
   ipcMain.handle(IPC.vaultWriteNote, (_e, path: string, content: string) =>
@@ -221,6 +265,12 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.gitRemoveTag, (_e, name: string) => gitService.removeTag(requireRoot(), name))
   ipcMain.handle(IPC.gitDeleteBranch, (_e, name: string) =>
     gitService.deleteBranch(requireRoot(), name)
+  )
+  ipcMain.handle(IPC.gitNoteHistory, (_e, path: string) =>
+    gitService.noteHistory(requireRoot(), path)
+  )
+  ipcMain.handle(IPC.gitReadNoteAt, (_e, oid: string, path: string) =>
+    gitService.readAt(requireRoot(), oid, path)
   )
 
   ipcMain.handle(IPC.aiGetConfig, () => aiConfig())
@@ -338,6 +388,12 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.githubDisconnect, async () => {
     await clearGithub()
     return githubConfig()
+  })
+
+  ipcMain.handle(IPC.githubListRepos, async () => {
+    const token = await getGithubToken()
+    if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
+    return listRepos(token)
   })
 
   ipcMain.handle(IPC.gitPendingPush, async () => {

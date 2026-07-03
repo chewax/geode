@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import { ChevronsUpDown, Check, FolderOpen } from 'lucide-react'
+import { ChevronsUpDown, Check, FolderOpen, Cloud } from 'lucide-react'
 import type { VaultInfo } from '@shared/ipc'
 
 export interface VaultSwitcherProps {
@@ -12,6 +12,8 @@ export interface VaultSwitcherProps {
   onSwitch: (root: string) => void
   /** "Gestionar bóvedas…": abre el diálogo de carpeta. */
   onManage: () => void
+  /** "Clonar o crear en GitHub…": abre el diálogo de nueva bóveda. */
+  onNew: () => void
 }
 
 /**
@@ -19,7 +21,13 @@ export interface VaultSwitcherProps {
  * del sidebar; al hacer click abre un popover hacia arriba con la lista de
  * bóvedas (check en la activa) y "Gestionar bóvedas…".
  */
-export function VaultSwitcher({ current, vaults, onSwitch, onManage }: VaultSwitcherProps): JSX.Element {
+export function VaultSwitcher({
+  current,
+  vaults,
+  onSwitch,
+  onManage,
+  onNew
+}: VaultSwitcherProps): JSX.Element {
   const [open, setOpen] = useState(false)
 
   // Cerrar con Escape mientras está abierto.
@@ -69,7 +77,16 @@ export function VaultSwitcher({ current, vaults, onSwitch, onManage }: VaultSwit
                 onManage()
               }}
             >
-              <FolderOpen size={14} /> Gestionar bóvedas…
+              <FolderOpen size={14} /> Abrir carpeta…
+            </li>
+            <li
+              className="vault-menu-manage"
+              onClick={() => {
+                setOpen(false)
+                onNew()
+              }}
+            >
+              <Cloud size={14} /> Clonar o crear en GitHub…
             </li>
           </ul>
         </>

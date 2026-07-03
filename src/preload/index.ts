@@ -25,6 +25,9 @@ const api: GeodeApi = {
     current: () => ipcRenderer.invoke(IPC.vaultCurrent),
     list: () => ipcRenderer.invoke(IPC.vaultList),
     switch: (root) => ipcRenderer.invoke(IPC.vaultSwitch, root),
+    cloneFromGithub: (cloneUrl) => ipcRenderer.invoke(IPC.vaultCloneFromGithub, cloneUrl),
+    createWithRepo: (name, isPrivate) =>
+      ipcRenderer.invoke(IPC.vaultCreateWithRepo, name, isPrivate),
     tree: () => ipcRenderer.invoke(IPC.vaultTree),
     readNote: (path) => ipcRenderer.invoke(IPC.vaultReadNote, path),
     writeNote: (path, content) => ipcRenderer.invoke(IPC.vaultWriteNote, path, content),
@@ -45,7 +48,9 @@ const api: GeodeApi = {
     commitDiff: (oid) => ipcRenderer.invoke(IPC.gitCommitDiff, oid),
     addTag: (oid, name) => ipcRenderer.invoke(IPC.gitAddTag, oid, name),
     removeTag: (name) => ipcRenderer.invoke(IPC.gitRemoveTag, name),
-    deleteBranch: (name) => ipcRenderer.invoke(IPC.gitDeleteBranch, name)
+    deleteBranch: (name) => ipcRenderer.invoke(IPC.gitDeleteBranch, name),
+    noteHistory: (path) => ipcRenderer.invoke(IPC.gitNoteHistory, path),
+    readNoteAt: (oid, path) => ipcRenderer.invoke(IPC.gitReadNoteAt, oid, path)
   },
   github: {
     getConfig: () => ipcRenderer.invoke(IPC.githubGetConfig),
@@ -53,7 +58,8 @@ const api: GeodeApi = {
     completeDeviceFlow: () => ipcRenderer.invoke(IPC.githubCompleteDeviceFlow),
     setRemote: (url) => ipcRenderer.invoke(IPC.githubSetRemote, url),
     setAutoPush: (autoPush) => ipcRenderer.invoke(IPC.githubSetAutoPush, autoPush),
-    disconnect: () => ipcRenderer.invoke(IPC.githubDisconnect)
+    disconnect: () => ipcRenderer.invoke(IPC.githubDisconnect),
+    listRepos: () => ipcRenderer.invoke(IPC.githubListRepos)
   },
   ai: {
     getConfig: () => ipcRenderer.invoke(IPC.aiGetConfig),

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
 import { createPatch } from 'diff'
-import type { GitCommitNode, GitGraph } from '@shared/ipc'
+import type { GitCommitNode, GitGraph, NoteVersion } from '@shared/ipc'
 import { atomicWrite } from '../fs/atomic'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
@@ -503,10 +503,107 @@ export class GitService {
     return { branch, oid }
   }
 
+  /**
+   * Clona un repo en `dir` (que debe estar vacío). Trae todas las ramas para que
+   * el árbol de versiones quede completo. El auth va por HTTPS con el token de
+   * OAuth, igual que push.
+   */
+  async clone(dir: string, url: string, token: string): Promise<void> {
+    await git.clone({
+      fs,
+      http,
+      dir,
+      url,
+      singleBranch: false, // todas las ramas: el árbol de versiones las usa
+      onAuth: () => ({ username: 'x-access-token', password: token })
+    })
+  }
+
   /** Contenido de una nota tal como estaba en un commit dado. */
   async readAt(dir: string, oid: string, filepath: string): Promise<string> {
     const { blob } = await git.readBlob({ fs, dir, oid, filepath })
     return new TextDecoder().decode(blob)
+  }
+
+  /**
+   * Historial de UNA nota: los commits (de todas las ramas) donde su contenido
+   * cambió, del más viejo al más nuevo. Un commit cuenta como versión si el blob
+   * de la nota difiere de TODOS sus padres (o es su primera aparición); así los
+   * merges que no cambian la nota no ensucian la línea de tiempo.
+   */
+  async noteHistory(dir: string, filepath: string): Promise<NoteVersion[]> {
+    const branchNames = await git.listBranches({ fs, dir })
+    const commits = new Map<
+      string,
+      { oid: string; message: string; timestamp: number; author: string; parents: string[] }
+    >()
+    for (const name of branchNames) {
+      let log
+      try {
+        log = await git.log({ fs, dir, ref: name })
+      } catch {
+        continue
+      }
+      for (const c of log) {
+        if (!commits.has(c.oid)) {
+          commits.set(c.oid, {
+            oid: c.oid,
+            message: c.commit.message.trim(),
+            timestamp: c.commit.author.timestamp * 1000,
+            author: c.commit.author.name,
+            parents: c.commit.parent ?? []
+          })
+        }
+      }
+    }
+
+    // Oid del blob de la nota en un commit (null si no existe ahí).
+    const blobAt = async (commitOid: string): Promise<string | null> => {
+      try {
+        return (await git.readBlob({ fs, dir, oid: commitOid, filepath })).oid
+      } catch {
+        return null
+      }
+    }
+
+    // Orden topológico (ancestros primero). NO se puede ordenar por timestamp:
+    // los commits de git tienen granularidad de 1 segundo, así que dos versiones
+    // guardadas en el mismo segundo empatan y el orden queda indefinido. La
+    // ancestría es la única fuente confiable de "más viejo → más nuevo".
+    const topoIndex = new Map<string, number>()
+    let n = 0
+    for (const start of commits.keys()) {
+      if (topoIndex.has(start)) continue
+      const stack = [start]
+      while (stack.length) {
+        const oid = stack[stack.length - 1]
+        if (topoIndex.has(oid)) {
+          stack.pop()
+          continue
+        }
+        const parents = (commits.get(oid)?.parents ?? []).filter(
+          (p) => commits.has(p) && !topoIndex.has(p)
+        )
+        if (parents.length > 0) stack.push(...parents) // procesar ancestros primero
+        else topoIndex.set(oid, n++) // sin ancestros pendientes: le toca su índice
+      }
+    }
+
+    const versions: { v: NoteVersion; order: number }[] = []
+    for (const c of commits.values()) {
+      const here = await blobAt(c.oid)
+      if (here === null) continue // la nota no existe en este commit
+      const parentBlobs = await Promise.all(c.parents.map(blobAt))
+      const isNew = c.parents.length === 0 || parentBlobs.every((b) => b !== here)
+      if (isNew) {
+        versions.push({
+          v: { oid: c.oid, message: c.message, timestamp: c.timestamp, author: c.author },
+          order: topoIndex.get(c.oid) ?? 0
+        })
+      }
+    }
+    versions.sort((a, b) => a.order - b.order) // ancestros primero = viejo → nuevo
+    return versions.map((x) => x.v)
   }
 
   /** Rutas cuyo contenido difiere entre HEAD y el working dir (lo que se versionaría). */

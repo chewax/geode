@@ -19,6 +19,8 @@ export const IPC = {
   vaultCurrent: 'geode:vault-current',
   vaultList: 'geode:vault-list',
   vaultSwitch: 'geode:vault-switch',
+  vaultCloneFromGithub: 'geode:vault-clone-from-github',
+  vaultCreateWithRepo: 'geode:vault-create-with-repo',
   vaultTree: 'geode:vault-tree',
   vaultReadNote: 'geode:vault-read-note',
   vaultWriteNote: 'geode:vault-write-note',
@@ -38,12 +40,15 @@ export const IPC = {
   gitAddTag: 'geode:git-add-tag',
   gitRemoveTag: 'geode:git-remove-tag',
   gitDeleteBranch: 'geode:git-delete-branch',
+  gitNoteHistory: 'geode:git-note-history',
+  gitReadNoteAt: 'geode:git-read-note-at',
   githubGetConfig: 'geode:github-get-config',
   githubStartDeviceFlow: 'geode:github-start-device-flow',
   githubCompleteDeviceFlow: 'geode:github-complete-device-flow',
   githubSetRemote: 'geode:github-set-remote',
   githubSetAutoPush: 'geode:github-set-auto-push',
   githubDisconnect: 'geode:github-disconnect',
+  githubListRepos: 'geode:github-list-repos',
   aiGetConfig: 'geode:ai-get-config',
   aiSetKey: 'geode:ai-set-key',
   aiClearKey: 'geode:ai-clear-key',
@@ -109,6 +114,16 @@ export interface VaultApi {
   list(): Promise<VaultInfo[]>
   /** Cambia a una bóveda ya conocida por su ruta. null si ya no existe. */
   switch(root: string): Promise<VaultInfo | null>
+  /**
+   * Clona un repo de GitHub en una carpeta local (elegida por diálogo) y la abre
+   * como bóveda. null si el usuario cancela el diálogo de carpeta.
+   */
+  cloneFromGithub(cloneUrl: string): Promise<VaultInfo | null>
+  /**
+   * Crea una bóveda nueva en una carpeta local (elegida por diálogo), crea un repo
+   * en GitHub y lo enlaza como remoto. null si el usuario cancela.
+   */
+  createWithRepo(name: string, isPrivate: boolean): Promise<VaultInfo | null>
   /** Árbol de carpetas y notas .md del vault activo. */
   tree(): Promise<TreeNode[]>
   /** Lee una nota por su ruta relativa. */
@@ -162,6 +177,15 @@ export interface FileDiff {
   patch: string
 }
 
+/** Una versión de UNA nota: un commit donde su contenido cambió. */
+export interface NoteVersion {
+  oid: string
+  message: string
+  /** Epoch en milisegundos. */
+  timestamp: number
+  author: string
+}
+
 /** Grafo de commits de todo el vault, para el árbol de versiones. */
 export interface GitGraph {
   /** Commits de todas las ramas, más nuevo primero. */
@@ -196,6 +220,10 @@ export interface GitApi {
   mergeBranch(): Promise<void>
   /** Cambios de una versión respecto de su padre (para el visor de diff). */
   commitDiff(oid: string): Promise<FileDiff[]>
+  /** Versiones de una nota: commits donde su contenido cambió (viejo → nuevo). */
+  noteHistory(path: string): Promise<NoteVersion[]>
+  /** Contenido de una nota tal como estaba en un commit dado. */
+  readNoteAt(oid: string, path: string): Promise<string>
   /**
    * Etiqueta un commit (tag de git liviano). El nombre se sanea a un ref válido
    * (espacios → guiones). Devuelve el nombre final aplicado. Lanza si ya existe.
@@ -222,6 +250,16 @@ export interface DeviceFlowStart {
   verificationUri: string
 }
 
+/** Un repo de GitHub del usuario (para el selector de clonado). */
+export interface GithubRepoInfo {
+  name: string
+  fullName: string
+  private: boolean
+  cloneUrl: string
+  /** ISO date del último update (para ordenar). */
+  updatedAt: string
+}
+
 export interface GithubApi {
   getConfig(): Promise<GithubConfig>
   /** Inicia el device flow: devuelve el código a mostrar y abre github.com. */
@@ -231,6 +269,8 @@ export interface GithubApi {
   setRemote(url: string): Promise<GithubConfig>
   setAutoPush(autoPush: boolean): Promise<GithubConfig>
   disconnect(): Promise<GithubConfig>
+  /** Repos del usuario (para elegir cuál clonar). */
+  listRepos(): Promise<GithubRepoInfo[]>
 }
 
 // ── IA (mensajes de commit) ─────────────────────────────────────────────────

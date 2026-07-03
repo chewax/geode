@@ -37,6 +37,25 @@ export class VaultService {
     return this.setRoot(res.filePaths[0])
   }
 
+  /** Diálogo para elegir una carpeta (sin fijarla como vault). null si se cancela. */
+  async pickFolder(title: string): Promise<string | null> {
+    const res = await dialog.showOpenDialog({
+      title,
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    return res.filePaths[0]
+  }
+
+  /** true si la carpeta no existe o está vacía (para clonar/crear sin pisar nada). */
+  async isEmptyDir(dir: string): Promise<boolean> {
+    try {
+      return (await readdir(dir)).length === 0
+    } catch {
+      return true // no existe todavía
+    }
+  }
+
   /**
    * Resuelve una ruta relativa a absoluta garantizando que quede DENTRO del
    * vault. Bloquea path traversal (`../`) — clave para no leer/escribir fuera.

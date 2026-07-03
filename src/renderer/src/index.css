@@ -2138,6 +2138,237 @@ button.primary {
   cursor: pointer;
 }
 
+/* ── Línea de tiempo de una nota (scrubber de versiones) ─────────────────── */
+.timeline-modal {
+  width: 720px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timeline-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+
+.timeline-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tl-pos {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tl-msg {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-slider {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.tl-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tl-preview {
+  margin: 0;
+  height: 46vh;
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  transition: opacity 0.1s;
+}
+
+.tl-preview.loading {
+  opacity: 0.5;
+}
+
+.timeline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── Nueva bóveda (clonar / crear repo en GitHub) ────────────────────────── */
+.welcome-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.newvault-modal {
+  width: 520px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nv-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.nv-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.nv-tabs button {
+  flex: 1;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.nv-tabs button.active {
+  background: var(--panel-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.nv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nv-repos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 44vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nv-repo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.nv-repo:hover {
+  background: var(--panel-2);
+}
+
+.nv-repo.sel {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+
+.nv-repo-vis {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.nv-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.nv-input {
+  font: inherit;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.nv-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.nv-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nv-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.nv-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.nv-device {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nv-code {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
 /* ── Toast (avisos de plugins) ───────────────────────────────────────────── */
 .toast {
   position: fixed;

@@ -20,6 +20,7 @@ import {
   HelpCircle,
   Eye,
   PenLine,
+  History,
   Command as CommandIcon
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
@@ -33,6 +34,8 @@ import { MarkdownPreview } from './MarkdownPreview'
 import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
+import { TimelineScrubber } from './TimelineScrubber'
+import { NewVaultDialog } from './NewVaultDialog'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
 import { AiPromptModal } from './AiPromptModal'
@@ -53,6 +56,7 @@ const AUTOSAVE_MS = 600
 export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
   const [vaults, setVaults] = useState<VaultInfo[]>([])
+  const [newVaultOpen, setNewVaultOpen] = useState(false)
   const [tree, setTree] = useState<TreeNode[]>([])
   // Explorador estilo Obsidian: orden A-Z/Z-A y colapsar/expandir todo.
   const [sortAsc, setSortAsc] = useState(true)
@@ -65,6 +69,7 @@ export function App(): JSX.Element {
   const [editorEpoch, setEditorEpoch] = useState(0)
   const [preview, setPreview] = useState(false)
   const [graphOpen, setGraphOpen] = useState(false)
+  const [timelineOpen, setTimelineOpen] = useState(false)
   const [graph, setGraph] = useState<GitGraph | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -188,6 +193,22 @@ export function App(): JSX.Element {
     setTabs((t) => (t.includes(path) ? t : [...t, path])) // abrir como tab
   }, [flush, loadIntoEditor])
 
+  /**
+   * Restaura el contenido de una versión vieja de la nota activa: lo escribe como
+   * cambio pendiente (no reescribe historia). El usuario decide guardarlo como una
+   * versión nueva con Ctrl+S.
+   */
+  const restoreVersion = useCallback(async (content: string) => {
+    const path = openPathRef.current
+    if (!path) return
+    await window.geode.vault.writeNote(path, content)
+    loadIntoEditor(path, content)
+    setStatus('saved') // en disco (journal); todavía no es una versión guardada
+    setSavedAt(new Date())
+    setTimelineOpen(false)
+    await refreshGraph()
+  }, [loadIntoEditor, refreshGraph])
+
   /** Cierra una tab; si era la activa, pasa a una vecina (o vacía el editor). */
   const closeTab = useCallback(async (path: string) => {
     await flush()
@@ -206,9 +227,8 @@ export function App(): JSX.Element {
     }
   }, [flush, openNote])
 
-  const openVault = useCallback(async () => {
-    const info = await window.geode.vault.open()
-    if (!info) return
+  /** Adopta una bóveda como activa y refresca todo (árbol, grafo, github, lista). */
+  const adoptVault = useCallback(async (info: VaultInfo) => {
     setVault(info)
     setOpenPath(null)
     setContent('')
@@ -221,6 +241,11 @@ export function App(): JSX.Element {
     await refreshVaults()
   }, [refreshTree, refreshGraph, refreshGithub, refreshVaults, host])
 
+  const openVault = useCallback(async () => {
+    const info = await window.geode.vault.open()
+    if (info) await adoptVault(info)
+  }, [adoptVault])
+
   /** Cambia a una bóveda ya conocida (selector de bóveda). */
   const switchVault = useCallback(async (root: string) => {
     const info = await window.geode.vault.switch(root)
@@ -228,17 +253,8 @@ export function App(): JSX.Element {
       await refreshVaults() // la carpeta ya no existe: la sacamos del selector
       return
     }
-    setVault(info)
-    setOpenPath(null)
-    setContent('')
-    setStatus('none')
-    setTabs([])
-    host.emit('vault:switch', { root: info.root, name: info.name })
-    await refreshTree()
-    await refreshGraph()
-    await refreshGithub()
-    await refreshVaults()
-  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults, host])
+    await adoptVault(info)
+  }, [adoptVault, refreshVaults])
 
   const newNoteIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createNote(dir)
@@ -468,12 +484,12 @@ export function App(): JSX.Element {
       const cfg = await window.geode.ai.getConfig()
       setAiConfig(cfg)
       if (cfg.hasKey) void refreshAiUsage()
+      await refreshGithub() // también sin bóveda: la pantalla de bienvenida lo usa
       const info = await window.geode.vault.current()
       if (!info) return
       setVault(info)
       await refreshTree()
       await refreshGraph()
-      await refreshGithub()
       await refreshVaults()
     })()
   }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage, refreshVaults])
@@ -617,9 +633,22 @@ export function App(): JSX.Element {
         </div>
         <h1>Geode</h1>
         <p className="tagline">Notas versionadas sobre Git — local-first.</p>
-        <button className="primary" onClick={() => void openVault()}>
-          Abrir carpeta como vault
-        </button>
+        <div className="welcome-actions">
+          <button className="primary" onClick={() => void openVault()}>
+            Abrir carpeta como vault
+          </button>
+          <button onClick={() => setNewVaultOpen(true)}>Clonar o crear en GitHub</button>
+        </div>
+        {newVaultOpen && (
+          <NewVaultDialog
+            githubConnected={!!githubCfg?.connected}
+            onReady={(info) => {
+              setNewVaultOpen(false)
+              void adoptVault(info)
+            }}
+            onClose={() => setNewVaultOpen(false)}
+          />
+        )}
       </div>
     )
   }
@@ -691,6 +720,16 @@ export function App(): JSX.Element {
             >
               <GitBranch size={15} />
             </button>
+            {openPath && (
+              <button
+                className={`tb-btn icon${timelineOpen ? ' active' : ''}`}
+                title="Línea de tiempo de la nota"
+                aria-label="Línea de tiempo de la nota"
+                onClick={() => setTimelineOpen((o) => !o)}
+              >
+                <History size={15} />
+              </button>
+            )}
             {githubCfg?.connected && githubCfg.remote && (
               <button
                 className="tb-btn icon push"
@@ -758,6 +797,7 @@ export function App(): JSX.Element {
               vaults={vaults}
               onSwitch={(root) => void switchVault(root)}
               onManage={() => void openVault()}
+              onNew={() => setNewVaultOpen(true)}
             />
             <div className="sidebar-footer-actions">
               <button className="icon-btn" title="Ayuda" disabled>
@@ -911,6 +951,25 @@ export function App(): JSX.Element {
 
         <PluginPanels host={host} />
       </div>
+
+      {timelineOpen && openPath && (
+        <TimelineScrubber
+          path={openPath}
+          onRestore={(content) => void restoreVersion(content)}
+          onClose={() => setTimelineOpen(false)}
+        />
+      )}
+
+      {newVaultOpen && (
+        <NewVaultDialog
+          githubConnected={!!githubCfg?.connected}
+          onReady={(info) => {
+            setNewVaultOpen(false)
+            void adoptVault(info)
+          }}
+          onClose={() => setNewVaultOpen(false)}
+        />
+      )}
 
       {diffOid && <DiffView oid={diffOid} onClose={() => setDiffOid(null)} />}
 

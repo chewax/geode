@@ -4,6 +4,8 @@
  * y la app obtiene un token. El token se guarda cifrado (ver settings).
  */
 
+import type { GithubRepoInfo } from '@shared/ipc'
+
 const DEVICE_CODE_URL = 'https://github.com/login/device/code'
 const TOKEN_URL = 'https://github.com/login/oauth/access_token'
 // Scope `repo` para poder pushear a repos privados y públicos.
@@ -99,4 +101,67 @@ export async function getLogin(token: string): Promise<string> {
   if (!res.ok) throw new Error(`GitHub user: ${res.status}`)
   const j = (await res.json()) as { login: string }
   return j.login
+}
+
+function ghHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'Geode'
+  }
+}
+
+/** Repos del dueño del token, más reciente primero (para el selector de clonado). */
+export async function listRepos(token: string): Promise<GithubRepoInfo[]> {
+  const res = await fetch(
+    'https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner',
+    { headers: ghHeaders(token) }
+  )
+  if (!res.ok) throw new Error(`GitHub repos: ${res.status} ${await res.text()}`)
+  const list = (await res.json()) as {
+    name: string
+    full_name: string
+    private: boolean
+    clone_url: string
+    updated_at: string
+  }[]
+  return list.map((r) => ({
+    name: r.name,
+    fullName: r.full_name,
+    private: r.private,
+    cloneUrl: r.clone_url,
+    updatedAt: r.updated_at
+  }))
+}
+
+/**
+ * Crea un repo nuevo en la cuenta del token. `auto_init: false` para que el
+ * primer push del vault sea el contenido inicial (sin README que genere conflicto).
+ * Devuelve la URL de clonado (HTTPS).
+ */
+export async function createRepo(
+  token: string,
+  name: string,
+  isPrivate: boolean
+): Promise<GithubRepoInfo> {
+  const res = await fetch('https://api.github.com/user/repos', {
+    method: 'POST',
+    headers: { ...ghHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, private: isPrivate, auto_init: false })
+  })
+  if (!res.ok) throw new Error(`GitHub crear repo: ${res.status} ${await res.text()}`)
+  const r = (await res.json()) as {
+    name: string
+    full_name: string
+    private: boolean
+    clone_url: string
+    updated_at: string
+  }
+  return {
+    name: r.name,
+    fullName: r.full_name,
+    private: r.private,
+    cloneUrl: r.clone_url,
+    updatedAt: r.updated_at
+  }
 }

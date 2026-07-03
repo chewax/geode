@@ -19,7 +19,8 @@ import {
   UnfoldVertical,
   HelpCircle,
   Eye,
-  PenLine
+  PenLine,
+  Command as CommandIcon
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
@@ -35,6 +36,15 @@ import { VersionGraph } from './VersionGraph'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
 import { AiPromptModal } from './AiPromptModal'
+import {
+  PluginHost,
+  GeodeProvider,
+  CommandPalette,
+  PluginPanels,
+  PluginStatusItems,
+  activatePlugins,
+  BUILTIN_PLUGINS
+} from './plugins'
 
 type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
 const AUTOSAVE_MS = 600
@@ -74,6 +84,13 @@ export function App(): JSX.Element {
   const [pushing, setPushing] = useState(false)
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  // Host de plugins: se crea una sola vez (estable entre renders).
+  const hostRef = useRef<PluginHost | null>(null)
+  if (!hostRef.current) hostRef.current = new PluginHost()
+  const host = hostRef.current
 
   // Journal: guardado pendiente + timer de autosave, en refs.
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -117,7 +134,8 @@ export function App(): JSX.Element {
   const doPush = useCallback(async () => {
     setPushing(true)
     try {
-      await window.geode.git.push()
+      const res = await window.geode.git.push()
+      host.emit('sync:after', { branch: res.branch, oid: res.oid })
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'No se pudo pushear')
     } finally {
@@ -125,7 +143,7 @@ export function App(): JSX.Element {
       await refreshGithub()
       await refreshGraph() // mover el chip "en GitHub" al commit recién pusheado
     }
-  }, [refreshGithub, refreshGraph])
+  }, [refreshGithub, refreshGraph, host])
 
   /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
   const flush = useCallback(async () => {
@@ -149,16 +167,18 @@ export function App(): JSX.Element {
     setStatus('saving')
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => void flush(), AUTOSAVE_MS)
+    host.emit('note:change', { path, content: doc })
     // Sin auto-branch: editar commitea en la rama actual (incluida main). Las
     // ramas se crean a mano con el botón de rama.
-  }, [flush])
+  }, [flush, host])
 
   const loadIntoEditor = useCallback((path: string, text: string) => {
     setOpenPath(path)
     setContent(text)
     setEditorEpoch((e) => e + 1) // fuerza remonte del editor con el nuevo texto
     setStatus('clean')
-  }, [])
+    host.emit('note:open', { path, content: text })
+  }, [host])
 
   const openNote = useCallback(async (path: string) => {
     await flush() // journal: no perder lo tipeado al cambiar de nota
@@ -193,11 +213,12 @@ export function App(): JSX.Element {
     setContent('')
     setStatus('none')
     setTabs([])
+    host.emit('vault:switch', { root: info.root, name: info.name })
     await refreshTree()
     await refreshGraph()
     await refreshGithub()
     await refreshVaults()
-  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults])
+  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults, host])
 
   /** Cambia a una bóveda ya conocida (selector de bóveda). */
   const switchVault = useCallback(async (root: string) => {
@@ -211,11 +232,12 @@ export function App(): JSX.Element {
     setContent('')
     setStatus('none')
     setTabs([])
+    host.emit('vault:switch', { root: info.root, name: info.name })
     await refreshTree()
     await refreshGraph()
     await refreshGithub()
     await refreshVaults()
-  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults])
+  }, [refreshTree, refreshGraph, refreshGithub, refreshVaults, host])
 
   const newNoteIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createNote(dir)
@@ -284,13 +306,15 @@ export function App(): JSX.Element {
   /** Confirmación del diálogo: crea la versión (commit permanente). */
   const doCommit = useCallback(async (message: string) => {
     const fallback = `Versión ${new Date().toLocaleString()}`
+    host.emit('note:beforeSave', { path: openPathRef.current })
     await window.geode.git.commit(message || fallback)
     setCommitChanges(null)
     await refreshGraph()
     await refreshGithub()
     void refreshAiUsage() // el mensaje pudo haber usado la IA
+    host.emit('note:afterSave', { path: openPathRef.current })
     // El push es SIEMPRE manual (botón Push). Guardar versión nunca sube al remoto.
-  }, [refreshGraph, refreshGithub, refreshAiUsage])
+  }, [refreshGraph, refreshGithub, refreshAiUsage, host])
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {
@@ -485,6 +509,72 @@ export function App(): JSX.Element {
   const canMerge = !!graph?.branches.find((b) => b.name === graph.head.branch)?.base
   const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
 
+  // ── Plugins ───────────────────────────────────────────────────────────────
+  // Acciones de la app en un ref siempre fresco: los comandos se registran una
+  // sola vez pero invocan los callbacks/estado actuales (sin closures viejas).
+  const commandApi = {
+    saveVersion: () => void openCommitDialog(),
+    newNote: () => void newNoteIn(''),
+    newFolder: () => void newFolderIn(''),
+    togglePreview: () => setPreview((p) => !p),
+    toggleGraph,
+    createBranch: () => { if (graph?.head.oid) setBranchFrom(graph.head.oid) },
+    merge: () => void mergeBranch(),
+    push: () => void doPush(),
+    hasOpenPath: !!openPath,
+    hasHead,
+    canMerge,
+    pushEnabled: !!(githubCfg?.connected && githubCfg.remote) && pushCount > 0 && !pushing
+  }
+  const commandApiRef = useRef(commandApi)
+  commandApiRef.current = commandApi
+
+  // Montaje único: puente a la UI (editor imperativo + toast), activación de los
+  // plugins internos y registro de los comandos del núcleo en la paleta.
+  useEffect(() => {
+    host.setBridge({
+      editor: {
+        insertAtCursor: (t) => editorRef.current?.insertAtCursor(t),
+        getSelection: () => editorRef.current?.getSelection() ?? '',
+        revealRange: (f, t) => editorRef.current?.revealRange(f, t)
+      },
+      notify: (m) => setToast(m)
+    })
+    const offPlugins = activatePlugins(host, BUILTIN_PLUGINS)
+    const api = (): typeof commandApiRef.current => commandApiRef.current
+    const cmds = [
+      host.registerCommand({ id: 'core.saveVersion', title: 'Guardar versión', category: 'Núcleo', shortcut: 'Ctrl+S', run: () => api().saveVersion() }),
+      host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
+      host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
+      host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
+      host.registerCommand({ id: 'core.toggleGraph', title: 'Alternar árbol de versiones', category: 'Vista', run: () => api().toggleGraph() }),
+      host.registerCommand({ id: 'core.createBranch', title: 'Crear rama desde la versión actual', category: 'Git', run: () => api().createBranch(), isEnabled: () => api().hasHead }),
+      host.registerCommand({ id: 'core.merge', title: 'Integrar rama a su base', category: 'Git', run: () => api().merge(), isEnabled: () => api().canMerge }),
+      host.registerCommand({ id: 'core.push', title: 'Push a GitHub', category: 'Git', run: () => api().push(), isEnabled: () => api().pushEnabled })
+    ]
+    return () => { cmds.forEach((c) => c.dispose()); offPlugins.dispose() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Ctrl/Cmd+P: abre la paleta de comandos.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Toast: se desvanece solo.
+  useEffect(() => {
+    if (!toast) return
+    const id = window.setTimeout(() => setToast(null), 2500)
+    return () => window.clearTimeout(id)
+  }, [toast])
+
   // Red de seguridad: si el preload no cargó, window.geode no existe.
   if (typeof window.geode === 'undefined') {
     return (
@@ -515,6 +605,7 @@ export function App(): JSX.Element {
   }
 
   return (
+    <GeodeProvider host={host}>
     <div className="shell">
       <header className="titlebar">
         <div className="tb-left">
@@ -526,6 +617,14 @@ export function App(): JSX.Element {
 
         <div className="tb-right">
           <div className="tb-actions">
+            <button
+              className="tb-btn icon"
+              title="Paleta de comandos (Ctrl+P)"
+              aria-label="Paleta de comandos"
+              onClick={() => setPaletteOpen(true)}
+            >
+              <CommandIcon size={15} />
+            </button>
             {openPath && (
               <button
                 className={`tb-btn icon${preview ? ' active' : ''}`}
@@ -685,6 +784,7 @@ export function App(): JSX.Element {
                   initialDoc={content}
                   onChange={handleChange}
                   onRequestAi={requestAi}
+                  extraExtensions={host.listExtensions()}
                 />
               )
             ) : (
@@ -708,6 +808,8 @@ export function App(): JSX.Element {
             </div>
 
             <div className="status-right">
+              <PluginStatusItems host={host} />
+
               {graph && graph.head.oid && (
                 <BranchSwitcher
                   branches={graph.branches}
@@ -786,6 +888,8 @@ export function App(): JSX.Element {
             onShowDiff={(oid) => setDiffOid(oid)}
           />
         )}
+
+        <PluginPanels host={host} />
       </div>
 
       {diffOid && <DiffView oid={diffOid} onClose={() => setDiffOid(null)} />}
@@ -852,7 +956,11 @@ export function App(): JSX.Element {
           </ul>
         </div>
       )}
+
+      {paletteOpen && <CommandPalette host={host} onClose={() => setPaletteOpen(false)} />}
+      {toast && <div className="toast">{toast}</div>}
     </div>
+    </GeodeProvider>
   )
 }
 

@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { JSX } from 'react'
-import { EditorState } from '@codemirror/state'
+import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { baseExtensions } from './extensions'
 
@@ -15,6 +15,12 @@ export interface EditorContext {
 export interface EditorHandle {
   getContext(): EditorContext | null
   replaceRange(from: number, to: number, text: string): void
+  /** Inserta texto en el cursor (o reemplaza la selección actual). */
+  insertAtCursor(text: string): void
+  /** Texto seleccionado ('' si no hay selección). */
+  getSelection(): string
+  /** Selecciona y hace scroll a un rango del documento. */
+  revealRange(from: number, to: number): void
   focus(): void
 }
 
@@ -29,6 +35,8 @@ interface CodeMirrorEditorProps {
   onChange?: (doc: string) => void
   /** Se invoca con Ctrl/Cmd+K para pedir asistencia de IA. */
   onRequestAi?: () => void
+  /** Extensiones inyectadas por plugins (seam de la API de plugins, §7). */
+  extraExtensions?: Extension[]
 }
 
 /**
@@ -37,7 +45,7 @@ interface CodeMirrorEditorProps {
  * no por remontaje. Expone un handle imperativo (selección/insertar/foco).
  */
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ initialDoc, reloadKey, onChange, onRequestAi }, ref): JSX.Element {
+  function CodeMirrorEditor({ initialDoc, reloadKey, onChange, onRequestAi, extraExtensions }, ref): JSX.Element {
     const hostRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
     const docRef = useRef(initialDoc)
@@ -46,6 +54,8 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
     onChangeRef.current = onChange
     const onRequestAiRef = useRef(onRequestAi)
     onRequestAiRef.current = onRequestAi
+    // Snapshot de las extensiones de plugins al montar (el view se crea una vez).
+    const extraExtensionsRef = useRef(extraExtensions)
 
     useImperativeHandle(ref, () => ({
       getContext(): EditorContext | null {
@@ -63,6 +73,31 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         const view = viewRef.current
         if (!view) return
         view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } })
+        view.focus()
+      },
+      insertAtCursor(text): void {
+        const view = viewRef.current
+        if (!view) return
+        const { from, to } = view.state.selection.main
+        view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } })
+        view.focus()
+      },
+      getSelection(): string {
+        const view = viewRef.current
+        if (!view) return ''
+        const { from, to } = view.state.selection.main
+        return view.state.sliceDoc(from, to)
+      },
+      revealRange(from, to): void {
+        const view = viewRef.current
+        if (!view) return
+        const max = view.state.doc.length
+        const a = Math.min(from, max)
+        const b = Math.min(to, max)
+        view.dispatch({
+          selection: { anchor: a, head: b },
+          effects: EditorView.scrollIntoView(a, { y: 'center' })
+        })
         view.focus()
       },
       focus(): void {
@@ -89,6 +124,7 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
               }
             ]),
             ...baseExtensions(),
+            ...(extraExtensionsRef.current ?? []),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) onChangeRef.current?.(update.state.doc.toString())
             })

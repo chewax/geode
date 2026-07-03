@@ -8,7 +8,6 @@ import {
   GitBranch,
   Pencil,
   Trash2,
-  X,
   UploadCloud,
   GitMerge,
   GitBranchPlus,
@@ -19,19 +18,37 @@ import {
   UnfoldVertical,
   HelpCircle,
   Eye,
-  PenLine,
   History,
   Info,
   Command as CommandIcon
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
-import { CodeMirrorEditor, type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
+import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
+import { PaneView } from './PaneView'
+import { type PaneHandle, type TabDrag } from './EditorPane'
+import {
+  makeLeaf,
+  firstLeaf,
+  findLeaf,
+  allLeaves,
+  openInLeaf,
+  updateLeaf,
+  mapLeaves,
+  reorderTab,
+  closeTabInLeaf,
+  splitWithTab,
+  splitLeaf,
+  removePathEverywhere,
+  keepOnly,
+  setSizes,
+  type PaneLayout,
+  type DropZone
+} from './paneTree'
 import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
-import { MarkdownPreview } from './MarkdownPreview'
 import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
@@ -52,7 +69,6 @@ import {
 } from './plugins'
 
 type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
-const AUTOSAVE_MS = 600
 
 export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
@@ -64,12 +80,23 @@ export function App(): JSX.Element {
   const [sortAsc, setSortAsc] = useState(true)
   const [allExpanded, setAllExpanded] = useState(true)
   const [collapseVersion, setCollapseVersion] = useState(0)
-  const [openPath, setOpenPath] = useState<string | null>(null)
+  // Área de edición: árbol de paneles recursivo (estilo VSCode). La hoja inicial
+  // se crea una sola vez para que `panes` y `activePaneId` compartan su id.
+  const initialLeaf = useMemo(() => makeLeaf(), [])
+  const [panes, setPanes] = useState<PaneLayout>(initialLeaf)
+  const [activePaneId, setActivePaneId] = useState(initialLeaf.id)
+  /** Nonce por panel: al cambiar, el panel recarga su nota desde disco. */
+  const [reloadNonces, setReloadNonces] = useState<Record<string, number>>({})
+  // Espejo del panel enfocado (para statusbar, stats, título, IA, timeline).
   const [content, setContent] = useState('')
   const [status, setStatus] = useState<SaveStatus>('none')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
-  const [editorEpoch, setEditorEpoch] = useState(0)
-  const [preview, setPreview] = useState(false)
+  /** Handles imperativos de cada panel (flush, editor activo, preview). */
+  const paneHandles = useRef<Map<string, PaneHandle>>(new Map())
+  /** Último contenido conocido por panel (para refrescar el espejo al enfocar). */
+  const paneContentRef = useRef<Map<string, string>>(new Map())
+  /** Editor al que la IA debe insertar su resultado (el panel que la invocó). */
+  const aiTargetRef = useRef<EditorHandle | null>(null)
   const [graphOpen, setGraphOpen] = useState(false)
   const [timelineOpen, setTimelineOpen] = useState(false)
   const [graph, setGraph] = useState<GitGraph | null>(null)
@@ -91,10 +118,6 @@ export function App(): JSX.Element {
     return Number.isFinite(saved) && saved >= 160 ? saved : 250
   })
   const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
-  const [tabs, setTabs] = useState<string[]>([])
-  const tabsRef = useRef<string[]>([])
-  tabsRef.current = tabs
-  const editorRef = useRef<EditorHandle>(null)
   const [aiEdit, setAiEdit] = useState<EditorContext | null>(null)
   const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
   const [pushCount, setPushCount] = useState(0)
@@ -109,13 +132,43 @@ export function App(): JSX.Element {
   if (!hostRef.current) hostRef.current = new PluginHost()
   const host = hostRef.current
 
-  // Journal: guardado pendiente + timer de autosave, en refs.
-  const pendingRef = useRef<{ path: string; content: string } | null>(null)
-  const saveTimerRef = useRef<number | null>(null)
+  // Panel activo y su nota (derivados del árbol). Los refs se mantienen frescos
+  // para usarlos dentro de callbacks estables sin closures viejas.
+  const activeLeaf = useMemo(() => findLeaf(panes, activePaneId), [panes, activePaneId])
+  const openPath = activeLeaf?.active ?? null
   const openPathRef = useRef<string | null>(null)
   openPathRef.current = openPath
+  const panesRef = useRef<PaneLayout>(panes)
+  panesRef.current = panes
+  const activePaneIdRef = useRef(activePaneId)
+  activePaneIdRef.current = activePaneId
   const headOidRef = useRef<string | null>(null)
   headOidRef.current = graph?.head.oid ?? null
+
+  // Editor imperativo del panel enfocado (para IA/timeline/plugins).
+  const getActiveEditor = useCallback(
+    (): EditorHandle | null => paneHandles.current.get(activePaneIdRef.current)?.getEditor() ?? null,
+    []
+  )
+
+  /** Persiste a disco lo pendiente de TODOS los paneles (antes de commit/checkout). */
+  const flushAll = useCallback(async () => {
+    await Promise.all([...paneHandles.current.values()].map((h) => h.flush()))
+  }, [])
+
+  /** Fuerza recarga desde disco de un panel (tras restore). */
+  const bumpPane = useCallback((id: string) => {
+    setReloadNonces((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
+  }, [])
+
+  /** Fuerza recarga desde disco de todos los paneles (tras checkout/merge). */
+  const bumpAll = useCallback(() => {
+    setReloadNonces((prev) => {
+      const next = { ...prev }
+      for (const leaf of allLeaves(panesRef.current)) next[leaf.id] = (next[leaf.id] ?? 0) + 1
+      return next
+    })
+  }, [])
 
   const refreshVaults = useCallback(async () => {
     setVaults(await window.geode.vault.list())
@@ -162,89 +215,111 @@ export function App(): JSX.Element {
     }
   }, [refreshGithub, refreshGraph, host])
 
-  /** Journal: persiste a disco lo pendiente (autosave). NO commitea. */
-  const flush = useCallback(async () => {
-    if (saveTimerRef.current !== null) {
-      window.clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    const pending = pendingRef.current
-    if (!pending) return
-    pendingRef.current = null
-    await window.geode.vault.writeNote(pending.path, pending.content)
-    setStatus('saved')
-    setSavedAt(new Date())
+  /** Abre (o activa) una nota en el panel enfocado. */
+  const openNote = useCallback(async (path: string) => {
+    await flushAll() // no perder lo tipeado al cambiar de nota
+    setPanes((prev) => openInLeaf(prev, activePaneIdRef.current, path))
+  }, [flushAll])
+
+  // ── Callbacks de los paneles (EditorPane → App) ─────────────────────────────
+
+  /** Enfoca un panel: pasa a ser el activo y refresca el espejo de contenido. */
+  const focusPane = useCallback((paneId: string) => {
+    setActivePaneId(paneId)
+    setContent(paneContentRef.current.get(paneId) ?? '')
   }, [])
 
-  const handleChange = useCallback((doc: string) => {
-    const path = openPathRef.current
-    if (!path) return
-    setContent(doc)
-    pendingRef.current = { path, content: doc }
-    setStatus('saving')
-    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = window.setTimeout(() => void flush(), AUTOSAVE_MS)
-    host.emit('note:change', { path, content: doc })
-    // Sin auto-branch: editar commitea en la rama actual (incluida main). Las
-    // ramas se crean a mano con el botón de rama.
-  }, [flush, host])
+  /** Selecciona una tab dentro de un panel (y lo enfoca). */
+  const selectTab = useCallback((paneId: string, path: string) => {
+    setActivePaneId(paneId)
+    setPanes((prev) => updateLeaf(prev, paneId, (leaf) => ({ ...leaf, active: path })))
+  }, [])
 
-  const loadIntoEditor = useCallback((path: string, text: string) => {
-    setOpenPath(path)
-    setContent(text)
-    setEditorEpoch((e) => e + 1) // fuerza remonte del editor con el nuevo texto
-    setStatus('clean')
-    host.emit('note:open', { path, content: text })
+  const closeTab = useCallback(async (paneId: string, path: string) => {
+    await paneHandles.current.get(paneId)?.flush()
+    setPanes((prev) => closeTabInLeaf(prev, paneId, path))
+  }, [])
+
+  const reorderTabIn = useCallback((paneId: string, path: string, toIndex: number) => {
+    setPanes((prev) => reorderTab(prev, paneId, path, toIndex))
+  }, [])
+
+  /** Suelta una tab en otro panel: la mueve (centro) o divide por el borde. */
+  const dropTab = useCallback(async (drag: TabDrag, dstPaneId: string, zone: DropZone) => {
+    await flushAll()
+    setPanes((prev) => splitWithTab(prev, drag.srcPaneId, drag.path, dstPaneId, zone))
+    setActivePaneId(dstPaneId)
+  }, [flushAll])
+
+  /** Divide un panel abriendo su nota activa en una hoja nueva al lado. */
+  const splitPane = useCallback(async (paneId: string, dir: 'row' | 'col') => {
+    await paneHandles.current.get(paneId)?.flush() // el panel nuevo lee de disco
+    const { tree, newPaneId } = splitLeaf(panesRef.current, paneId, dir)
+    setPanes(tree)
+    setActivePaneId(newPaneId)
+  }, [])
+
+  const onPaneNoteOpen = useCallback((paneId: string, path: string, text: string) => {
+    paneContentRef.current.set(paneId, text)
+    if (paneId === activePaneIdRef.current) {
+      setContent(text)
+      setStatus('clean')
+      host.emit('note:open', { path, content: text })
+    }
   }, [host])
 
-  const openNote = useCallback(async (path: string) => {
-    await flush() // journal: no perder lo tipeado al cambiar de nota
-    const text = await window.geode.vault.readNote(path)
-    loadIntoEditor(path, text)
-    setTabs((t) => (t.includes(path) ? t : [...t, path])) // abrir como tab
-  }, [flush, loadIntoEditor])
+  const onPaneNoteChange = useCallback((paneId: string, path: string, doc: string) => {
+    paneContentRef.current.set(paneId, doc)
+    if (paneId === activePaneIdRef.current) {
+      setContent(doc)
+      setStatus('saving')
+      host.emit('note:change', { path, content: doc })
+    }
+  }, [host])
+
+  const onPaneSaved = useCallback((paneId: string) => {
+    if (paneId === activePaneIdRef.current) {
+      setStatus('saved')
+      setSavedAt(new Date())
+    }
+  }, [])
+
+  const registerPaneHandle = useCallback((paneId: string, handle: PaneHandle | null) => {
+    if (handle) paneHandles.current.set(paneId, handle)
+    else paneHandles.current.delete(paneId)
+  }, [])
+
+  const onPaneResize = useCallback((splitId: string, sizes: number[]) => {
+    setPanes((prev) => setSizes(prev, splitId, sizes))
+  }, [])
 
   /**
-   * Restaura el contenido de una versión vieja de la nota activa: lo escribe como
-   * cambio pendiente (no reescribe historia). El usuario decide guardarlo como una
-   * versión nueva con Ctrl+S.
+   * Restaura el contenido de una versión vieja de la nota activa: lo escribe a
+   * disco y recarga el panel. No reescribe historia; el usuario decide guardarlo
+   * como versión nueva con Ctrl+S.
    */
-  const restoreVersion = useCallback(async (content: string) => {
+  const restoreVersion = useCallback(async (text: string) => {
     const path = openPathRef.current
     if (!path) return
-    await window.geode.vault.writeNote(path, content)
-    loadIntoEditor(path, content)
-    setStatus('saved') // en disco (journal); todavía no es una versión guardada
+    await window.geode.vault.writeNote(path, text)
+    bumpPane(activePaneIdRef.current) // recargar el panel activo desde disco
+    setStatus('saved')
     setSavedAt(new Date())
     setTimelineOpen(false)
     await refreshGraph()
-  }, [loadIntoEditor, refreshGraph])
-
-  /** Cierra una tab; si era la activa, pasa a una vecina (o vacía el editor). */
-  const closeTab = useCallback(async (path: string) => {
-    await flush()
-    const prev = tabsRef.current
-    const idx = prev.indexOf(path)
-    const next = prev.filter((p) => p !== path)
-    setTabs(next)
-    if (path === openPathRef.current) {
-      const fallback = next[idx] ?? next[idx - 1] ?? null
-      if (fallback) await openNote(fallback)
-      else {
-        setOpenPath(null)
-        setContent('')
-        setStatus('none')
-      }
-    }
-  }, [flush, openNote])
+  }, [bumpPane, refreshGraph])
 
   /** Adopta una bóveda como activa y refresca todo (árbol, grafo, github, lista). */
   const adoptVault = useCallback(async (info: VaultInfo) => {
     setVault(info)
-    setOpenPath(null)
+    // Reset del área de edición a un único panel vacío.
+    const leaf = makeLeaf()
+    paneContentRef.current.clear()
+    setPanes(leaf)
+    setActivePaneId(leaf.id)
+    setReloadNonces({})
     setContent('')
     setStatus('none')
-    setTabs([])
     setSelected(null)
     host.emit('vault:switch', { root: info.root, name: info.name })
     await refreshTree()
@@ -326,12 +401,16 @@ export function App(): JSX.Element {
       window.alert(e instanceof Error ? e.message : 'No se pudo renombrar')
       return
     }
-    // Reflejar en el editor y en las tabs si se renombró/movió la nota o carpeta.
+    // Reflejar en todos los paneles (tabs + nota activa) y en la selección.
     const remap = (p: string): string =>
       p === node.path ? toRel : p.startsWith(`${node.path}/`) ? toRel + p.slice(node.path.length) : p
-    const cur = openPathRef.current
-    if (cur) setOpenPath(remap(cur))
-    setTabs((prev) => prev.map(remap))
+    setPanes((prev) =>
+      mapLeaves(prev, (leaf) => ({
+        ...leaf,
+        tabs: leaf.tabs.map(remap),
+        active: leaf.active ? remap(leaf.active) : null
+      }))
+    )
     setSelected((s) => (s ? { ...s, path: remap(s.path) } : s))
     await refreshTree()
   }, [refreshTree])
@@ -343,29 +422,31 @@ export function App(): JSX.Element {
     )
     if (!ok) return
     await window.geode.vault.delete(node.path)
-    setTabs((prev) => prev.filter((p) => p !== node.path && !p.startsWith(`${node.path}/`)))
+    setPanes((prev) => removePathEverywhere(prev, node.path))
     setSelected((s) =>
       s && (s.path === node.path || s.path.startsWith(`${node.path}/`)) ? null : s
     )
-    const cur = openPathRef.current
-    if (cur === node.path || (cur && cur.startsWith(`${node.path}/`))) {
-      setOpenPath(null)
-      setContent('')
-      setStatus('none')
-    }
     await refreshTree()
   }, [refreshTree])
 
+  /** Tras un cambio de working tree (checkout/merge/rama): cierra las tabs de notas
+   *  que ya no existen y recarga el contenido de todos los paneles desde disco. */
+  const syncPanesToTree = useCallback((t: TreeNode[]) => {
+    const existing = new Set(flattenPaths(t))
+    setPanes((prev) => keepOnly(prev, existing))
+    bumpAll()
+  }, [bumpAll])
+
   /** Abre el diálogo de "Guardar versión" si hay cambios pendientes. */
   const openCommitDialog = useCallback(async () => {
-    await flush()
+    await flushAll()
     const changes = await window.geode.git.changes()
     if (changes.length === 0) {
       setStatus('clean')
       return
     }
     setCommitChanges(changes)
-  }, [flush])
+  }, [flushAll])
 
   /** Confirmación del diálogo: crea la versión (commit permanente). */
   const doCommit = useCallback(async (message: string) => {
@@ -382,7 +463,7 @@ export function App(): JSX.Element {
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {
-    await flush()
+    await flushAll()
     const pending = await window.geode.git.changes()
     if (pending.length > 0) {
       const ok = window.confirm(
@@ -393,50 +474,30 @@ export function App(): JSX.Element {
       if (!ok) return
     }
     await window.geode.git.checkout(oid)
-    const t = await refreshTree()
-    // Las tabs que ya no existen en esta versión se cierran.
-    const existing = new Set(flattenPaths(t))
-    setTabs((prev) => prev.filter((p) => existing.has(p)))
-    const path = openPathRef.current
-    if (path && existing.has(path)) {
-      const text = await window.geode.vault.readNote(path)
-      loadIntoEditor(path, text)
-    } else {
-      setOpenPath(null)
-      setContent('')
-      setStatus('none')
-    }
+    syncPanesToTree(await refreshTree())
     await refreshGraph()
     await refreshGithub()
-  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+  }, [flushAll, refreshTree, syncPanesToTree, refreshGraph, refreshGithub])
 
   /** Integra la rama actual a su rama de origen (base) y cambia a la base. */
   const mergeBranch = useCallback(async () => {
-    await flush()
+    await flushAll()
     // No perder cambios sin versionar: se guardan como una versión antes del merge.
     if ((await window.geode.git.changes()).length > 0) {
       await window.geode.git.commit(`Cambios ${new Date().toLocaleString()}`)
     }
     await window.geode.git.mergeBranch()
-    const t = await refreshTree()
-    const path = openPathRef.current
-    if (path && new Set(flattenPaths(t)).has(path)) {
-      loadIntoEditor(path, await window.geode.vault.readNote(path))
-    } else {
-      setOpenPath(null)
-      setContent('')
-      setStatus('none')
-    }
+    syncPanesToTree(await refreshTree())
     await refreshGraph()
     await refreshGithub()
-  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+  }, [flushAll, refreshTree, syncPanesToTree, refreshGraph, refreshGithub])
 
   /**
    * Crea una rama desde un commit (por defecto HEAD) y cambia a ella. Si sale de
    * otra versión, avisa si hay cambios sin versionar (el checkout los descarta).
    */
   const createBranchAt = useCallback(async (fromOid: string, name: string) => {
-    await flush()
+    await flushAll()
     const switching = fromOid !== headOidRef.current
     if (switching) {
       const pending = await window.geode.git.changes()
@@ -456,18 +517,10 @@ export function App(): JSX.Element {
       window.alert(e instanceof Error ? e.message : 'No se pudo crear la rama')
       return
     }
-    const t = await refreshTree()
-    const p = openPathRef.current
-    if (p && new Set(flattenPaths(t)).has(p)) {
-      loadIntoEditor(p, await window.geode.vault.readNote(p))
-    } else {
-      setOpenPath(null)
-      setContent('')
-      setStatus('none')
-    }
+    syncPanesToTree(await refreshTree())
     await refreshGraph()
     await refreshGithub()
-  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+  }, [flushAll, refreshTree, syncPanesToTree, refreshGraph, refreshGithub])
 
   /** Etiqueta un commit (tag de git). Avisa si el nombre ya existe. */
   const addTag = useCallback(async (oid: string, name: string) => {
@@ -491,7 +544,7 @@ export function App(): JSX.Element {
       ? `La rama "${name}" ya está fusionada: se puede descartar sin perder versiones.`
       : `⚠ La rama "${name}" tiene versiones que NO están en su base. Si la borrás, se pierden.`
     if (!window.confirm(`${warn}\n\n¿Borrar la rama?`)) return false
-    await flush()
+    await flushAll()
     try {
       await window.geode.git.deleteBranch(name)
     } catch (e) {
@@ -499,31 +552,38 @@ export function App(): JSX.Element {
       return false
     }
     // Borrar la rama actual cambia a su base: recargar árbol/editor.
-    const t = await refreshTree()
-    const p = openPathRef.current
-    if (p && new Set(flattenPaths(t)).has(p)) {
-      loadIntoEditor(p, await window.geode.vault.readNote(p))
-    } else {
-      setOpenPath(null)
-      setContent('')
-      setStatus('none')
-    }
+    syncPanesToTree(await refreshTree())
     await refreshGraph()
     await refreshGithub()
     return true
-  }, [flush, refreshTree, loadIntoEditor, refreshGraph, refreshGithub])
+  }, [flushAll, refreshTree, syncPanesToTree, refreshGraph, refreshGithub])
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
-  /** Ctrl+K en el editor: abre el asistente de IA sobre la selección/cursor. */
-  const requestAi = useCallback(() => {
+  /** Ctrl+K en el editor: abre el asistente de IA sobre la selección/cursor del
+   *  panel indicado (o el activo). Recuerda el editor destino para insertar ahí. */
+  const requestAi = useCallback((paneId?: string) => {
     if (!aiConfig?.hasKey || !aiConfig?.model) {
       window.alert('Configurá la API key y el modelo de IA en Ajustes (⚙).')
       return
     }
-    const ctx = editorRef.current?.getContext()
-    if (ctx) setAiEdit(ctx)
-  }, [aiConfig])
+    const ed = paneId ? paneHandles.current.get(paneId)?.getEditor() ?? null : getActiveEditor()
+    const ctx = ed?.getContext()
+    if (ctx) {
+      aiTargetRef.current = ed
+      setAiEdit(ctx)
+    }
+  }, [aiConfig, getActiveEditor])
+
+  // Si el panel activo desapareció (p. ej. tras podar un split vacío), reasignar
+  // el foco a la primera hoja del árbol.
+  useEffect(() => {
+    if (!findLeaf(panes, activePaneId)) {
+      const leaf = firstLeaf(panes)
+      setActivePaneId(leaf.id)
+      setContent(paneContentRef.current.get(leaf.id) ?? '')
+    }
+  }, [panes, activePaneId])
 
   // Al arrancar: restaurar vault y cargar config de IA/GitHub.
   useEffect(() => {
@@ -581,8 +641,10 @@ export function App(): JSX.Element {
     saveVersion: () => void openCommitDialog(),
     newNote: () => void newNoteIn(''),
     newFolder: () => void newFolderIn(''),
-    togglePreview: () => setPreview((p) => !p),
+    togglePreview: () => paneHandles.current.get(activePaneIdRef.current)?.togglePreview(),
     toggleGraph,
+    splitRight: () => splitPane(activePaneIdRef.current, 'row'),
+    splitDown: () => splitPane(activePaneIdRef.current, 'col'),
     createBranch: () => { if (graph?.head.oid) setBranchFrom(graph.head.oid) },
     merge: () => void mergeBranch(),
     push: () => void doPush(),
@@ -599,9 +661,9 @@ export function App(): JSX.Element {
   useEffect(() => {
     host.setBridge({
       editor: {
-        insertAtCursor: (t) => editorRef.current?.insertAtCursor(t),
-        getSelection: () => editorRef.current?.getSelection() ?? '',
-        revealRange: (f, t) => editorRef.current?.revealRange(f, t)
+        insertAtCursor: (t) => getActiveEditor()?.insertAtCursor(t),
+        getSelection: () => getActiveEditor()?.getSelection() ?? '',
+        revealRange: (f, t) => getActiveEditor()?.revealRange(f, t)
       },
       notify: (m) => setToast(m)
     })
@@ -626,6 +688,8 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
+      host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
+      host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
       host.registerCommand({ id: 'core.toggleGraph', title: 'Alternar árbol de versiones', category: 'Vista', run: () => api().toggleGraph() }),
       host.registerCommand({ id: 'core.createBranch', title: 'Crear rama desde la versión actual', category: 'Git', run: () => api().createBranch(), isEnabled: () => api().hasHead }),
       host.registerCommand({ id: 'core.merge', title: 'Integrar rama a su base', category: 'Git', run: () => api().merge(), isEnabled: () => api().canMerge }),
@@ -640,17 +704,20 @@ export function App(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Ctrl/Cmd+P: abre la paleta de comandos.
+  // Ctrl/Cmd+P: paleta de comandos. Ctrl+\: dividir el editor a la derecha.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setPaletteOpen(true)
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault()
+        void splitPane(activePaneIdRef.current, 'row')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [splitPane])
 
   // Toast: se desvanece solo.
   useEffect(() => {
@@ -724,12 +791,12 @@ export function App(): JSX.Element {
             </button>
             {openPath && (
               <button
-                className={`tb-btn icon${preview ? ' active' : ''}`}
-                title={preview ? 'Editar' : 'Vista previa'}
-                aria-label={preview ? 'Editar' : 'Vista previa'}
-                onClick={() => setPreview((p) => !p)}
+                className="tb-btn icon"
+                title="Vista previa / editar (panel activo)"
+                aria-label="Vista previa"
+                onClick={() => paneHandles.current.get(activePaneIdRef.current)?.togglePreview()}
               >
-                {preview ? <PenLine size={15} /> : <Eye size={15} />}
+                <Eye size={15} />
               </button>
             )}
             {hasHead && (
@@ -882,45 +949,25 @@ export function App(): JSX.Element {
         />
 
         <main className="main">
-          {tabs.length > 0 && (
-            <div className="tabbar">
-              {tabs.map((p) => (
-                <div
-                  key={p}
-                  className={`tab${p === openPath ? ' active' : ''}`}
-                  title={p}
-                  onClick={() => void openNote(p)}
-                  onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); void closeTab(p) } }}
-                >
-                  <span className="tab-label">{tabName(p)}</span>
-                  <button
-                    className="tab-close icon-btn"
-                    title="Cerrar"
-                    onClick={(e) => { e.stopPropagation(); void closeTab(p) }}
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="editor-pane">
-            {openPath ? (
-              preview ? (
-                <MarkdownPreview source={content} />
-              ) : (
-                <CodeMirrorEditor
-                  ref={editorRef}
-                  reloadKey={`${openPath}#${editorEpoch}`}
-                  initialDoc={content}
-                  onChange={handleChange}
-                  onRequestAi={requestAi}
-                  extraExtensions={host.listExtensions()}
-                />
-              )
-            ) : (
-              <div className="placeholder">Elegí una nota del panel, o creá una con ＋.</div>
-            )}
+          <div className="pane-root">
+            <PaneView
+              node={panes}
+              activePaneId={activePaneId}
+              reloadNonces={reloadNonces}
+              extraExtensions={host.listExtensions()}
+              onFocusPane={focusPane}
+              onSelectTab={selectTab}
+              onCloseTab={(paneId, path) => void closeTab(paneId, path)}
+              onReorderTab={reorderTabIn}
+              onDropTab={(drag, dst, zone) => void dropTab(drag, dst, zone)}
+              onSplit={splitPane}
+              onNoteOpen={onPaneNoteOpen}
+              onNoteChange={onPaneNoteChange}
+              onSaved={onPaneSaved}
+              onRequestAi={(paneId) => requestAi(paneId)}
+              registerHandle={registerPaneHandle}
+              onResize={onPaneResize}
+            />
           </div>
           <footer className="statusbar">
             <div className="status-left">
@@ -1090,7 +1137,8 @@ export function App(): JSX.Element {
         <AiPromptModal
           context={aiEdit}
           onInsert={(text) => {
-            editorRef.current?.replaceRange(aiEdit.from, aiEdit.to, text)
+            (aiTargetRef.current ?? getActiveEditor())?.replaceRange(aiEdit.from, aiEdit.to, text)
+            aiTargetRef.current = null
             setAiEdit(null)
             void refreshAiUsage()
           }}

@@ -685,8 +685,55 @@ body.resizing-col {
   flex-direction: column;
 }
 
-/* ── Barra de tabs ──────────────────────────────────────────────────────── */
-.tabbar {
+/* ── Paneles del editor (árbol recursivo, estilo VSCode) ─────────────────── */
+.pane-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* Split: fila (row = columnas lado a lado) o columna (col = filas apiladas). */
+.psplit {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.psplit.row { flex-direction: row; }
+.psplit.col { flex-direction: column; }
+
+.psplit-slot {
+  flex-shrink: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Divisor arrastrable entre slots hermanos. */
+.psplit-resizer {
+  flex: 0 0 auto;
+  background: transparent;
+  z-index: 4;
+  transition: background 0.12s ease;
+}
+.psplit-resizer.row { width: 5px; margin: 0 -2px; cursor: col-resize; }
+.psplit-resizer.col { height: 5px; margin: -2px 0; cursor: row-resize; }
+.psplit-resizer:hover { background: var(--accent); }
+
+body.resizing-row { cursor: row-resize; user-select: none; }
+
+/* Un panel: barra de tabs + cuerpo (editor o vista previa). */
+.epane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.epane-tabbar {
   display: flex;
   align-items: stretch;
   gap: 2px;
@@ -696,7 +743,31 @@ body.resizing-col {
   overflow-x: auto;
 }
 
+/* Realce del panel enfocado: acento en su barra de tabs. */
+.epane.active > .epane-tabbar {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.epane-tabbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+.epane-tabbar-actions .icon-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.epane-tabbar-actions .icon-btn:hover,
+.epane-tabbar-actions .icon-btn.active {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
 .tab {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -718,6 +789,25 @@ body.resizing-col {
   border-color: var(--accent);
 }
 
+/* Indicador de inserción al reordenar/mover tabs por arrastre. */
+.tab.drop-before::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.tab-drop-end {
+  align-self: center;
+  width: 2px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
 .tab-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -737,7 +827,8 @@ body.resizing-col {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.editor-pane {
+.epane-body {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -747,6 +838,21 @@ body.resizing-col {
   margin: auto;
   color: var(--muted);
 }
+
+/* Superposición que muestra dónde caerá una tab soltada (split o mover). */
+.drop-hint {
+  position: absolute;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border: 1px solid var(--accent);
+  pointer-events: none;
+  z-index: 6;
+  transition: all 0.08s ease;
+}
+.drop-hint.left { left: 0; top: 0; bottom: 0; width: 50%; }
+.drop-hint.right { right: 0; top: 0; bottom: 0; width: 50%; }
+.drop-hint.top { left: 0; right: 0; top: 0; height: 50%; }
+.drop-hint.bottom { left: 0; right: 0; bottom: 0; height: 50%; }
+.drop-hint.center { inset: 0; }
 
 /* ── Vista previa de Markdown ────────────────────────────────────────────── */
 .md-preview {

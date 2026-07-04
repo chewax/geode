@@ -22,6 +22,8 @@ export interface PaneViewProps {
   registerHandle: (paneId: string, handle: PaneHandle | null) => void
   /** Ajuste de tamaños de un split (por su id). */
   onResize: (splitId: string, sizes: number[]) => void
+  /** oid en preview; null/undefined = presente en vivo. */
+  previewOid?: string | null
 }
 
 /** Renderiza el árbol de paneles recursivamente: hojas = editores, splits =
@@ -47,6 +49,7 @@ export function PaneView(props: PaneViewProps): JSX.Element {
         onSaved={props.onSaved}
         onRequestAi={props.onRequestAi}
         registerHandle={props.registerHandle}
+        previewOid={props.previewOid ?? null}
       />
     )
   }

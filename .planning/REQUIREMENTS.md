@@ -90,13 +90,41 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmap) | — | Pending |
+| SIDE-01 | Phase 1 | Pending |
+| SIDE-02 | Phase 1 | Pending |
+| SIDE-04 | Phase 1 | Pending |
+| SOFT-01 | Phase 2 | Pending |
+| SOFT-02 | Phase 2 | Pending |
+| SOFT-03 | Phase 2 | Pending |
+| SOFT-04 | Phase 2 | Pending |
+| SOFT-05 | Phase 2 | Pending |
+| SOFT-06 | Phase 2 | Pending |
+| TIME-01 | Phase 2 | Pending |
+| TIME-02 | Phase 2 | Pending |
+| TIME-03 | Phase 2 | Pending |
+| TIME-04 | Phase 2 | Pending |
+| TIME-05 | Phase 2 | Pending |
+| TIME-06 | Phase 2 | Pending |
+| SIDE-03 | Phase 2 | Pending |
+| SAVE-01 | Phase 3 | Pending |
+| SAVE-02 | Phase 3 | Pending |
+| SAVE-03 | Phase 3 | Pending |
+| SNAP-01 | Phase 4 | Pending |
+| SNAP-02 | Phase 4 | Pending |
+| SNAP-03 | Phase 4 | Pending |
+| SNAP-04 | Phase 4 | Pending |
+| ADV-01 | Phase 5 | Pending |
+| ADV-02 | Phase 5 | Pending |
+| ADV-03 | Phase 5 | Pending |
+| STAT-01 | Phase 5 | Pending |
+| DIFF-01 | Phase 5 | Pending |
+| DIFF-02 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 29 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 29 ⚠️
+- Mapped to phases: 29 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-03*
-*Last updated: 2026-07-03 after initial definition*
+*Last updated: 2026-07-03 after roadmap creation (traceability populated)*

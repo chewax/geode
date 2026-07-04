@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-05-PLAN.md
-last_updated: "2026-07-04T16:20:00.000Z"
-last_activity: 2026-07-04 -- Completed 02-05-PLAN.md (App integration: previewOid, enter/exit/bringBack, Timeline+banner, CSS)
+stopped_at: Completed Phase 02 (go-back-in-time) — verified + code-review fixes applied
+last_updated: "2026-07-04T18:00:00.000Z"
+last_activity: 2026-07-04 -- Phase 02 closed: UAT §A–§E signed off, VERIFICATION PASS (13/13), code-review CR-01/WR-01/WR-02/WR-03 fixed
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 7
-  percent: 20
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
+  percent: 40
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 02 — go-back-in-time
+**Current focus:** Phase 03 — save a named version (next)
 
 ## Current Position
 
-Phase: 02 (go-back-in-time) — EXECUTING
-Plan: 6 of 6
-Status: Ready to execute
-Last activity: 2026-07-04 -- Completed 02-05-PLAN.md (App integration: previewOid, enter/exit/bringBack, Timeline+banner, CSS)
+Phase: 02 (go-back-in-time) — COMPLETE
+Plan: 6 of 6 (all SUMMARYs present; VERIFICATION PASS 13/13; REVIEW findings CR-01/WR-01/WR-02/WR-03 fixed)
+Status: Closed — ready to start Phase 03
+Last activity: 2026-07-04 -- Phase 02 closed: UAT §A–§E signed off + non-destructive git evidence; code-review fixes applied
 
-Progress: [████████░░] 83%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 

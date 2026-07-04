@@ -14,7 +14,7 @@ This milestone reshapes Geode's UX so the git engine disappears for non-technica
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Sidebar Sections** - Sidebar becomes a stack of collapsible sections with an inline vault switcher (completed 2026-07-04)
-- [ ] **Phase 2: Go Back in Time** - Repo-level timeline + soft linear restore: rewind the whole vault as a read-only preview
+- [x] **Phase 2: Go Back in Time** - Repo-level timeline + soft linear restore: rewind the whole vault as a read-only preview (completed 2026-07-04)
 - [ ] **Phase 3: Save a Named Version** - Saving is naming a point in time; AI writes the description
 - [ ] **Phase 4: Automatic Snapshots** - Configurable, change-aware auto-snapshots plus safety snapshots, no AI
 - [ ] **Phase 5: Advanced Mode & Capa-0 Polish** - Hide all git behind a toggle; ambient save signal; readable diffs
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
-| 2. Go Back in Time | 5/6 | In Progress|  |
+| 2. Go Back in Time | 6/6 | Complete   | 2026-07-04 |
 | 3. Save a Named Version | 0/TBD | Not started | - |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |
 | 5. Advanced Mode & Capa-0 Polish | 0/TBD | Not started | - |

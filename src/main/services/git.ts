@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import os from 'node:os'
-import { mkdir, readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
@@ -616,6 +616,34 @@ export class GitService {
       }
     })
     return changed
+  }
+
+  /**
+   * Materializa el árbol de un commit en el working dir: escribe/borra archivos
+   * para dejarlo idéntico a esa versión, SIN mover HEAD, sin crear rama ni
+   * detached-HEAD, sin tocar el index ni las refs. NO usa `git.checkout()`.
+   *
+   * El set de BORRADOS sale de `workBlobs` (que ya filtra .git/.geode/…): esas
+   * carpetas son estructuralmente inalcanzables, nunca se enumeran por readdir
+   * crudo ni se basan en `treeBlobs`. Las escrituras son atómicas (temp+rename)
+   * y binario-safe; se saltan los archivos que ya coinciden para no ensuciar.
+   */
+  async restoreTree(dir: string, oid: string): Promise<void> {
+    const target = await this.treeBlobs(dir, oid) // ruta→blobOid del commit pasado
+    const current = await this.workBlobs(dir) // ruta→hash del working dir (IGNORE-filtrado, racy-safe)
+
+    // Escribir: por cada archivo del árbol destino que difiera del actual.
+    for (const [filepath, blobOid] of target) {
+      if (current.get(filepath) === blobOid) continue // igual: no ensuciar
+      const { blob } = await git.readBlob({ fs, dir, oid, filepath })
+      await atomicWrite(join(dir, filepath), Buffer.from(blob))
+    }
+
+    // Borrar: lo que está en el working dir pero no en el árbol destino. El set
+    // sale de `workBlobs` (IGNORE-filtrado): .git/.geode nunca entran.
+    for (const filepath of current.keys()) {
+      if (!target.has(filepath)) await rm(join(dir, filepath), { force: true })
+    }
   }
 
   /**

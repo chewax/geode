@@ -143,6 +143,13 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
 
   const handleChange = (doc: string): void => {
     if (!pane.active) return
+    // Durante la preview del pasado el editor es de solo lectura: los únicos
+    // `docChanged` que llegan acá son las recargas programáticas del texto
+    // pasado (EditorState.readOnly no las suprime). NO deben marcar la nota como
+    // sucia ni encolar escritura: de lo contrario, al salir de la preview el
+    // flush escribiría ese texto pasado sobre el archivo presente en disco,
+    // perdiendo cambios sin guardar (viola la edición no-destructiva, SOFT-01/02).
+    if (propsRef.current.previewOid != null) return
     setContent(doc)
     pendingRef.current = { path: pane.active, content: doc }
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)

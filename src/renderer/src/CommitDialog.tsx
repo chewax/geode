@@ -25,8 +25,13 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
   const [error, setError] = useState<string | null>(null)
   const [committing, setCommitting] = useState(false)
 
-  // Resumen humano: cuántas notas (.md) cambiaron, no rutas de archivo.
+  // Resumen humano: cuántas notas (.md) cambiaron, no rutas de archivo. Si sólo
+  // cambiaron adjuntos (ninguna nota), decirlo sin mentir un "0 notas cambiadas".
   const noteNames = changes.filter((p) => p.toLowerCase().endsWith('.md'))
+  const summary =
+    noteNames.length > 0
+      ? changedSummary(noteNames)
+      : `${changes.length} ${changes.length === 1 ? 'archivo cambiado' : 'archivos cambiados'}`
 
   const generate = useCallback(async () => {
     setGenerating(true)
@@ -64,14 +69,17 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
         <h2>Guardar versión</h2>
 
         <p className="modal-sub">Ponle un nombre a este momento.</p>
-        <p className="modal-sub">{changedSummary(noteNames)}</p>
+        <p className="modal-sub">{summary}</p>
 
         <label className="field-label">Nombre</label>
+        {/* Deshabilitado mientras la IA genera: si no, el texto tipeado acá se
+            perdería al llegar la sugerencia (el campo está autofocused). */}
         <input
           className="text-input"
-          value={name}
-          placeholder="Dale un nombre a este momento (opcional)"
+          value={generating ? '' : name}
+          placeholder={generating ? 'Generando nombre con IA…' : 'Dale un nombre a este momento (opcional)'}
           onChange={(e) => setName(e.target.value)}
+          disabled={generating}
           autoFocus
         />
 
@@ -94,6 +102,7 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
                 : 'Describí qué cambió (o configurá la IA en Ajustes)'
           }
           onChange={(e) => setDescription(e.target.value)}
+          disabled={generating}
           rows={5}
         />
 

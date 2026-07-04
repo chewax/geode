@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { ChevronsRight, CornerUpLeft, Eye } from 'lucide-react'
+import { SkipForward, RotateCcw, Eye } from 'lucide-react'
 
 /**
  * Banner de ancho completo que hace inconfundible que estás viendo el pasado
@@ -23,17 +23,18 @@ export function TimeTravelBanner({
       <div className="time-banner-info">
         <Eye size={15} />
         <span className="time-banner-title">Estás viendo el pasado</span>
-        <span className="time-banner-label"> — {label}</span>
+        {/* title = texto completo: si el mensaje se trunca, se ve todo al hover. */}
+        <span className="time-banner-label" title={label}> — {label}</span>
         <span className="time-banner-date"> · {relativeDate}</span>
       </div>
       <div className="time-banner-actions">
         <button
-          className="tb-btn ghost"
+          className="tb-btn present"
           title="Volver al presente"
           aria-label="Volver al presente"
           onClick={onReturnToPresent}
         >
-          <ChevronsRight size={14} /> Volver al presente
+          <SkipForward size={14} /> Volver al presente
         </button>
         <button
           className="tb-btn primary head"
@@ -41,7 +42,7 @@ export function TimeTravelBanner({
           aria-label="Volver aquí"
           onClick={onBringBack}
         >
-          <CornerUpLeft size={14} /> Volver aquí
+          <RotateCcw size={14} /> Volver aquí
         </button>
       </div>
     </div>

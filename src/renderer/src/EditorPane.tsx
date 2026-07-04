@@ -278,7 +278,12 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           )}
           <button
             className="icon-btn"
-            title="Dividir a la derecha (Ctrl+\)"
+            title={
+              pane.active
+                ? 'Dividir a la derecha (Ctrl+\\)'
+                : 'Abrí una nota para dividir el panel'
+            }
+            disabled={!pane.active}
             onClick={() => props.onSplit(pane.id, 'row')}
           >
             <SplitSquareHorizontal size={14} />

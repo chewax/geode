@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { JSX } from 'react'
-import { EditorState, type Extension } from '@codemirror/state'
+import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { baseExtensions } from './extensions'
 
@@ -37,6 +37,11 @@ interface CodeMirrorEditorProps {
   onRequestAi?: () => void
   /** Extensiones inyectadas por plugins (seam de la API de plugins, §7). */
   extraExtensions?: Extension[]
+  /**
+   * Solo lectura: durante la preview del pasado el editor no debe editarse ni
+   * mostrar cursor. Se reconfigura en caliente (Compartment) sin remontar el view.
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -45,9 +50,11 @@ interface CodeMirrorEditorProps {
  * no por remontaje. Expone un handle imperativo (selección/insertar/foco).
  */
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ initialDoc, reloadKey, onChange, onRequestAi, extraExtensions }, ref): JSX.Element {
+  function CodeMirrorEditor({ initialDoc, reloadKey, onChange, onRequestAi, extraExtensions, readOnly }, ref): JSX.Element {
     const hostRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
+    // Compartimento para conmutar solo-lectura sin recrear el view.
+    const readOnlyComp = useRef(new Compartment())
     const docRef = useRef(initialDoc)
     docRef.current = initialDoc
     const onChangeRef = useRef(onChange)
@@ -124,6 +131,10 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
               }
             ]),
             ...baseExtensions(),
+            readOnlyComp.current.of([
+              EditorState.readOnly.of(readOnly ?? false),
+              EditorView.editable.of(!(readOnly ?? false))
+            ]),
             ...(extraExtensionsRef.current ?? []),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) onChangeRef.current?.(update.state.doc.toString())
@@ -160,6 +171,18 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       view.focus()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reloadKey])
+
+    // Al conmutar solo-lectura, reconfigura el compartimento en el MISMO view
+    // (sin remontar): EditorState.readOnly bloquea ediciones y editable.of(false)
+    // quita el cursor para que el editor del pasado se vea inerte.
+    useEffect(() => {
+      viewRef.current?.dispatch({
+        effects: readOnlyComp.current.reconfigure([
+          EditorState.readOnly.of(readOnly ?? false),
+          EditorView.editable.of(!(readOnly ?? false))
+        ])
+      })
+    }, [readOnly])
 
     return <div className="cm-host" ref={hostRef} />
   }

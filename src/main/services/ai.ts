@@ -43,12 +43,14 @@ Devolvé EXACTAMENTE este formato:
 
 Qué queremos:
 - El título sintetiza el momento (p. ej. "Reunión con Marketing: objetivos del Q3").
-- La descripción explica el tema de lo escrito o cambiado, en lenguaje humano.
+- La descripción explica el tema/contenido de la nota, en lenguaje humano.
 
 Qué evitar:
 - No uses jerga de git (commit, diff, archivo, línea).
 - No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
-- No describas el edit de forma mecánica ("se agregó una frase", "se modificó una línea").`
+- No describas el edit de forma mecánica ("se agregó una frase", "se modificó una línea").
+- NO rotules las secciones: no escribas "Título:" ni "Descripción:" ni viñetas al inicio; devolvé el título y la descripción a secas.
+- No asumas que algo se hizo o se completó. Si la nota es una lista de pendientes/ideas, describila como tal (p. ej. "Lista de mejoras deseadas para…"), no como trabajo ya realizado.`
 
 /** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
 function toOneLine(text: string): string {
@@ -73,10 +75,15 @@ function parseNamedVersion(raw: string): NamedVersion {
   const lines = raw.replace(/\r/g, '').split('\n')
   const firstIdx = lines.findIndex((l) => l.trim().length > 0)
   if (firstIdx === -1) return { title: '', description: '' }
-  const title = toOneLine(lines[firstIdx])
+  // Algunos modelos rotulan las secciones pese al formato pedido; quitamos el
+  // rótulo ("Título:"/"Descripción:") y la viñeta inicial para no mostrarlos.
+  const title = toOneLine(lines[firstIdx]).replace(/^t[ií]tulo\s*:\s*/i, '').trim()
   const description = lines
     .slice(firstIdx + 1)
     .join('\n')
+    .trim()
+    .replace(/^[-*]\s*/, '')
+    .replace(/^descripci[oó]n\s*:\s*/i, '')
     .trim()
   return { title, description }
 }

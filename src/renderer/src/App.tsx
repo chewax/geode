@@ -46,6 +46,7 @@ import {
 } from './paneTree'
 import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
+import { SidebarSection } from './SidebarSection'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
 import { DiffView } from './DiffView'
@@ -767,6 +768,41 @@ export function App(): JSX.Element {
     )
   }
 
+  // Acciones de la sección Notas: viven en la cabecera de la sección (reveladas
+  // al hover). App las posee y las inyecta vía la prop `actions` de SidebarSection.
+  const notesActions = (
+    <>
+      <button
+        className="icon-btn"
+        title={selected?.isDir ? `Nueva nota en "${selected.path}"` : 'Nueva nota'}
+        onClick={() => void newNoteIn(createTargetDir())}
+      >
+        <FilePlus size={14} />
+      </button>
+      <button
+        className="icon-btn"
+        title={selected?.isDir ? `Nueva carpeta en "${selected.path}"` : 'Nueva carpeta'}
+        onClick={() => void newFolderIn(createTargetDir())}
+      >
+        <FolderPlus size={14} />
+      </button>
+      <button
+        className="icon-btn"
+        title={sortAsc ? 'Orden A→Z (click: Z→A)' : 'Orden Z→A (click: A→Z)'}
+        onClick={() => setSortAsc((v) => !v)}
+      >
+        <ArrowDownUp size={14} />
+      </button>
+      <button
+        className="icon-btn"
+        title={allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+        onClick={toggleCollapseAll}
+      >
+        {allExpanded ? <FoldVertical size={14} /> : <UnfoldVertical size={14} />}
+      </button>
+    </>
+  )
+
   return (
     <GeodeProvider host={host}>
     <div className="shell">
@@ -853,38 +889,15 @@ export function App(): JSX.Element {
 
       <div className="body">
         <aside className="sidebar" style={{ width: sidebarWidth }}>
-          <div className="sidebar-toolbar">
-            <button
-              className="icon-btn"
-              title={selected?.isDir ? `Nueva nota en "${selected.path}"` : 'Nueva nota'}
-              onClick={() => void newNoteIn(createTargetDir())}
-            >
-              <FilePlus size={16} />
-            </button>
-            <button
-              className="icon-btn"
-              title={selected?.isDir ? `Nueva carpeta en "${selected.path}"` : 'Nueva carpeta'}
-              onClick={() => void newFolderIn(createTargetDir())}
-            >
-              <FolderPlus size={16} />
-            </button>
-            <button
-              className="icon-btn"
-              title={sortAsc ? 'Orden A→Z (click: Z→A)' : 'Orden Z→A (click: A→Z)'}
-              onClick={() => setSortAsc((v) => !v)}
-            >
-              <ArrowDownUp size={16} />
-            </button>
-            <button
-              className="icon-btn"
-              title={allExpanded ? 'Colapsar todo' : 'Expandir todo'}
-              onClick={toggleCollapseAll}
-            >
-              {allExpanded ? <FoldVertical size={16} /> : <UnfoldVertical size={16} />}
-            </button>
-          </div>
+          <VaultSwitcher
+            current={vault}
+            vaults={vaults}
+            onSwitch={(root) => void switchVault(root)}
+            onManage={() => void openVault()}
+            onNew={() => setNewVaultOpen(true)}
+          />
 
-          <div className="sidebar-tree">
+          <SidebarSection id="notas" title="NOTAS" flex actions={notesActions}>
             {tree.length > 0 ? (
               <FileTree
                 nodes={sortedTree}
@@ -902,18 +915,14 @@ export function App(): JSX.Element {
                 onDelete={(node) => void deleteNode(node)}
               />
             ) : (
-              <p className="tree-empty">Vault vacío. Creá una nota con ＋ o una carpeta con 📁.</p>
+              <div className="tree-empty">
+                <p className="tree-empty-title">Bóveda vacía</p>
+                <p>Creá una nota o una carpeta con las acciones de la cabecera de esta sección.</p>
+              </div>
             )}
-          </div>
+          </SidebarSection>
 
           <div className="sidebar-footer">
-            <VaultSwitcher
-              current={vault}
-              vaults={vaults}
-              onSwitch={(root) => void switchVault(root)}
-              onManage={() => void openVault()}
-              onNew={() => setNewVaultOpen(true)}
-            />
             <div className="sidebar-footer-actions">
               <button className="icon-btn" title="Ayuda" disabled>
                 <HelpCircle size={16} />

@@ -342,30 +342,6 @@ body.resizing-col {
   user-select: none;
 }
 
-.sidebar-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  /* Misma altura que la barra de tabs del editor (deben quedar alineadas). */
-  min-height: 41px;
-  box-sizing: border-box;
-}
-
-.sidebar-toolbar .icon-btn {
-  background: transparent;
-  border-color: transparent;
-  color: var(--muted);
-}
-
-.sidebar-toolbar .icon-btn:hover {
-  color: var(--text);
-  background: var(--panel-2);
-  border-color: var(--border);
-}
-
 /* Zona scrolleable del árbol: ocupa el alto entre toolbar y footer. */
 .sidebar-tree {
   flex: 1;
@@ -503,6 +479,14 @@ body.resizing-col {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+
+/* Overlay de captura de clicks fuera; compartido por BranchSwitcher y
+   VersionGraph (VaultSwitcher ya no lo usa: su disclosure va en flujo). */
+.vault-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
 }
 
 .vault-menu {
@@ -681,6 +665,13 @@ body.resizing-col {
   color: var(--muted);
   font-size: 12px;
   padding: 10px;
+}
+
+.tree-empty-title {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
 }
 
 .tree-rename {

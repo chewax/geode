@@ -373,6 +373,69 @@ body.resizing-col {
   overflow: auto;
 }
 
+/* ── Sección colapsable (estilo VSCode-Explorer) ─────────────────────────── */
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-section.flex {
+  flex: 1;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+/* Acciones reveladas al hover (o con foco de teclado dentro). */
+.sidebar-section-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+}
+
+.sidebar-section-header:hover .sidebar-section-actions,
+.sidebar-section-actions:focus-within {
+  opacity: 1;
+}
+
+.sidebar-section-actions .icon-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.sidebar-section-actions .icon-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border);
+}
+
+/* Cuerpo scrolleable de la sección: ocupa el alto disponible. */
+.sidebar-section-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 /* Barra inferior: selector de bóveda + ayuda + ajustes. */
 .sidebar-footer {
   display: flex;

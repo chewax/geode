@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, DragEvent } from 'react'
 import type { Extension } from '@codemirror/state'
-import { X, Eye, PenLine, SplitSquareHorizontal } from 'lucide-react'
+import { X, Eye, PenLine, SplitSquareHorizontal, FileQuestion } from 'lucide-react'
 import type { LeafPane, DropZone } from './paneTree'
 import { CodeMirrorEditor, type EditorHandle } from './editor/CodeMirrorEditor'
 import { MarkdownPreview } from './MarkdownPreview'
@@ -41,6 +41,9 @@ export interface EditorPaneProps {
   onSaved: (paneId: string) => void
   onRequestAi: (paneId: string) => void
   registerHandle: (paneId: string, handle: PaneHandle | null) => void
+  /** oid en preview; null/undefined = presente en vivo. Al fijarse, el panel
+   *  carga su contenido del árbol del commit (solo lectura) en vez del disco. */
+  previewOid?: string | null
 }
 
 const AUTOSAVE_MS = 600
@@ -57,6 +60,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
   const [content, setContent] = useState('')
   const [epoch, setEpoch] = useState(0)
   const [preview, setPreview] = useState(false)
+  // La nota activa no existía en el commit en preview → tab fantasma (SOFT-03).
+  const [ghost, setGhost] = useState(false)
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const [dragOverTab, setDragOverTab] = useState<number | null>(null)
 
@@ -69,6 +74,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
   previewRef.current = preview
 
   const flush = async (): Promise<void> => {
+    // Nunca escribir a disco durante la preview del pasado (Pitfall 1, SOFT-05).
+    if (propsRef.current.previewOid != null) return
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current)
       timerRef.current = null
@@ -105,20 +112,34 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
       // Persistir lo pendiente antes de cambiar de nota, para no perderlo.
       await flush()
       if (!pane.active) {
-        if (!cancelled) setContent('')
+        if (!cancelled) {
+          setGhost(false)
+          setContent('')
+        }
         return
       }
-      const text = await window.geode.vault.readNote(pane.active)
-      if (cancelled) return
-      setContent(text)
-      setEpoch((e) => e + 1)
-      propsRef.current.onNoteOpen(pane.id, pane.active, text)
+      const previewOid = propsRef.current.previewOid
+      try {
+        // En preview leemos del árbol del commit; si no, del disco.
+        const text = previewOid
+          ? await window.geode.git.readNoteAt(previewOid, pane.active)
+          : await window.geode.vault.readNote(pane.active)
+        if (cancelled) return
+        setGhost(false)
+        setContent(text)
+        setEpoch((e) => e + 1)
+        propsRef.current.onNoteOpen(pane.id, pane.active, text)
+      } catch {
+        // readNoteAt lanza cuando el blob no existía en ese commit → fantasma.
+        if (cancelled) return
+        setGhost(true)
+      }
     })()
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pane.active, reloadNonce])
+  }, [pane.active, reloadNonce, props.previewOid])
 
   const handleChange = (doc: string): void => {
     if (!pane.active) return
@@ -215,7 +236,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         {pane.tabs.map((path, i) => (
           <div
             key={path}
-            className={`tab${path === pane.active ? ' active' : ''}${dragOverTab === i ? ' drop-before' : ''}`}
+            className={`tab${path === pane.active ? ' active' : ''}${path === pane.active && ghost ? ' ghost' : ''}${dragOverTab === i ? ' drop-before' : ''}`}
             title={path}
             draggable
             onDragStart={(e) => onTabDragStart(e, path)}
@@ -272,7 +293,15 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         onDrop={onBodyDrop}
       >
         {pane.active ? (
-          preview ? (
+          ghost ? (
+            <div className="placeholder ghost-note">
+              <FileQuestion size={32} />
+              <p className="ghost-note-title">Esta nota no existía todavía</p>
+              <p className="ghost-note-body">
+                En el momento que estás viendo, «{tabName(pane.active)}» aún no había sido creada.
+              </p>
+            </div>
+          ) : preview ? (
             <MarkdownPreview source={content} />
           ) : (
             <CodeMirrorEditor
@@ -282,6 +311,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               onChange={handleChange}
               onRequestAi={() => props.onRequestAi(pane.id)}
               extraExtensions={extraExtensions}
+              readOnly={props.previewOid != null}
             />
           )
         ) : (

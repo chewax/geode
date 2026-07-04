@@ -979,9 +979,12 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   min-height: 0;
   overflow: auto;
   padding: 28px 40px;
+  /* Ancho de lectura para líneas legibles, pero alineado a la IZQUIERDA
+     (margin:0) en vez de centrado: en pantalla completa el texto ya no queda
+     en el medio con grandes márgenes a los lados. */
   max-width: 860px;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   font-size: 15px;
   line-height: 1.7;
   color: var(--text);

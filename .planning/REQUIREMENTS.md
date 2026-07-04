@@ -37,10 +37,10 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 
 ### Sidebar Sections
 
-- [ ] **SIDE-01**: The sidebar is a stack of collapsible sections (VSCode-Explorer style)
-- [ ] **SIDE-02**: The notes/file-tree is a collapsible section whose toolbar actions live on its section header
+- [x] **SIDE-01**: The sidebar is a stack of collapsible sections (VSCode-Explorer style)
+- [x] **SIDE-02**: The notes/file-tree is a collapsible section whose toolbar actions live on its section header
 - [ ] **SIDE-03**: The timeline is a collapsible section within the sidebar, placed below the notes section
-- [ ] **SIDE-04**: Switching vaults is an inline disclosure under the vault header, not a floating popover
+- [x] **SIDE-04**: Switching vaults is an inline disclosure under the vault header, not a floating popover
 
 ### Save-Version Flow
 
@@ -90,9 +90,9 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SIDE-01 | Phase 1 | Pending |
-| SIDE-02 | Phase 1 | Pending |
-| SIDE-04 | Phase 1 | Pending |
+| SIDE-01 | Phase 1 | Complete |
+| SIDE-02 | Phase 1 | Complete |
+| SIDE-04 | Phase 1 | Complete |
 | SOFT-01 | Phase 2 | Pending |
 | SOFT-02 | Phase 2 | Pending |
 | SOFT-03 | Phase 2 | Pending |
@@ -121,6 +121,7 @@ Which phases cover which requirements. Populated during roadmap creation.
 | DIFF-02 | Phase 5 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 29 total
 - Mapped to phases: 29 ✓
 - Unmapped: 0

@@ -1,11 +1,16 @@
 ---
-gsd_state_version: '1.0'  # placeholder; syncStateFrontmatter overwrites on first state.* call
-status: planning
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Roadmap and STATE initialized; REQUIREMENTS.md traceability populated
+last_updated: "2026-07-04T02:23:12.370Z"
+last_activity: 2026-07-04 -- Phase 01 execution started
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -16,20 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 1 — Sidebar Sections
+**Current focus:** Phase 01 — sidebar-sections
 
 ## Current Position
 
-Phase: 1 of 5 (Sidebar Sections)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-07-03 — Roadmap created for the Capa 0 / Modo Avanzado milestone (29 v1 requirements mapped across 5 phases)
+Phase: 01 (sidebar-sections) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-07-04 -- Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: — min
 - Total execution time: 0.0 hours
@@ -41,10 +47,12 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: —
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 1 P1 | 14 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -58,6 +66,7 @@ Recent decisions affecting current work:
 - Save asks for a human name; AI writes the description (Phase 3).
 - Auto-snapshots configurable + only when changed + no AI; racy-git-safe via existing content-hash detection (Phase 4).
 - Git stays hidden (not removed) behind an Advanced Mode toggle (Phase 5).
+- [Phase ?]: SidebarSection usa display:none al colapsar para conservar el estado interno de FileTree
 
 ### Pending Todos
 
@@ -80,6 +89,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-03
+Last session: 2026-07-04T02:22:48.367Z
 Stopped at: Roadmap and STATE initialized; REQUIREMENTS.md traceability populated
 Resume file: None

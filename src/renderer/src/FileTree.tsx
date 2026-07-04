@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, KeyboardEvent } from 'react'
-import { ChevronDown, ChevronRight, Folder, FileText, Trash2 } from 'lucide-react'
+import { Triangle, Trash2 } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
 
 export interface FileTreeProps {
@@ -34,6 +34,11 @@ function displayName(node: TreeNode): string {
 /** Sangría por nivel (px). El fondo de la fila llega hasta el borde; solo el
  *  contenido se corre, como en VSCode. */
 const INDENT = 14
+
+/** Sangría base del árbol (nivel 0). Mayor que la del chevron de la cabecera de
+ *  sección (8px) para separar el contenido del título "EXPLORADOR" y que los
+ *  chevrons de carpeta no se confundan con el del colapsable de sección. */
+const BASE_INDENT = 16
 
 /** Árbol de notas y carpetas. Carpetas colapsables; acciones por menú contextual. */
 export function FileTree(props: FileTreeProps): JSX.Element {
@@ -97,7 +102,7 @@ function TreeItem({
   )
 
   // Sangría del contenido según profundidad (el fondo igual llega al borde).
-  const indent = { paddingLeft: 8 + depth * INDENT }
+  const indent = { paddingLeft: BASE_INDENT + depth * INDENT }
 
   if (node.isDir) {
     return (
@@ -117,8 +122,16 @@ function TreeItem({
             onContext(node, e.clientX, e.clientY)
           }}
         >
-          {expanded ? <ChevronDown className="twisty" size={14} /> : <ChevronRight className="twisty" size={14} />}
-          <Folder className="node-icon" size={15} />
+          {/* Estilo VSCode: sin icono de carpeta. El triángulo relleno (rotado
+              según estado — derecha colapsado / abajo expandido) es el único
+              distintivo de carpeta; los archivos no lo llevan. */}
+          <Triangle
+            className="twisty tree-twisty"
+            size={10}
+            fill="currentColor"
+            strokeWidth={0}
+            style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(90deg)' }}
+          />
           {nameEl}
           {delBtn}
         </div>
@@ -151,10 +164,9 @@ function TreeItem({
       }}
       title={node.path}
     >
-      {/* Espaciador del ancho del chevron, para que los iconos de archivos
-          queden alineados con los de las carpetas del mismo nivel. */}
+      {/* Espaciador del ancho del triángulo, para que el nombre del archivo
+          quede alineado con el de las carpetas del mismo nivel (que sí lo llevan). */}
       <span className="twisty-spacer" />
-      <FileText className="node-icon" size={15} />
       {nameEl}
       {delBtn}
     </li>

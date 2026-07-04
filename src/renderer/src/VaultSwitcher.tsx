@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import { ChevronsUpDown, Check, FolderOpen, Cloud } from 'lucide-react'
+import { ChevronRight, ChevronDown, Check, FolderOpen, Cloud } from 'lucide-react'
 import type { VaultInfo } from '@shared/ipc'
 
 export interface VaultSwitcherProps {
@@ -50,7 +50,11 @@ export function VaultSwitcher({
         title="Gestionar bóvedas"
         onClick={() => setOpen((v) => !v)}
       >
-        <ChevronsUpDown size={14} className="twisty" />
+        {open ? (
+          <ChevronDown size={14} className="twisty" />
+        ) : (
+          <ChevronRight size={14} className="twisty" />
+        )}
         <span className="vault-trigger-name">Bóvedas</span>
       </button>
 

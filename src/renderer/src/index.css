@@ -497,27 +497,33 @@ body.resizing-col {
      y no llenen el alto): así "Bóvedas" no sube al colapsar NOTAS. */
   margin-top: auto;
   display: flex;
-  flex-direction: column-reverse;
+  /* Orden normal (trigger arriba, lista abajo) para que abra igual que las
+     secciones — título arriba, contenido abajo. Al estar anclado al fondo, el
+     bloque crece hacia arriba: el título sube y la lista se despliega debajo. */
+  flex-direction: column;
   border-top: 1px solid var(--border);
   background: var(--panel);
 }
 
+/* El trigger de Bóvedas imita la cabecera de sección (NOTAS / LÍNEA DE TIEMPO):
+   misma altura, chevron a la izquierda, etiqueta 11px bold en mayúsculas y color
+   atenuado — para que las tres piezas del sidebar compartan look & feel. */
 .vault-trigger {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
-  padding: 4px 8px;
+  height: 22px;
+  padding: 0 8px;
   background: transparent;
-  border-color: transparent;
-  color: var(--text);
-  font-size: 13px;
+  border: none;
+  border-radius: 0;
+  color: var(--muted);
 }
 
 .vault-trigger:hover {
   background: var(--panel-2);
-  border-color: var(--border);
 }
 
 .vault-trigger .twisty {
@@ -528,7 +534,10 @@ body.resizing-col {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Overlay de captura de clicks fuera; compartido por BranchSwitcher y
@@ -638,9 +647,10 @@ body.resizing-col {
   cursor: pointer;
 }
 
-/* Espaciador del ancho del chevron para alinear iconos de archivos con carpetas. */
+/* Espaciador del ancho del triángulo (10px) para alinear el nombre del archivo
+   con el de las carpetas (que sí llevan el triángulo). */
 .twisty-spacer {
-  width: 14px;
+  width: 10px;
   flex-shrink: 0;
 }
 
@@ -665,6 +675,16 @@ body.resizing-col {
 .twisty {
   flex-shrink: 0;
   color: var(--muted);
+}
+
+/* Twisty del árbol (triángulo relleno): único distintivo de carpeta, así que se
+   mantiene legible; se afirma del todo al pasar el mouse por la fila. */
+.tree-twisty {
+  opacity: 0.8;
+}
+
+.tree-dir:hover .tree-twisty {
+  opacity: 1;
 }
 
 .tree-file:hover,
@@ -2652,6 +2672,9 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Capada para que la línea de tiempo NO se coma el explorador: NOTAS (flex:1)
+     queda dominante y siempre visible; la lista scrollea internamente. */
+  max-height: 42vh;
 }
 
 /* Barra de transporte fija arriba de la lista (un paso ↔ / saltar al presente). */
@@ -2692,6 +2715,10 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   list-style: none;
   margin: 0;
   padding: 0;
+  /* Scroll interno bajo el transporte sticky: la lista larga no empuja el layout. */
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* Fila de versión: etiqueta humana + qué cambió, en dos líneas. */

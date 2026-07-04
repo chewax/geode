@@ -421,8 +421,14 @@ export function App(): JSX.Element {
   // Arrastre del divisor: sigue el mouse (clamp 160–520px), persiste al soltar.
   const startSidebarResize = useCallback((e: ReactPointerEvent): void => {
     e.preventDefault()
+    // El sidebar NO empieza en x=0: a su izquierda está la ActivityBar. El ancho
+    // se mide desde el borde izquierdo real del sidebar (su hermano anterior),
+    // no desde clientX crudo — si no, el ancho queda inflado por ese offset y el
+    // divisor se dibuja corrido del cursor.
+    const asideEl = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement | null
+    const left = asideEl ? asideEl.getBoundingClientRect().left : 0
     const onMove = (ev: PointerEvent): void => {
-      const w = Math.min(520, Math.max(160, ev.clientX))
+      const w = Math.min(520, Math.max(160, ev.clientX - left))
       setSidebarWidth(w)
     }
     const onUp = (): void => {
@@ -966,7 +972,7 @@ export function App(): JSX.Element {
         <ActivityBar onOpenSettings={() => setSettingsOpen(true)} />
 
         <aside className="sidebar" style={{ width: sidebarWidth }}>
-          <SidebarSection id="notas" title="NOTAS" flex actions={notesActions}>
+          <SidebarSection id="notas" title="EXPLORADOR" flex actions={notesActions}>
             {tree.length > 0 ? (
               <FileTree
                 nodes={sortedTree}

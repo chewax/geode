@@ -3,7 +3,6 @@ import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
 import {
   FilePlus,
   FolderPlus,
-  Settings as SettingsIcon,
   Save,
   GitBranch,
   Pencil,
@@ -16,7 +15,6 @@ import {
   ArrowDownUp,
   FoldVertical,
   UnfoldVertical,
-  HelpCircle,
   History,
   Info,
   Command as CommandIcon
@@ -47,6 +45,7 @@ import {
 import { FileTree } from './FileTree'
 import { VaultSwitcher } from './VaultSwitcher'
 import { SidebarSection } from './SidebarSection'
+import { ActivityBar } from './ActivityBar'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
 import { DiffView } from './DiffView'
@@ -888,15 +887,9 @@ export function App(): JSX.Element {
       </header>
 
       <div className="body">
-        <aside className="sidebar" style={{ width: sidebarWidth }}>
-          <VaultSwitcher
-            current={vault}
-            vaults={vaults}
-            onSwitch={(root) => void switchVault(root)}
-            onManage={() => void openVault()}
-            onNew={() => setNewVaultOpen(true)}
-          />
+        <ActivityBar onOpenSettings={() => setSettingsOpen(true)} />
 
+        <aside className="sidebar" style={{ width: sidebarWidth }}>
           <SidebarSection id="notas" title="NOTAS" flex actions={notesActions}>
             {tree.length > 0 ? (
               <FileTree
@@ -922,16 +915,13 @@ export function App(): JSX.Element {
             )}
           </SidebarSection>
 
-          <div className="sidebar-footer">
-            <div className="sidebar-footer-actions">
-              <button className="icon-btn" title="Ayuda" disabled>
-                <HelpCircle size={16} />
-              </button>
-              <button className="icon-btn" title="Ajustes" onClick={() => setSettingsOpen(true)}>
-                <SettingsIcon size={16} />
-              </button>
-            </div>
-          </div>
+          <VaultSwitcher
+            current={vault}
+            vaults={vaults}
+            onSwitch={(root) => void switchVault(root)}
+            onManage={() => void openVault()}
+            onNew={() => setNewVaultOpen(true)}
+          />
         </aside>
 
         <div

@@ -412,43 +412,68 @@ body.resizing-col {
   overflow: auto;
 }
 
-/* Barra inferior: selector de bóveda + ayuda + ajustes. */
-.sidebar-footer {
+/* ── Barra de actividad (riel vertical estilo VSCode, borde izq. de la ventana) ─
+   Aloja los accesos globales (ajustes, ayuda) anclados abajo, separada del
+   sidebar, para que no se desplacen al colapsar las secciones. La zona superior
+   queda reservada para futuros conmutadores de vista. */
+.activity-bar {
+  flex: 0 0 auto;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.activity-bar-top {
+  flex: 1;
+  min-height: 0;
+}
+
+.activity-bar-bottom {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+}
+
+.activity-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-top: 1px solid var(--border);
-  background: var(--panel);
-}
-
-.sidebar-footer-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 2px;
-}
-
-.sidebar-footer .icon-btn {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   background: transparent;
-  border-color: transparent;
+  border: none;
   color: var(--muted);
+  cursor: pointer;
 }
 
-.sidebar-footer .icon-btn:hover:not(:disabled) {
+.activity-btn:hover:not(:disabled) {
   color: var(--text);
   background: var(--panel-2);
-  border-color: var(--border);
 }
 
-.sidebar-footer .icon-btn:disabled {
+.activity-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-/* ── Cabecera de bóveda (disclosure en flujo, arriba del sidebar) ────────── */
+/* ── Selector de bóvedas (disclosure en flujo, ABAJO del sidebar) ────────── */
+/* column-reverse: el trigger queda pegado al borde inferior y, al abrir, el
+   menú (que va después en el DOM) se despliega HACIA ARRIBA en flujo, empujando
+   la sección de notas — sin overlay ni popover flotante. */
 .vault-header {
   flex: 0 0 auto;
-  border-bottom: 1px solid var(--border);
+  /* Anclado al fondo del sidebar SIEMPRE (aunque las secciones estén colapsadas
+     y no llenen el alto): así "Bóvedas" no sube al colapsar NOTAS. */
+  margin-top: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  border-top: 1px solid var(--border);
   background: var(--panel);
 }
 
@@ -505,7 +530,8 @@ body.resizing-col {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-/* En la cabecera el disclosure va en flujo (empuja las secciones hacia abajo). */
+/* En el selector el disclosure va en flujo y se despliega hacia arriba: la
+   línea divisoria va arriba del menú (junto a la sección de notas). */
 .vault-header .vault-menu {
   position: static;
   min-width: 0;
@@ -513,7 +539,9 @@ body.resizing-col {
   border: none;
   border-radius: 0;
   box-shadow: none;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  max-height: 40vh;
+  overflow: auto;
 }
 
 .vault-menu li {

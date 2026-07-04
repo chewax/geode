@@ -17,9 +17,10 @@ export interface VaultSwitcherProps {
 }
 
 /**
- * Cabecera de bóveda estilo VSCode-Explorer: vive arriba del sidebar y muestra
- * el nombre de la bóveda activa; al hacer click revela un disclosure en flujo
- * (empuja las secciones hacia abajo, sin overlay ni popover flotante) con la
+ * Selector de bóvedas: vive ABAJO del sidebar y muestra la etiqueta fija
+ * "Bóvedas" (es el lugar donde se gestionan las bóvedas, no el nombre de la
+ * activa). Al hacer click revela un disclosure en flujo que se despliega hacia
+ * arriba (empuja la sección de notas, sin overlay ni popover flotante) con la
  * lista de bóvedas (check en la activa) y las acciones "Abrir carpeta…" /
  * "Clonar o crear en GitHub…". Se cierra con Escape; su estado no se persiste.
  */
@@ -46,11 +47,11 @@ export function VaultSwitcher({
     <div className="vault-header">
       <button
         className="vault-trigger"
-        title={current.root}
+        title="Gestionar bóvedas"
         onClick={() => setOpen((v) => !v)}
       >
         <ChevronsUpDown size={14} className="twisty" />
-        <span className="vault-trigger-name">{current.name}</span>
+        <span className="vault-trigger-name">Bóvedas</span>
       </button>
 
       {open && (

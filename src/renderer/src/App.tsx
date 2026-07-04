@@ -15,7 +15,6 @@ import {
   ArrowDownUp,
   FoldVertical,
   UnfoldVertical,
-  History,
   Info,
   Command as CommandIcon
 } from 'lucide-react'
@@ -51,7 +50,7 @@ import { BranchDialog } from './BranchDialog'
 import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
-import { TimelineScrubber } from './TimelineScrubber'
+import { Timeline } from './Timeline'
 import { NewVaultDialog } from './NewVaultDialog'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
@@ -97,8 +96,10 @@ export function App(): JSX.Element {
   /** Editor al que la IA debe insertar su resultado (el panel que la invocó). */
   const aiTargetRef = useRef<EditorHandle | null>(null)
   const [graphOpen, setGraphOpen] = useState(false)
-  const [timelineOpen, setTimelineOpen] = useState(false)
   const [graph, setGraph] = useState<GitGraph | null>(null)
+  // Viaje en el tiempo: oid en preview (null = presente en vivo). Transitorio,
+  // NUNCA se persiste — la app siempre abre en el presente (SOFT-05, T-02-10).
+  const [previewOid, setPreviewOid] = useState<string | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
@@ -141,6 +142,10 @@ export function App(): JSX.Element {
   panesRef.current = panes
   const activePaneIdRef = useRef(activePaneId)
   activePaneIdRef.current = activePaneId
+  /** Layout (paneles + panel activo) capturado al entrar en preview, para
+   *  restaurarlo exacto al volver al presente (SOFT-04). paneTree es inmutable,
+   *  así que la referencia ES la instantánea (sin clonar). */
+  const layoutSnapshotRef = useRef<{ panes: PaneLayout; activePaneId: string } | null>(null)
   const headOidRef = useRef<string | null>(null)
   headOidRef.current = graph?.head.oid ?? null
 
@@ -153,11 +158,6 @@ export function App(): JSX.Element {
   /** Persiste a disco lo pendiente de TODOS los paneles (antes de commit/checkout). */
   const flushAll = useCallback(async () => {
     await Promise.all([...paneHandles.current.values()].map((h) => h.flush()))
-  }, [])
-
-  /** Fuerza recarga desde disco de un panel (tras restore). */
-  const bumpPane = useCallback((id: string) => {
-    setReloadNonces((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
   }, [])
 
   /** Fuerza recarga desde disco de todos los paneles (tras checkout/merge). */
@@ -173,15 +173,82 @@ export function App(): JSX.Element {
     setVaults(await window.geode.vault.list())
   }, [])
 
-  const refreshTree = useCallback(async () => {
-    const t = await window.geode.vault.tree()
+  /**
+   * Refresca el árbol de notas. En preview lee la versión pasada vía
+   * `git.treeAt(previewOid)`; en el presente, `vault.tree()`. Acepta un override
+   * explícito para usar el oid correcto en la misma tanda en que se hace
+   * `setPreviewOid` (el estado aún no re-renderizó).
+   */
+  const refreshTree = useCallback(async (oidOverride?: string | null): Promise<TreeNode[]> => {
+    const oid = oidOverride !== undefined ? oidOverride : previewOid
+    const t = oid ? await window.geode.git.treeAt(oid) : await window.geode.vault.tree()
     setTree(t)
     return t
-  }, [])
+  }, [previewOid])
 
   const refreshGraph = useCallback(async () => {
     setGraph(await window.geode.git.graph())
   }, [])
+
+  /** Entra en modo preview de una versión pasada: persiste ediciones en vuelo,
+   *  guarda la instantánea de layout y reenruta árbol + paneles a esa versión.
+   *  No escribe NADA a disco: la vista es de sólo lectura (T-02-04). */
+  const enterPreview = useCallback(async (oid: string): Promise<void> => {
+    await flushAll() // no perder lo tipeado antes de congelar la vista
+    layoutSnapshotRef.current = {
+      panes: panesRef.current,
+      activePaneId: activePaneIdRef.current
+    }
+    setPreviewOid(oid)
+    await refreshTree(oid)
+  }, [flushAll, refreshTree])
+
+  /** Restaura el layout capturado al entrar en preview (si existe) y lo limpia. */
+  const restoreLayoutSnapshot = useCallback((): void => {
+    const snap = layoutSnapshotRef.current
+    if (!snap) return
+    setPanes(snap.panes)
+    setActivePaneId(snap.activePaneId)
+    layoutSnapshotRef.current = null
+  }, [])
+
+  /** Sale del preview: vuelve al presente en vivo y restaura el layout exacto. */
+  const exitPreview = useCallback(async (): Promise<void> => {
+    setPreviewOid(null)
+    restoreLayoutSnapshot()
+    await refreshTree(null)
+  }, [refreshTree, restoreLayoutSnapshot])
+
+  /** Transporte de la timeline: un paso atrás (más viejo) o adelante (más nuevo).
+   *  Pasar el presente hacia adelante equivale a salir del preview (SOFT-04). */
+  const stepPreview = useCallback(
+    (dir: 'back' | 'forward'): void => {
+      const g = graph
+      if (!g || g.commits.length === 0) return
+      const idx = previewOid ? g.commits.findIndex((c) => c.oid === previewOid) : 0
+      if (idx < 0) return
+      if (dir === 'back') {
+        const older = g.commits[idx + 1]
+        if (older) void enterPreview(older.oid)
+      } else {
+        const newerIdx = idx - 1
+        if (newerIdx < 0) return
+        if (newerIdx === 0) void exitPreview()
+        else void enterPreview(g.commits[newerIdx].oid)
+      }
+    },
+    [graph, previewOid, enterPreview, exitPreview]
+  )
+
+  /** Un click en la lista: el más nuevo vuelve al presente; el resto entra en
+   *  preview de esa versión. */
+  const selectPreview = useCallback(
+    (oid: string): void => {
+      if (graph && oid === graph.commits[0]?.oid) void exitPreview()
+      else void enterPreview(oid)
+    },
+    [graph, enterPreview, exitPreview]
+  )
 
   const refreshGithub = useCallback(async () => {
     const cfg = await window.geode.github.getConfig()
@@ -291,22 +358,6 @@ export function App(): JSX.Element {
   const onPaneResize = useCallback((splitId: string, sizes: number[]) => {
     setPanes((prev) => setSizes(prev, splitId, sizes))
   }, [])
-
-  /**
-   * Restaura el contenido de una versión vieja de la nota activa: lo escribe a
-   * disco y recarga el panel. No reescribe historia; el usuario decide guardarlo
-   * como versión nueva con Ctrl+S.
-   */
-  const restoreVersion = useCallback(async (text: string) => {
-    const path = openPathRef.current
-    if (!path) return
-    await window.geode.vault.writeNote(path, text)
-    bumpPane(activePaneIdRef.current) // recargar el panel activo desde disco
-    setStatus('saved')
-    setSavedAt(new Date())
-    setTimelineOpen(false)
-    await refreshGraph()
-  }, [bumpPane, refreshGraph])
 
   /** Adopta una bóveda como activa y refresca todo (árbol, grafo, github, lista). */
   const adoptVault = useCallback(async (info: VaultInfo) => {
@@ -859,16 +910,6 @@ export function App(): JSX.Element {
             >
               <GitBranch size={15} />
             </button>
-            {openPath && (
-              <button
-                className={`tb-btn icon${timelineOpen ? ' active' : ''}`}
-                title="Línea de tiempo de la nota"
-                aria-label="Línea de tiempo de la nota"
-                onClick={() => setTimelineOpen((o) => !o)}
-              >
-                <History size={15} />
-              </button>
-            )}
             {githubCfg?.connected && githubCfg.remote && (
               <button
                 className="tb-btn icon push"
@@ -915,6 +956,22 @@ export function App(): JSX.Element {
             )}
           </SidebarSection>
 
+          <SidebarSection id="timeline" title="LÍNEA DE TIEMPO">
+            {graph ? (
+              <Timeline
+                graph={graph}
+                previewOid={previewOid}
+                onSelect={selectPreview}
+                onStep={stepPreview}
+                onJumpToPresent={() => void exitPreview()}
+              />
+            ) : (
+              <div className="tree-empty">
+                <p>Cargando línea de tiempo…</p>
+              </div>
+            )}
+          </SidebarSection>
+
           <VaultSwitcher
             current={vault}
             vaults={vaults}
@@ -936,11 +993,12 @@ export function App(): JSX.Element {
           }}
         />
 
-        <main className="main">
+        <main className={`main${previewOid != null ? ' past' : ''}`}>
           <div className="pane-root">
             <PaneView
               node={panes}
               activePaneId={activePaneId}
+              previewOid={previewOid}
               reloadNonces={reloadNonces}
               extraExtensions={host.listExtensions()}
               onFocusPane={focusPane}
@@ -1073,14 +1131,6 @@ export function App(): JSX.Element {
               )}
             </div>
           </footer>
-
-      {timelineOpen && openPath && (
-        <TimelineScrubber
-          path={openPath}
-          onRestore={(content) => void restoreVersion(content)}
-          onClose={() => setTimelineOpen(false)}
-        />
-      )}
 
       {newVaultOpen && (
         <NewVaultDialog

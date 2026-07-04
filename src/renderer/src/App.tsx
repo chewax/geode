@@ -51,6 +51,8 @@ import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
 import { Timeline } from './Timeline'
+import { TimeTravelBanner } from './TimeTravelBanner'
+import { entryLabel, relativeDate } from './time/labels'
 import { NewVaultDialog } from './NewVaultDialog'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
@@ -487,6 +489,27 @@ export function App(): JSX.Element {
     bumpAll()
   }, [bumpAll])
 
+  /** "Volver aquí": materializa la versión en preview como cambios sin guardar,
+   *  SIN mover HEAD (T-02-05). Si el árbol está sucio, toma una instantánea de
+   *  seguridad (mensaje explícito ⇒ SIN IA, T-02-03) para no perder nada; luego
+   *  restaura el working-dir y sale del preview reactivando la edición (SOFT-06). */
+  const bringBack = useCallback(async (): Promise<void> => {
+    const oid = previewOid
+    if (!oid) return
+    await flushAll() // persistir lo tipeado antes de medir el árbol
+    const dirty = await window.geode.git.changes()
+    if (dirty.length > 0) {
+      // Mensaje explícito ⇒ no invoca la IA (coste sólo en guardados manuales).
+      await window.geode.git.commit('Instantánea de seguridad — ' + new Date().toLocaleString())
+    }
+    await window.geode.git.restoreTree(oid) // sólo working-dir; HEAD intacto
+    setPreviewOid(null)
+    restoreLayoutSnapshot()
+    syncPanesToTree(await refreshTree(null))
+    await refreshGraph()
+    setToast('Traído al presente como cambios sin guardar.')
+  }, [previewOid, flushAll, restoreLayoutSnapshot, syncPanesToTree, refreshTree, refreshGraph])
+
   /** Abre el diálogo de "Guardar versión" si hay cambios pendientes. */
   const openCommitDialog = useCallback(async () => {
     await flushAll()
@@ -680,6 +703,9 @@ export function App(): JSX.Element {
   }, [])
 
   const hasHead = !!graph?.head.oid
+  // Commit actualmente en preview (para el banner). null en el presente.
+  const previewedCommit =
+    previewOid && graph ? graph.commits.find((c) => c.oid === previewOid) ?? null : null
   // Se puede mergear si la rama actual tiene una base a la cual integrar.
   const canMerge = !!graph?.branches.find((b) => b.name === graph.head.branch)?.base
   const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
@@ -926,6 +952,15 @@ export function App(): JSX.Element {
           <WindowControls />
         </div>
       </header>
+
+      {previewOid != null && previewedCommit && graph && (
+        <TimeTravelBanner
+          label={entryLabel(previewedCommit, graph.tags)}
+          relativeDate={relativeDate(previewedCommit.timestamp)}
+          onReturnToPresent={() => void exitPreview()}
+          onBringBack={() => void bringBack()}
+        />
+      )}
 
       <div className="body">
         <ActivityBar onOpenSettings={() => setSettingsOpen(true)} />

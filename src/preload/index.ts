@@ -50,7 +50,10 @@ const api: GeodeApi = {
     removeTag: (name) => ipcRenderer.invoke(IPC.gitRemoveTag, name),
     deleteBranch: (name) => ipcRenderer.invoke(IPC.gitDeleteBranch, name),
     noteHistory: (path) => ipcRenderer.invoke(IPC.gitNoteHistory, path),
-    readNoteAt: (oid, path) => ipcRenderer.invoke(IPC.gitReadNoteAt, oid, path)
+    readNoteAt: (oid, path) => ipcRenderer.invoke(IPC.gitReadNoteAt, oid, path),
+    treeAt: (oid) => ipcRenderer.invoke(IPC.gitTreeAt, oid),
+    restoreTree: (oid) => ipcRenderer.invoke(IPC.gitRestoreTree, oid),
+    changedFiles: (oid) => ipcRenderer.invoke(IPC.gitChangedFiles, oid)
   },
   github: {
     getConfig: () => ipcRenderer.invoke(IPC.githubGetConfig),

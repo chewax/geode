@@ -272,6 +272,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.gitReadNoteAt, (_e, oid: string, path: string) =>
     gitService.readAt(requireRoot(), oid, path)
   )
+  ipcMain.handle(IPC.gitTreeAt, (_e, oid: string) => gitService.treeAt(requireRoot(), oid))
+  ipcMain.handle(IPC.gitRestoreTree, (_e, oid: string) => gitService.restoreTree(requireRoot(), oid))
+  ipcMain.handle(IPC.gitChangedFiles, (_e, oid: string) =>
+    gitService.changedFiles(requireRoot(), oid)
+  )
 
   ipcMain.handle(IPC.aiGetConfig, () => aiConfig())
 

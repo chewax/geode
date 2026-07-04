@@ -42,6 +42,9 @@ export const IPC = {
   gitDeleteBranch: 'geode:git-delete-branch',
   gitNoteHistory: 'geode:git-note-history',
   gitReadNoteAt: 'geode:git-read-note-at',
+  gitTreeAt: 'geode:git-tree-at',
+  gitRestoreTree: 'geode:git-restore-tree',
+  gitChangedFiles: 'geode:git-changed-files',
   githubGetConfig: 'geode:github-get-config',
   githubStartDeviceFlow: 'geode:github-start-device-flow',
   githubCompleteDeviceFlow: 'geode:github-complete-device-flow',
@@ -224,6 +227,12 @@ export interface GitApi {
   noteHistory(path: string): Promise<NoteVersion[]>
   /** Contenido de una nota tal como estaba en un commit dado. */
   readNoteAt(oid: string, path: string): Promise<string>
+  /** Árbol de notas (.md) tal como estaba en un commit — para la vista previa. */
+  treeAt(oid: string): Promise<TreeNode[]>
+  /** Materializa el árbol de un commit en el working dir (escribe/borra) SIN mover HEAD. */
+  restoreTree(oid: string): Promise<void>
+  /** Basenames de las notas que cambiaron en un commit respecto de su primer padre. */
+  changedFiles(oid: string): Promise<string[]>
   /**
    * Etiqueta un commit (tag de git liviano). El nombre se sanea a un ref válido
    * (espacios → guiones). Devuelve el nombre final aplicado. Lanza si ya existe.

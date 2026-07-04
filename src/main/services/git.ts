@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
 import { createPatch } from 'diff'
-import type { GitCommitNode, GitGraph, NoteVersion } from '@shared/ipc'
+import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
 import { atomicWrite } from '../fs/atomic'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
@@ -523,6 +523,99 @@ export class GitService {
   async readAt(dir: string, oid: string, filepath: string): Promise<string> {
     const { blob } = await git.readBlob({ fs, dir, oid, filepath })
     return new TextDecoder().decode(blob)
+  }
+
+  /**
+   * Árbol de notas (.md) tal como estaba en un commit, con la MISMA forma que
+   * `vault.tree()` (carpetas primero, luego archivos, alfabético). `treeBlobs`
+   * no filtra, así que acá excluimos las carpetas no versionadas
+   * (.git/.geode/…) y todo lo que no sea .md. Es la fuente de la vista previa
+   * al "volver en el tiempo".
+   */
+  async treeAt(dir: string, oid: string): Promise<TreeNode[]> {
+    const blobs = await this.treeBlobs(dir, oid)
+    const paths: string[] = []
+    for (const filepath of blobs.keys()) {
+      if (IGNORED_TOP.has(filepath.split('/')[0])) continue
+      if (!filepath.toLowerCase().endsWith('.md')) continue
+      paths.push(filepath)
+    }
+    return this.buildTree(paths)
+  }
+
+  /**
+   * Reconstruye un `TreeNode[]` a partir de una lista plana de rutas .md, en la
+   * misma forma/orden que `VaultService.tree()`: carpetas primero, luego
+   * archivos, alfabético dentro de cada grupo. Es pura (sin I/O): solo arma el
+   * árbol para que `treeAt` calce con `vault.tree()` sin tocar `FileTree`.
+   */
+  private buildTree(paths: string[]): TreeNode[] {
+    const root: TreeNode[] = []
+    const dirs = new Map<string, TreeNode[]>() // ruta de carpeta → sus hijos
+    dirs.set('', root)
+
+    // Crea (si no existe) la carpeta `relDir` y sus ancestros; devuelve sus hijos.
+    const ensureDir = (relDir: string): TreeNode[] => {
+      const existing = dirs.get(relDir)
+      if (existing) return existing
+      const slash = relDir.lastIndexOf('/')
+      const parentRel = slash === -1 ? '' : relDir.slice(0, slash)
+      const name = slash === -1 ? relDir : relDir.slice(slash + 1)
+      const children: TreeNode[] = []
+      ensureDir(parentRel).push({ name, path: relDir, isDir: true, children })
+      dirs.set(relDir, children)
+      return children
+    }
+
+    for (const filepath of paths) {
+      const slash = filepath.lastIndexOf('/')
+      const parentRel = slash === -1 ? '' : filepath.slice(0, slash)
+      const name = slash === -1 ? filepath : filepath.slice(slash + 1)
+      ensureDir(parentRel).push({ name, path: filepath, isDir: false })
+    }
+
+    // Carpetas primero, luego archivos; alfabético dentro de cada grupo (igual que vault).
+    const sortRec = (nodes: TreeNode[]): void => {
+      nodes.sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
+      for (const n of nodes) if (n.children) sortRec(n.children)
+    }
+    sortRec(root)
+    return root
+  }
+
+  /**
+   * Basenames (sin carpeta ni .md) de las notas que cambiaron en un commit
+   * respecto de su PRIMER padre. Una nota cuenta si su blob difiere del padre o
+   * no existía en él; en un commit raíz (sin padre) cuenta todo lo agregado.
+   * Ignora carpetas no versionadas y lo que no sea .md. OJO: es commit-vs-padre,
+   * NO reutiliza `commitDiff` (que es árbol-vs-HEAD, otra pregunta).
+   */
+  async changedFiles(dir: string, oid: string): Promise<string[]> {
+    const { commit } = await git.readCommit({ fs, dir, oid })
+    const parent = commit.parent?.[0] ?? null
+    const trees = parent ? [TREE({ ref: oid }), TREE({ ref: parent })] : [TREE({ ref: oid })]
+
+    const changed: string[] = []
+    await git.walk({
+      fs,
+      dir,
+      trees,
+      map: async (filepath, entries) => {
+        if (filepath === '.') return undefined
+        if (IGNORED_TOP.has(filepath.split('/')[0])) return null // no descender a carpetas ignoradas
+        if (!filepath.toLowerCase().endsWith('.md')) return undefined
+        const [child, base] = entries
+        if (!child || (await child.type()) !== 'blob') return undefined
+        const childOid = await child.oid()
+        const baseOid = base && (await base.type()) === 'blob' ? await base.oid() : null
+        if (childOid !== baseOid) {
+          const name = filepath.slice(filepath.lastIndexOf('/') + 1)
+          changed.push(name.replace(/\.md$/i, ''))
+        }
+        return undefined
+      }
+    })
+    return changed
   }
 
   /**

@@ -9,15 +9,19 @@ import { dirname, join } from 'node:path'
  * recién ahí hace `rename`, que es atómico dentro del mismo filesystem. Si el
  * proceso muere a mitad de camino, el archivo original queda intacto: en el peor
  * caso sobra un temporal, nunca una nota corrupta.
+ *
+ * Acepta texto (`string`) o bytes crudos (`Uint8Array`): así puede materializar
+ * tanto notas como blobs binarios de git sin corromperlos con una codificación.
  */
-export async function atomicWrite(filePath: string, content: string): Promise<void> {
+export async function atomicWrite(filePath: string, content: string | Uint8Array): Promise<void> {
   const dir = dirname(filePath)
   await mkdir(dir, { recursive: true })
 
   const tmp = join(dir, `.geode-tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
   const handle = await open(tmp, 'w')
   try {
-    await handle.writeFile(content, 'utf8')
+    // `writeFile` acepta string o Uint8Array; sin 'utf8' hardcodeado los bytes van tal cual.
+    await handle.writeFile(content)
     await handle.sync() // fsync: durabilidad antes del rename
   } finally {
     await handle.close()

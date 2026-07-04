@@ -23,23 +23,23 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 - [ ] **SOFT-02**: Going back is a soft, linear restore — the working tree is set to the old state without moving HEAD and without creating a branch or detached-HEAD
 - [ ] **SOFT-03**: When the open note doesn't exist at the previewed version, its tab is kept as a ghost showing a clear "didn't exist then" state
 - [ ] **SOFT-04**: Returning to the present restores the full current state, including the note that was open before previewing
-- [ ] **SOFT-05**: While previewing the past, the app shows unmistakable "you are in the past" chrome and does not allow editing the previewed content directly
+- [x] **SOFT-05**: While previewing the past, the app shows unmistakable "you are in the past" chrome and does not allow editing the previewed content directly
 - [ ] **SOFT-06**: Choosing "Volver aquí" materializes the previewed version as the current working state (linear, nothing lost) and re-enables editing
 
 ### Repo-level Timeline
 
-- [ ] **TIME-01**: The timeline represents the whole vault's history (repo-level), not a single note's history
-- [ ] **TIME-02**: The timeline is always available, regardless of whether a note is open
-- [ ] **TIME-03**: Timeline entries are labeled in human terms only — human name, else AI message, else relative date; never a hash
-- [ ] **TIME-04**: Each timeline entry shows what changed in that version (the affected files) in human wording
-- [ ] **TIME-05**: A transport control (step back, step forward, jump to present) navigates versions, drives the whole-app preview, and keeps the active entry in view
-- [ ] **TIME-06**: The currently previewed entry and the "present" (newest) entry are each distinctly and persistently marked, so their divergence during time-travel is legible
+- [x] **TIME-01**: The timeline represents the whole vault's history (repo-level), not a single note's history
+- [x] **TIME-02**: The timeline is always available, regardless of whether a note is open
+- [x] **TIME-03**: Timeline entries are labeled in human terms only — human name, else AI message, else relative date; never a hash
+- [x] **TIME-04**: Each timeline entry shows what changed in that version (the affected files) in human wording
+- [x] **TIME-05**: A transport control (step back, step forward, jump to present) navigates versions, drives the whole-app preview, and keeps the active entry in view
+- [x] **TIME-06**: The currently previewed entry and the "present" (newest) entry are each distinctly and persistently marked, so their divergence during time-travel is legible
 
 ### Sidebar Sections
 
 - [x] **SIDE-01**: The sidebar is a stack of collapsible sections (VSCode-Explorer style)
 - [x] **SIDE-02**: The notes/file-tree is a collapsible section whose toolbar actions live on its section header
-- [ ] **SIDE-03**: The timeline is a collapsible section within the sidebar, placed below the notes section
+- [x] **SIDE-03**: The timeline is a collapsible section within the sidebar, placed below the notes section
 - [x] **SIDE-04**: Switching vaults is an inline disclosure under the vault header, not a floating popover
 
 ### Save-Version Flow
@@ -97,15 +97,15 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SOFT-02 | Phase 2 | Pending |
 | SOFT-03 | Phase 2 | Pending |
 | SOFT-04 | Phase 2 | Pending |
-| SOFT-05 | Phase 2 | Pending |
+| SOFT-05 | Phase 2 | Complete |
 | SOFT-06 | Phase 2 | Pending |
-| TIME-01 | Phase 2 | Pending |
-| TIME-02 | Phase 2 | Pending |
-| TIME-03 | Phase 2 | Pending |
-| TIME-04 | Phase 2 | Pending |
-| TIME-05 | Phase 2 | Pending |
-| TIME-06 | Phase 2 | Pending |
-| SIDE-03 | Phase 2 | Pending |
+| TIME-01 | Phase 2 | Complete |
+| TIME-02 | Phase 2 | Complete |
+| TIME-03 | Phase 2 | Complete |
+| TIME-04 | Phase 2 | Complete |
+| TIME-05 | Phase 2 | Complete |
+| TIME-06 | Phase 2 | Complete |
+| SIDE-03 | Phase 2 | Complete |
 | SAVE-01 | Phase 3 | Pending |
 | SAVE-02 | Phase 3 | Pending |
 | SAVE-03 | Phase 3 | Pending |

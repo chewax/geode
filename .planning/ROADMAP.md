@@ -57,7 +57,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Plans**: 6 plans
 
-  - [ ] 02-01-PLAN.md — Primitivas git de main + superficie IPC (treeAt/restoreTree/changedFiles) (SOFT-01/02/06, TIME-04)
+  - [x] 02-01-PLAN.md — Primitivas git de main + superficie IPC (treeAt/restoreTree/changedFiles) (SOFT-01/02/06, TIME-04)
   - [ ] 02-02-PLAN.md — Helpers puros de etiquetas/fecha + editor de solo lectura (Compartment) (TIME-03/04, SOFT-05)
   - [ ] 02-03-PLAN.md — EditorPane con previewOid: carga desde commit, tab fantasma, guardas de escritura (SOFT-01/03/05)
   - [ ] 02-04-PLAN.md — Componentes Timeline + TimeTravelBanner (TIME-01..06, SOFT-05, SIDE-03)
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
-| 2. Go Back in Time | 0/6 | Planned | - |
+| 2. Go Back in Time | 1/6 | In progress | - |
 | 3. Save a Named Version | 0/TBD | Not started | - |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |
 | 5. Advanced Mode & Capa-0 Polish | 0/TBD | Not started | - |

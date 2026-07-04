@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 1 (Sidebar Sections) complete — verified passed, UAT approved, code review fixed
-last_updated: "2026-07-04T02:57:05.369Z"
-last_activity: 2026-07-04 -- Phase 01 execution started
+last_updated: "2026-07-04T15:18:15.000Z"
+last_activity: 2026-07-04 -- Completed 02-01-PLAN.md (git primitives + IPC surface)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 20
+  total_plans: 8
+  completed_plans: 3
+  percent: 30
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 01 — sidebar-sections
+**Current focus:** Phase 02 — go-back-in-time
 
 ## Current Position
 
-Phase: 01 (sidebar-sections) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-07-04 -- Phase 01 execution started
+Phase: 02 (go-back-in-time) — EXECUTING
+Plan: 2 of 6
+Status: Executing Phase 02
+Last activity: 2026-07-04 -- Completed 02-01-PLAN.md (git primitives + IPC surface)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 17%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 1 P1 | 14 | 3 tasks | 4 files |
+| Phase 2 P1 | 8 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-04T02:57:05.362Z
-Stopped at: Phase 1 (Sidebar Sections) complete — verified passed, UAT approved, code review fixed
-Resume file: .planning/phases/01-sidebar-sections/01-VERIFICATION.md
+Last session: 2026-07-04T15:18:15.000Z
+Stopped at: Completed 02-01-PLAN.md (git primitives + IPC surface); typecheck green
+Resume file: .planning/phases/02-go-back-in-time/02-02-PLAN.md

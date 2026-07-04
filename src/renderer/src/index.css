@@ -342,13 +342,6 @@ body.resizing-col {
   user-select: none;
 }
 
-/* Zona scrolleable del árbol: ocupa el alto entre toolbar y footer. */
-.sidebar-tree {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
 /* ── Sección colapsable (estilo VSCode-Explorer) ─────────────────────────── */
 .sidebar-section {
   display: flex;
@@ -363,11 +356,26 @@ body.resizing-col {
 .sidebar-section-header {
   display: flex;
   align-items: center;
-  gap: 4px;
   height: 22px;
-  padding: 0 8px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
+}
+
+/* Toggle nativo que cubre twisty + etiqueta + espacio flexible de la cabecera:
+   click en cualquier punto (salvo las acciones) alterna el colapso; foco y
+   teclado (Enter/Space) los aporta el propio <button>. */
+.sidebar-section-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   user-select: none;
 }
@@ -380,11 +388,13 @@ body.resizing-col {
   color: var(--muted);
 }
 
-/* Acciones reveladas al hover (o con foco de teclado dentro). */
+/* Acciones reveladas al hover (o con foco de teclado dentro). Hermanas del
+   toggle (que ocupa flex:1), quedan pegadas al borde derecho de la cabecera. */
 .sidebar-section-actions {
-  margin-left: auto;
+  flex: 0 0 auto;
   display: flex;
   gap: 2px;
+  padding-right: 8px;
   opacity: 0;
 }
 

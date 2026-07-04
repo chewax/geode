@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import type { JSX, ReactNode, KeyboardEvent } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 export interface SidebarSectionProps {
@@ -44,41 +44,31 @@ export function SidebarSection({
     })
   }, [key])
 
-  // Enter y Space alternan el colapso cuando la cabecera tiene el foco.
-  const onKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>): void => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        toggle()
-      }
-    },
-    [toggle]
-  )
-
   return (
     <section className={`sidebar-section${flex && !collapsed ? ' flex' : ''}`}>
-      <div
-        className="sidebar-section-header"
-        tabIndex={0}
-        role="button"
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? `Expandir sección ${title}` : `Colapsar sección ${title}`}
-        onClick={toggle}
-        onKeyDown={onKeyDown}
-      >
-        {collapsed ? (
-          <ChevronRight className="twisty" size={14} />
-        ) : (
-          <ChevronDown className="twisty" size={14} />
-        )}
-        <span className="sidebar-section-label">{title}</span>
-        {/* Las acciones solo existen cuando la sección está expandida; un click en
-            ellas no debe alternar el colapso (stopPropagation). */}
-        {!collapsed && actions && (
-          <div className="sidebar-section-actions" onClick={(e) => e.stopPropagation()}>
-            {actions}
-          </div>
-        )}
+      <div className="sidebar-section-header">
+        {/* El toggle es un <button> nativo (Enter/Space funcionan sin manejar
+            teclas a mano) que cubre twisty + etiqueta y el espacio flexible: un
+            click en cualquier punto de la cabecera —salvo las acciones— alterna
+            el colapso. Las acciones son hermanas (no anidadas) para evitar
+            <button> dentro de <button> y que su activación por teclado dispare
+            también el toggle. */}
+        <button
+          type="button"
+          className="sidebar-section-toggle"
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? `Expandir sección ${title}` : `Colapsar sección ${title}`}
+          onClick={toggle}
+        >
+          {collapsed ? (
+            <ChevronRight className="twisty" size={14} />
+          ) : (
+            <ChevronDown className="twisty" size={14} />
+          )}
+          <span className="sidebar-section-label">{title}</span>
+        </button>
+        {/* Las acciones solo existen cuando la sección está expandida. */}
+        {!collapsed && actions && <div className="sidebar-section-actions">{actions}</div>}
       </div>
       <div className="sidebar-section-body" style={collapsed ? { display: 'none' } : undefined}>
         {children}

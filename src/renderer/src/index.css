@@ -2644,3 +2644,190 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   font-size: 13px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
+
+/* ── Viaje en el tiempo (Fase 2) ─────────────────────────────────────────── */
+
+/* Cuerpo de la sección LÍNEA DE TIEMPO: transporte fijo + lista de versiones. */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Barra de transporte fija arriba de la lista (un paso ↔ / saltar al presente). */
+.tl-transport {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.tl-transport .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Posición del viaje (teal cuando estás en el pasado). */
+.tl-pos {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-pos.viewing {
+  color: var(--head);
+}
+
+.tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Fila de versión: etiqueta humana + qué cambió, en dos líneas. */
+.tl-entry {
+  padding: 8px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.tl-entry:hover {
+  background: var(--panel-2);
+}
+
+/* La entrada que se está viendo: acento teal persistente (TIME-06). */
+.tl-entry.viewing {
+  border-left-color: var(--head);
+  background: color-mix(in srgb, var(--head) 10%, transparent);
+}
+
+.tl-entry-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tl-entry-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-entry-chips {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+}
+
+.tl-entry-sub {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tab fantasma: la nota no existía en la versión vista (EditorPane la marca). */
+.tab.ghost {
+  font-style: italic;
+  color: var(--muted);
+  border-style: dashed;
+}
+
+/* Placeholder cuando la nota abierta no existía en el pasado. */
+.ghost-note {
+  text-align: center;
+  max-width: 320px;
+}
+
+.ghost-note-title {
+  margin: 6px 0 4px;
+  color: var(--text);
+}
+
+.ghost-note-body {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Banner de ancho completo: "Estás viendo el pasado" (SOFT-05). */
+.time-banner {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--head) 14%, var(--panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--head) 45%, var(--border));
+}
+
+.time-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--head);
+}
+
+.time-banner-title {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.time-banner-label {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-banner-date {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.time-banner-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+/* CTA teal-filled "Volver aquí"; "Volver al presente" queda ghost (base .tb-btn). */
+.time-banner .tb-btn.primary.head {
+  color: #16161a;
+  background: var(--head);
+  border-color: var(--head);
+  font-weight: 600;
+}
+
+.time-banner .tb-btn.primary.head:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--head) 85%, #fff);
+  border-color: color-mix(in srgb, var(--head) 85%, #fff);
+}
+
+/* Tinte del editor durante el preview: velo teal sutil + acento superior teal. */
+.main.past .epane-body {
+  background: color-mix(in srgb, var(--head) 7%, transparent);
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--head) 55%, transparent);
+}
+
+.main.past .epane-body > * {
+  opacity: 0.9;
+}

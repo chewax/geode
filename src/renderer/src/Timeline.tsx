@@ -105,7 +105,8 @@ export function Timeline({
           <ChevronsRight size={14} />
         </button>
         <span className={`tl-pos${atPresent ? '' : ' viewing'}`}>
-          {atPresent ? 'en el presente' : relativeDate(commits[idx].timestamp)}
+          {/* idx < 0: el oid en preview ya no está en el grafo (refresco): sin crash. */}
+          {atPresent || idx < 0 ? 'en el presente' : relativeDate(commits[idx].timestamp)}
         </span>
       </div>
 

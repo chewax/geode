@@ -502,18 +502,25 @@ export function App(): JSX.Element {
   const bringBack = useCallback(async (): Promise<void> => {
     const oid = previewOid
     if (!oid) return
-    await flushAll() // persistir lo tipeado antes de medir el árbol
-    const dirty = await window.geode.git.changes()
-    if (dirty.length > 0) {
-      // Mensaje explícito ⇒ no invoca la IA (coste sólo en guardados manuales).
-      await window.geode.git.commit('Instantánea de seguridad — ' + new Date().toLocaleString())
+    try {
+      await flushAll() // persistir lo tipeado antes de medir el árbol
+      const dirty = await window.geode.git.changes()
+      if (dirty.length > 0) {
+        // Mensaje explícito ⇒ no invoca la IA (coste sólo en guardados manuales).
+        await window.geode.git.commit('Instantánea de seguridad — ' + new Date().toLocaleString())
+      }
+      await window.geode.git.restoreTree(oid) // sólo working-dir; HEAD intacto
+      setPreviewOid(null)
+      restoreLayoutSnapshot()
+      syncPanesToTree(await refreshTree(null))
+      await refreshGraph()
+      setToast('Traído al presente como cambios sin guardar.')
+    } catch (e) {
+      // Falla del snapshot de seguridad o de restoreTree: no dejar al usuario
+      // atascado en la preview sin señal. HEAD no se movió (restoreTree sólo
+      // toca el working-dir); puede reintentar o volver al presente.
+      setToast(e instanceof Error ? e.message : 'No se pudo traer esta versión al presente.')
     }
-    await window.geode.git.restoreTree(oid) // sólo working-dir; HEAD intacto
-    setPreviewOid(null)
-    restoreLayoutSnapshot()
-    syncPanesToTree(await refreshTree(null))
-    await refreshGraph()
-    setToast('Traído al presente como cambios sin guardar.')
   }, [previewOid, flushAll, restoreLayoutSnapshot, syncPanesToTree, refreshTree, refreshGraph])
 
   /** Abre el diálogo de "Guardar versión" si hay cambios pendientes. */

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
 import { createPatch } from 'diff'
@@ -636,14 +636,29 @@ export class GitService {
     for (const [filepath, blobOid] of target) {
       if (current.get(filepath) === blobOid) continue // igual: no ensuciar
       const { blob } = await git.readBlob({ fs, dir, oid, filepath })
-      await atomicWrite(join(dir, filepath), Buffer.from(blob))
+      await atomicWrite(this.resolveInside(dir, filepath), Buffer.from(blob))
     }
 
     // Borrar: lo que está en el working dir pero no en el árbol destino. El set
     // sale de `workBlobs` (IGNORE-filtrado): .git/.geode nunca entran.
     for (const filepath of current.keys()) {
-      if (!target.has(filepath)) await rm(join(dir, filepath), { force: true })
+      if (!target.has(filepath)) await rm(this.resolveInside(dir, filepath), { force: true })
     }
+  }
+
+  /**
+   * Resuelve `filepath` (relativo al vault) a ruta absoluta y verifica que quede
+   * DENTRO de `dir`. Defensa en profundidad para `restoreTree`, que escribe Y
+   * borra archivos: un commit malicioso traído por clone/pull con una entrada
+   * `..` no debe poder salir del vault. Lanza si la ruta escapa.
+   */
+  private resolveInside(dir: string, filepath: string): string {
+    const root = resolve(dir)
+    const full = resolve(root, filepath)
+    if (full !== root && !full.startsWith(root + sep)) {
+      throw new Error(`Ruta fuera del vault: ${filepath}`)
+    }
+    return full
   }
 
   /**

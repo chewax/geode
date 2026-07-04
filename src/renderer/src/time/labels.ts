@@ -12,8 +12,12 @@ import type { GitCommitNode, GitTagRef } from '@shared/ipc'
 export function entryLabel(c: GitCommitNode, tags: GitTagRef[], now = Date.now()): string {
   const tag = tags.find((t) => t.oid === c.oid)
   if (tag) return tag.name
-  const msg = c.message.trim()
-  if (msg) return msg
+  // Solo el título (primera línea no vacía), no el cuerpo/descripción del mensaje.
+  const firstLine = c.message
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0)
+  if (firstLine) return firstLine
   return relativeDate(c.timestamp, now)
 }
 

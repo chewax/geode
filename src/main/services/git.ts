@@ -753,7 +753,10 @@ export class GitService {
    * trunca para acotar tokens.
    */
   async pendingDiff(dir: string): Promise<string> {
-    const changes = await this.pendingChanges(dir)
+    // Solo notas .md — el commit sí versiona adjuntos; acá acotamos lo que ve la IA.
+    const changes = (await this.pendingChanges(dir)).filter((c) =>
+      c.filepath.toLowerCase().endsWith('.md')
+    )
     if (changes.length === 0) return ''
     const headOid = await this.headOid(dir)
     const MAX = 8000

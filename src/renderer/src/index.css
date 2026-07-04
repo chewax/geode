@@ -469,11 +469,11 @@ body.resizing-col {
   cursor: default;
 }
 
-/* ── Selector de bóveda (popover hacia arriba) ───────────────────────────── */
-.vault-switcher {
-  position: relative;
-  flex: 1;
-  min-width: 0;
+/* ── Cabecera de bóveda (disclosure en flujo, arriba del sidebar) ────────── */
+.vault-header {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
 }
 
 .vault-trigger {
@@ -505,12 +505,6 @@ body.resizing-col {
   font-weight: 600;
 }
 
-.vault-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-}
-
 .vault-menu {
   position: absolute;
   left: 0;
@@ -525,6 +519,17 @@ body.resizing-col {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* En la cabecera el disclosure va en flujo (empuja las secciones hacia abajo). */
+.vault-header .vault-menu {
+  position: static;
+  min-width: 0;
+  max-width: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
 }
 
 .vault-menu li {

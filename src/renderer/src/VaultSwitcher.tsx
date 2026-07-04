@@ -17,9 +17,11 @@ export interface VaultSwitcherProps {
 }
 
 /**
- * Selector de bóveda estilo Obsidian: chip con el nombre en la barra inferior
- * del sidebar; al hacer click abre un popover hacia arriba con la lista de
- * bóvedas (check en la activa) y "Gestionar bóvedas…".
+ * Cabecera de bóveda estilo VSCode-Explorer: vive arriba del sidebar y muestra
+ * el nombre de la bóveda activa; al hacer click revela un disclosure en flujo
+ * (empuja las secciones hacia abajo, sin overlay ni popover flotante) con la
+ * lista de bóvedas (check en la activa) y las acciones "Abrir carpeta…" /
+ * "Clonar o crear en GitHub…". Se cierra con Escape; su estado no se persiste.
  */
 export function VaultSwitcher({
   current,
@@ -41,7 +43,7 @@ export function VaultSwitcher({
   }, [open])
 
   return (
-    <div className="vault-switcher">
+    <div className="vault-header">
       <button
         className="vault-trigger"
         title={current.root}
@@ -52,44 +54,41 @@ export function VaultSwitcher({
       </button>
 
       {open && (
-        <>
-          <div className="vault-overlay" onClick={() => setOpen(false)} />
-          <ul className="vault-menu">
-            {vaults.map((v) => (
-              <li
-                key={v.root}
-                className={v.root === current.root ? 'sel' : ''}
-                title={v.root}
-                onClick={() => {
-                  setOpen(false)
-                  if (v.root !== current.root) onSwitch(v.root)
-                }}
-              >
-                <span className="vault-menu-name">{v.name}</span>
-                {v.root === current.root && <Check size={14} />}
-              </li>
-            ))}
-            <li className="vault-menu-sep" />
+        <ul className="vault-menu">
+          {vaults.map((v) => (
             <li
-              className="vault-menu-manage"
+              key={v.root}
+              className={v.root === current.root ? 'sel' : ''}
+              title={v.root}
               onClick={() => {
                 setOpen(false)
-                onManage()
+                if (v.root !== current.root) onSwitch(v.root)
               }}
             >
-              <FolderOpen size={14} /> Abrir carpeta…
+              <span className="vault-menu-name">{v.name}</span>
+              {v.root === current.root && <Check size={14} />}
             </li>
-            <li
-              className="vault-menu-manage"
-              onClick={() => {
-                setOpen(false)
-                onNew()
-              }}
-            >
-              <Cloud size={14} /> Clonar o crear en GitHub…
-            </li>
-          </ul>
-        </>
+          ))}
+          <li className="vault-menu-sep" />
+          <li
+            className="vault-menu-manage"
+            onClick={() => {
+              setOpen(false)
+              onManage()
+            }}
+          >
+            <FolderOpen size={14} /> Abrir carpeta…
+          </li>
+          <li
+            className="vault-menu-manage"
+            onClick={() => {
+              setOpen(false)
+              onNew()
+            }}
+          >
+            <Cloud size={14} /> Clonar o crear en GitHub…
+          </li>
+        </ul>
       )}
     </div>
   )

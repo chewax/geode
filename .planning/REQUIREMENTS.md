@@ -19,12 +19,12 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 
 ### Soft Linear Restore
 
-- [ ] **SOFT-01**: User can go back to a previous version and the entire app reflects that moment — file tree, tabs, and editor (read-only preview)
-- [ ] **SOFT-02**: Going back is a soft, linear restore — the working tree is set to the old state without moving HEAD and without creating a branch or detached-HEAD
+- [x] **SOFT-01**: User can go back to a previous version and the entire app reflects that moment — file tree, tabs, and editor (read-only preview)
+- [x] **SOFT-02**: Going back is a soft, linear restore — the working tree is set to the old state without moving HEAD and without creating a branch or detached-HEAD
 - [ ] **SOFT-03**: When the open note doesn't exist at the previewed version, its tab is kept as a ghost showing a clear "didn't exist then" state
-- [ ] **SOFT-04**: Returning to the present restores the full current state, including the note that was open before previewing
+- [x] **SOFT-04**: Returning to the present restores the full current state, including the note that was open before previewing
 - [x] **SOFT-05**: While previewing the past, the app shows unmistakable "you are in the past" chrome and does not allow editing the previewed content directly
-- [ ] **SOFT-06**: Choosing "Volver aquí" materializes the previewed version as the current working state (linear, nothing lost) and re-enables editing
+- [x] **SOFT-06**: Choosing "Volver aquí" materializes the previewed version as the current working state (linear, nothing lost) and re-enables editing
 
 ### Repo-level Timeline
 
@@ -93,12 +93,12 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SIDE-01 | Phase 1 | Complete |
 | SIDE-02 | Phase 1 | Complete |
 | SIDE-04 | Phase 1 | Complete |
-| SOFT-01 | Phase 2 | Pending |
-| SOFT-02 | Phase 2 | Pending |
+| SOFT-01 | Phase 2 | Complete |
+| SOFT-02 | Phase 2 | Complete |
 | SOFT-03 | Phase 2 | Pending |
-| SOFT-04 | Phase 2 | Pending |
+| SOFT-04 | Phase 2 | Complete |
 | SOFT-05 | Phase 2 | Complete |
-| SOFT-06 | Phase 2 | Pending |
+| SOFT-06 | Phase 2 | Complete |
 | TIME-01 | Phase 2 | Complete |
 | TIME-02 | Phase 2 | Complete |
 | TIME-03 | Phase 2 | Complete |

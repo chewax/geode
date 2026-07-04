@@ -4,7 +4,14 @@ import { existsSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import iconPng from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
-import { IPC, type AppInfo, type AiConfig, type GithubConfig, type VaultInfo } from '@shared/ipc'
+import {
+  IPC,
+  type AppInfo,
+  type AiConfig,
+  type GithubConfig,
+  type NamedVersion,
+  type VaultInfo
+} from '@shared/ipc'
 
 // Ícono de la app (ventana + barra de tareas). Usamos el PNG porque nativeImage
 // lo carga de forma confiable en cualquier escala; el .ico queda para el
@@ -319,6 +326,18 @@ function registerIpcHandlers(): void {
 
     const provider = new OpenRouterProvider(key, ai.model)
     return provider.generateMessage(diff)
+  })
+
+  ipcMain.handle(IPC.aiSuggestVersion, async (): Promise<NamedVersion> => {
+    const key = await getAiKey()
+    const { ai } = await loadSettings()
+    if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+
+    // El diff ya viene acotado a notas .md desde pendingDiff.
+    const diff = await gitService.pendingDiff(requireRoot())
+    if (!diff) return { title: '', description: '' }
+
+    return new OpenRouterProvider(key, ai.model).generateNamedVersion(diff)
   })
 
   ipcMain.handle(

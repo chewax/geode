@@ -59,6 +59,7 @@ export const IPC = {
   aiSetEnabled: 'geode:ai-set-enabled',
   aiListModels: 'geode:ai-list-models',
   aiSuggestMessage: 'geode:ai-suggest-message',
+  aiSuggestVersion: 'geode:ai-suggest-version',
   aiGenerateText: 'geode:ai-generate-text',
   aiUsage: 'geode:ai-usage',
   pluginsList: 'geode:plugins-list',
@@ -301,6 +302,17 @@ export interface AiConfig {
   hasKey: boolean
 }
 
+/**
+ * Versión con nombre: título humano (primera línea del mensaje) + descripción
+ * (cuerpo). La IA los genera discriminados a partir del diff de notas .md.
+ */
+export interface NamedVersion {
+  /** Nombre corto del momento (primera línea del mensaje del commit). */
+  title: string
+  /** Descripción del contenido/tema que cambió (cuerpo del mensaje). */
+  description: string
+}
+
 /** Uso de la API key en OpenRouter (en USD). */
 export interface AiUsage {
   label: string | null
@@ -321,6 +333,8 @@ export interface AiApi {
   listModels(): Promise<AiModel[]>
   /** Genera un mensaje de commit a partir del diff pendiente. '' si no hay cambios. */
   suggestMessage(): Promise<string>
+  /** Genera título + descripción discriminados del diff pendiente (solo notas .md). */
+  suggestVersion(): Promise<NamedVersion>
   /** Asistente de escritura: genera texto para el editor según una instrucción. */
   generateText(instruction: string, selection: string, before: string): Promise<string>
   /** Uso/gasto de la API key en OpenRouter. null si no hay key. */

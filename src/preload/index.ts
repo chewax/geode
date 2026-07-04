@@ -72,6 +72,7 @@ const api: GeodeApi = {
     setEnabled: (enabled) => ipcRenderer.invoke(IPC.aiSetEnabled, enabled),
     listModels: () => ipcRenderer.invoke(IPC.aiListModels),
     suggestMessage: () => ipcRenderer.invoke(IPC.aiSuggestMessage),
+    suggestVersion: () => ipcRenderer.invoke(IPC.aiSuggestVersion),
     generateText: (instruction, selection, before) =>
       ipcRenderer.invoke(IPC.aiGenerateText, instruction, selection, before),
     usage: () => ipcRenderer.invoke(IPC.aiUsage)

@@ -1,4 +1,4 @@
-import type { AiModel, AiUsage } from '@shared/ipc'
+import type { AiModel, AiUsage, NamedVersion } from '@shared/ipc'
 
 /**
  * Generación de mensajes de commit por IA (ver ARCHITECTURE.md §3).
@@ -34,6 +34,22 @@ Devolvé ÚNICAMENTE el texto que hay que insertar en el documento, listo para p
 - Escribí en el mismo idioma del contexto (por defecto, español).
 - Si la instrucción es reescribir/resumir/traducir el texto seleccionado, devolvé SOLO la nueva versión de ese texto.`
 
+const NAMED_VERSION_PROMPT = `Sos un asistente que, en español, le pone nombre a una versión guardada de notas personales a partir de un diff (formato unificado).
+
+Devolvé EXACTAMENTE este formato:
+- PRIMERA LÍNEA: un título corto (60-80 caracteres, sin comillas, sin prefijos tipo "feat:"/"fix:").
+- Luego UNA LÍNEA EN BLANCO.
+- Luego una descripción de 1 a 3 frases sobre el CONTENIDO y el TEMA de lo que cambió.
+
+Qué queremos:
+- El título sintetiza el momento (p. ej. "Reunión con Marketing: objetivos del Q3").
+- La descripción explica el tema de lo escrito o cambiado, en lenguaje humano.
+
+Qué evitar:
+- No uses jerga de git (commit, diff, archivo, línea).
+- No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
+- No describas el edit de forma mecánica ("se agregó una frase", "se modificó una línea").`
+
 /** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
 function toOneLine(text: string): string {
   const firstLine =
@@ -45,6 +61,24 @@ function toOneLine(text: string): string {
     .replace(/^[-*]\s+/, '') // viñeta inicial
     .replace(/^["'“”]+|["'“”]+$/g, '') // comillas envolventes
     .trim()
+}
+
+/**
+ * Parsea la salida del modelo en título + descripción discriminados: la primera
+ * línea no vacía es el título (reutiliza `toOneLine` para sacar viñetas/comillas),
+ * y todo lo que sigue, ya recortado, es la descripción. Degrada sin lanzar: si la
+ * entrada está vacía devuelve ambos campos vacíos.
+ */
+function parseNamedVersion(raw: string): NamedVersion {
+  const lines = raw.replace(/\r/g, '').split('\n')
+  const firstIdx = lines.findIndex((l) => l.trim().length > 0)
+  if (firstIdx === -1) return { title: '', description: '' }
+  const title = toOneLine(lines[firstIdx])
+  const description = lines
+    .slice(firstIdx + 1)
+    .join('\n')
+    .trim()
+  return { title, description }
 }
 
 export class OpenRouterProvider implements AiMessageProvider {
@@ -86,6 +120,22 @@ export class OpenRouterProvider implements AiMessageProvider {
       0.2
     )
     return toOneLine(raw)
+  }
+
+  /**
+   * Genera título + descripción discriminados a partir del diff pendiente (solo
+   * notas .md). El título va en la primera línea y la descripción en el cuerpo.
+   */
+  async generateNamedVersion(diff: string): Promise<NamedVersion> {
+    const raw = await this.chat(
+      [
+        { role: 'system', content: NAMED_VERSION_PROMPT },
+        { role: 'user', content: diff }
+      ],
+      500,
+      0.2
+    )
+    return parseNamedVersion(raw)
   }
 
   /**

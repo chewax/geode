@@ -30,7 +30,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The notes section's toolbar actions live on that section's header (not a separate global bar).
   3. Switching vaults happens via an inline disclosure under the vault header, not a floating popover.
   4. The layout can hold an additional section below notes without further structural rework.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 01-01-PLAN.md — Reestructurar el sidebar en secciones colapsables + cabecera de bóveda en flujo (SIDE-01/02/04)
+  - [ ] 01-02-PLAN.md — Checkpoint UAT: paridad de comportamiento del sidebar
 **UI hint**: yes
 
 ### Phase 2: Go Back in Time
@@ -91,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sidebar Sections | 0/TBD | Not started | - |
+| 1. Sidebar Sections | 0/2 | Not started | - |
 | 2. Go Back in Time | 0/TBD | Not started | - |
 | 3. Save a Named Version | 0/TBD | Not started | - |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |

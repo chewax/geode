@@ -81,7 +81,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
   - [x] 03-01-PLAN.md — Motor de IA título+descripción (canal geode:ai-suggest-version) + fix de scope de diff a .md + etiqueta de primera línea (SAVE-01/02)
-  - [ ] 03-02-PLAN.md — Reencuadre del diálogo "Guardar versión": dos campos, resumen humano, sin jerga git (SAVE-01/02/03)
+  - [x] 03-02-PLAN.md — Reencuadre del diálogo "Guardar versión": dos campos, resumen humano, sin jerga git (SAVE-01/02/03)
   - [ ] 03-03-PLAN.md — Checkpoint UAT: SAVE-01/02/03 + fix de diff + etiqueta de título
 
 **UI hint**: yes
@@ -126,6 +126,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
 | 2. Go Back in Time | 6/6 | Complete   | 2026-07-04 |
-| 3. Save a Named Version | 1/3 | In Progress|  |
+| 3. Save a Named Version | 2/3 | In Progress|  |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |
 | 5. Advanced Mode & Capa-0 Polish | 0/TBD | Not started | - |

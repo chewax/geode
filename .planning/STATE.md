@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-07-04T21:28:39.515Z"
+last_updated: "2026-07-04T21:32:30.133Z"
 last_activity: 2026-07-04 -- Phase 3 execution started
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 40
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 ## Current Position
 
 Phase: 3 (Save a Named Version) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-04 -- Phase 3 execution started
 
@@ -59,6 +59,7 @@ Progress: [████░░░░░░] 40%
 | Phase 02 P04 | 6m | 2 tasks | 2 files |
 | Phase 02 P05 | ~15m | 3 tasks | 2 files |
 | Phase 03 P01 | 9 | 2 tasks | 6 files |
+| Phase 03 P02 | 4min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Recent decisions affecting current work:
 - Git stays hidden (not removed) behind an Advanced Mode toggle (Phase 5).
 - [Phase ?]: SidebarSection usa display:none al colapsar para conservar el estado interno de FileTree
 - [Phase ?]: Phase 3: AI genera título+descripción discriminados vía nuevo canal geode:ai-suggest-version (aditivo); pendingDiff se acota a .md sin tocar el path de commit
+- [Phase ?]: 03-02: Note-count filter (.md) for the changed-notes summary lives inside CommitDialog (renderer), keeping the plan scoped to a single file
 
 ### Pending Todos
 
@@ -96,6 +98,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-04T21:28:27.831Z
+Last session: 2026-07-04T21:32:20.477Z
 Stopped at: Completed 03-01-PLAN.md
 Resume file: None

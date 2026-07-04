@@ -46,7 +46,7 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 
 - [x] **SAVE-01**: Saving a version prompts for an optional human name for that point
 - [x] **SAVE-02**: The version description is AI-generated from the changes, or left empty when AI is disabled
-- [ ] **SAVE-03**: In the default experience, saving is presented as naming a point in time, not as a git commit (no required message, no commit-framed file list)
+- [x] **SAVE-03**: In the default experience, saving is presented as naming a point in time, not as a git commit (no required message, no commit-framed file list)
 
 ### Auto-snapshots
 
@@ -108,7 +108,7 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SIDE-03 | Phase 2 | Complete |
 | SAVE-01 | Phase 3 | Complete |
 | SAVE-02 | Phase 3 | Complete |
-| SAVE-03 | Phase 3 | Pending |
+| SAVE-03 | Phase 3 | Complete |
 | SNAP-01 | Phase 4 | Pending |
 | SNAP-02 | Phase 4 | Pending |
 | SNAP-03 | Phase 4 | Pending |

@@ -78,7 +78,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The version's description is AI-generated from the changes, or left empty when AI is disabled.
   3. The default save flow shows no git vocabulary and no commit-framed file list; names entered here appear as the human labels in the timeline.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+  - [ ] 03-01-PLAN.md — Motor de IA título+descripción (canal geode:ai-suggest-version) + fix de scope de diff a .md + etiqueta de primera línea (SAVE-01/02)
+  - [ ] 03-02-PLAN.md — Reencuadre del diálogo "Guardar versión": dos campos, resumen humano, sin jerga git (SAVE-01/02/03)
+  - [ ] 03-03-PLAN.md — Checkpoint UAT: SAVE-01/02/03 + fix de diff + etiqueta de título
+
 **UI hint**: yes
 
 ### Phase 4: Automatic Snapshots
@@ -121,6 +126,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
 | 2. Go Back in Time | 6/6 | Complete   | 2026-07-04 |
-| 3. Save a Named Version | 0/TBD | Not started | - |
+| 3. Save a Named Version | 0/3 | Not started | - |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |
 | 5. Advanced Mode & Capa-0 Polish | 0/TBD | Not started | - |

@@ -363,21 +363,36 @@ body.resizing-col {
 
 /* Toggle nativo que cubre twisty + etiqueta + espacio flexible de la cabecera:
    click en cualquier punto (salvo las acciones) alterna el colapso; foco y
-   teclado (Enter/Space) los aporta el propio <button>. */
+   teclado (Enter/Space) los aporta el propio <button>. Neutraliza el estilo
+   base global de `button` (fondo, borde, radio y justify-content:center) para
+   que la etiqueta quede pegada a la izquierda y sin caja. */
 .sidebar-section-toggle {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 4px;
   height: 100%;
   padding: 0 8px;
   background: transparent;
   border: none;
+  border-radius: 0;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
   user-select: none;
+}
+
+/* Sin caja de foco al click con mouse; anillo sutil solo con teclado (a11y). */
+.sidebar-section-toggle:focus {
+  outline: none;
+}
+
+.sidebar-section-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .sidebar-section-label {

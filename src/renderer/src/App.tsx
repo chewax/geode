@@ -17,7 +17,6 @@ import {
   FoldVertical,
   UnfoldVertical,
   HelpCircle,
-  Eye,
   History,
   Info,
   Command as CommandIcon
@@ -789,16 +788,6 @@ export function App(): JSX.Element {
             >
               <CommandIcon size={15} />
             </button>
-            {openPath && (
-              <button
-                className="tb-btn icon"
-                title="Vista previa / editar (panel activo)"
-                aria-label="Vista previa"
-                onClick={() => paneHandles.current.get(activePaneIdRef.current)?.togglePreview()}
-              >
-                <Eye size={15} />
-              </button>
-            )}
             {hasHead && (
               <button
                 className="tb-btn icon"
@@ -969,7 +958,25 @@ export function App(): JSX.Element {
               onResize={onPaneResize}
             />
           </div>
-          <footer className="statusbar">
+        </main>
+
+        {graphOpen && graph && (
+          <VersionGraph
+            graph={graph}
+            onSelect={(oid) => void goToVersion(oid)}
+            onClose={() => setGraphOpen(false)}
+            onAddTag={(oid, name) => void addTag(oid, name)}
+            onRemoveTag={(name) => void removeTag(name)}
+            onDeleteBranch={deleteBranch}
+            onCreateBranch={(oid) => setBranchFrom(oid)}
+            onShowDiff={(oid) => setDiffOid(oid)}
+          />
+        )}
+
+        <PluginPanels host={host} />
+      </div>
+
+      <footer className="statusbar">
             <div className="status-left">
               {openPath ? (
                 <>
@@ -1067,23 +1074,6 @@ export function App(): JSX.Element {
               )}
             </div>
           </footer>
-        </main>
-
-        {graphOpen && graph && (
-          <VersionGraph
-            graph={graph}
-            onSelect={(oid) => void goToVersion(oid)}
-            onClose={() => setGraphOpen(false)}
-            onAddTag={(oid, name) => void addTag(oid, name)}
-            onRemoveTag={(name) => void removeTag(name)}
-            onDeleteBranch={deleteBranch}
-            onCreateBranch={(oid) => setBranchFrom(oid)}
-            onShowDiff={(oid) => setDiffOid(oid)}
-          />
-        )}
-
-        <PluginPanels host={host} />
-      </div>
 
       {timelineOpen && openPath && (
         <TimelineScrubber

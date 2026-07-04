@@ -349,6 +349,9 @@ body.resizing-col {
   gap: 2px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
+  /* Misma altura que la barra de tabs del editor (deben quedar alineadas). */
+  min-height: 41px;
+  box-sizing: border-box;
 }
 
 .sidebar-toolbar .icon-btn {
@@ -741,11 +744,15 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  /* Misma altura que el toolbar del sidebar (deben quedar alineadas). */
+  min-height: 41px;
+  box-sizing: border-box;
 }
 
-/* Realce del panel enfocado: acento en su barra de tabs. */
+/* Realce del panel enfocado: tinte sutil en su barra de tabs (la línea de acento
+   ahora es un separador de ancho completo sobre .main). */
 .epane.active > .epane-tabbar {
-  box-shadow: inset 0 2px 0 var(--accent);
+  background: var(--panel-2);
 }
 
 .epane-tabbar-actions {

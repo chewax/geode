@@ -277,7 +277,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           ) : (
             <CodeMirrorEditor
               ref={editorRef}
-              reloadKey={`${pane.active}#${epoch}`}
+              reloadKey={`${pane.id}#${epoch}`}
               initialDoc={content}
               onChange={handleChange}
               onRequestAi={() => props.onRequestAi(pane.id)}

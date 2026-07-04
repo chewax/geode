@@ -13,7 +13,7 @@ This milestone reshapes Geode's UX so the git engine disappears for non-technica
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Sidebar Sections** - Sidebar becomes a stack of collapsible sections with an inline vault switcher
+- [x] **Phase 1: Sidebar Sections** - Sidebar becomes a stack of collapsible sections with an inline vault switcher (completed 2026-07-04)
 - [ ] **Phase 2: Go Back in Time** - Repo-level timeline + soft linear restore: rewind the whole vault as a read-only preview
 - [ ] **Phase 3: Save a Named Version** - Saving is naming a point in time; AI writes the description
 - [ ] **Phase 4: Automatic Snapshots** - Configurable, change-aware auto-snapshots plus safety snapshots, no AI
@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
   - [x] 01-01-PLAN.md — Reestructurar el sidebar en secciones colapsables + cabecera de bóveda en flujo (SIDE-01/02/04)
-  - [ ] 01-02-PLAN.md — Checkpoint UAT: paridad de comportamiento del sidebar
+  - [x] 01-02-PLAN.md — Checkpoint UAT: paridad de comportamiento del sidebar
 
 **UI hint**: yes
 
@@ -111,7 +111,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sidebar Sections | 1/2 | In Progress|  |
+| 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
 | 2. Go Back in Time | 0/TBD | Not started | - |
 | 3. Save a Named Version | 0/TBD | Not started | - |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |

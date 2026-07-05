@@ -5,11 +5,15 @@ import type { FileDiff } from '@shared/ipc'
 
 interface DiffViewProps {
   oid: string
+  /** Fecha humana de la versión (resuelta por el llamador). */
+  date?: string
+  /** Nombre humano de la versión (tag o título del mensaje). */
+  label?: string
   onClose: () => void
 }
 
 /** Visor de cambios de una versión respecto de su padre (diff por archivo). */
-export function DiffView({ oid, onClose }: DiffViewProps): JSX.Element {
+export function DiffView({ oid, date, label, onClose }: DiffViewProps): JSX.Element {
   const [diffs, setDiffs] = useState<FileDiff[] | null>(null)
 
   useEffect(() => {
@@ -22,9 +26,7 @@ export function DiffView({ oid, onClose }: DiffViewProps): JSX.Element {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal diff-modal" onClick={(e) => e.stopPropagation()}>
         <div className="diff-head">
-          <h2>
-            Versión <span className="diff-oid">{oid.slice(0, 7)}</span> vs. actual
-          </h2>
+          <h2>{headLabel(date, label)}</h2>
           <button className="icon-btn" title="Cerrar" onClick={onClose}><X size={16} /></button>
         </div>
 
@@ -107,6 +109,17 @@ function patchLines(patch: string): { kind: LnKind; text: string }[] {
   // Quita líneas vacías finales del patch.
   while (out.length && out[out.length - 1].text === '' && out[out.length - 1].kind === 'ctx') out.pop()
   return out
+}
+
+/**
+ * Encabezado humano del visor: `Cambios del {fecha} — {nombre}`. Nunca muestra
+ * el hash; si faltan fecha/nombre, cae a una etiqueta humana genérica.
+ */
+function headLabel(date?: string, label?: string): string {
+  if (date && label) return `Cambios del ${date} — ${label}`
+  if (label) return `Cambios de la versión — ${label}`
+  if (date) return `Cambios del ${date}`
+  return 'Cambios de la versión'
 }
 
 function statusLabel(s: FileDiff['status']): string {

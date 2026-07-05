@@ -46,14 +46,14 @@ Tu tarea: describir QUÉ CAMBIÓ en este guardado (lo agregado, quitado o reescr
 Devolvé EXACTAMENTE este formato:
 - PRIMERA LÍNEA: un título corto (60-80 caracteres) que sintetice el cambio.
 - Luego UNA LÍNEA EN BLANCO.
-- Luego una descripción de 1 a 3 frases sobre el cambio, en lenguaje humano.
+- Luego la descripción como un PUNTEO: una viñeta "- " por cada cosa agregada, quitada o reescrita en este guardado (1 a 4 puntos, cada uno corto y concreto). Un cambio por viñeta.
 
 Qué evitar:
 - No uses jerga de git (commit, diff, archivo, línea) ni prefijos tipo "feat:"/"fix:".
 - No menciones cosas que están sólo en el contexto (líneas sin "+"/"-") como si fueran nuevas.
 - No inventes nada que no esté en las líneas "+"/"-".
 - No describas el edit de forma mecánica ("se agregó una frase"); explicá el CONTENIDO de lo que cambió.
-- NO rotules las secciones: no escribas "Título:" ni "Descripción:" ni viñetas al inicio; devolvé el título y la descripción a secas.
+- NO rotules las secciones: no escribas "Título:" ni "Descripción:" como rótulos. El título va suelto (sin viñeta); la descripción va en viñetas.
 - No asumas que algo se hizo o se completó. Si lo agregado es una lista de pendientes/ideas, describilo como tal, no como trabajo ya realizado.`
 
 /** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
@@ -79,15 +79,15 @@ function parseNamedVersion(raw: string): NamedVersion {
   const lines = raw.replace(/\r/g, '').split('\n')
   const firstIdx = lines.findIndex((l) => l.trim().length > 0)
   if (firstIdx === -1) return { title: '', description: '' }
-  // Algunos modelos rotulan las secciones pese al formato pedido; quitamos el
-  // rótulo ("Título:"/"Descripción:") y la viñeta inicial para no mostrarlos.
+  // Algunos modelos rotulan las secciones pese al formato pedido; quitamos solo
+  // el rótulo ("Título:"/"Descripción:", con o sin viñeta delante). NO tocamos
+  // las viñetas legítimas: la descripción es un punteo.
   const title = toOneLine(lines[firstIdx]).replace(/^t[ií]tulo\s*:\s*/i, '').trim()
   const description = lines
     .slice(firstIdx + 1)
     .join('\n')
     .trim()
-    .replace(/^[-*]\s*/, '')
-    .replace(/^descripci[oó]n\s*:\s*/i, '')
+    .replace(/^[-*]?\s*(?:descripci[oó]n|resumen)\s*:\s*/i, '')
     .trim()
   return { title, description }
 }

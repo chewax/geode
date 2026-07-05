@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Go Back in Time** - Repo-level timeline + soft linear restore: rewind the whole vault as a read-only preview (completed 2026-07-04)
 - [x] **Phase 3: Save a Named Version** - Saving is naming a point in time; AI writes the description (completed 2026-07-04)
 - [x] **Phase 4: Automatic Snapshots** - Configurable, change-aware auto-snapshots plus safety snapshots, no AI (completed 2026-07-05)
-- [ ] **Phase 5: Advanced Mode & Capa-0 Polish** - Hide all git behind a toggle; ambient save signal; readable diffs
+- [x] **Phase 5: Advanced Mode & Capa-0 Polish** - Hide all git behind a toggle; ambient save signal; readable diffs (completed 2026-07-05)
 
 ## Phase Details
 
@@ -125,7 +125,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 05-01-PLAN.md — Round-trip del flag Modo Avanzado (settings/ipc/preload/main) + sección "General" en Ajustes (ADV-02)
   - [x] 05-02-PLAN.md — Diff legible en DiffView: encabezado humano, sin @@/"No newline"/hash, leyenda agregado/quitado (DIFF-01/02)
   - [x] 05-03-PLAN.md — App.tsx: gating de superficies git + humanizar fugas + estado de guardado humano + wiring de metadata al diff (ADV-01/03, STAT-01, DIFF-01/02)
-  - [ ] 05-04-PLAN.md — Checkpoint UAT §A–§E + gate de build (ADV-01/02/03, STAT-01, DIFF-01/02)
+  - [x] 05-04-PLAN.md — Checkpoint UAT §A–§E + gate de build (ADV-01/02/03, STAT-01, DIFF-01/02)
 
 **UI hint**: yes
 
@@ -140,4 +140,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Go Back in Time | 6/6 | Complete   | 2026-07-04 |
 | 3. Save a Named Version | 3/3 | Complete   | 2026-07-04 |
 | 4. Automatic Snapshots | 3/3 | Complete   | 2026-07-05 |
-| 5. Advanced Mode & Capa-0 Polish | 3/4 | In Progress|  |
+| 5. Advanced Mode & Capa-0 Polish | 4/4 | Complete   | 2026-07-05 |

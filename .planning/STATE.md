@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-07-05T01:59:52.220Z"
-last_activity: 2026-07-05 -- Phase 4 execution started
+stopped_at: Completed Phase 04 (automatic-snapshots) — UAT approved, verification passed
+last_updated: "2026-07-05T03:00:00.000Z"
+last_activity: 2026-07-05 -- Phase 04 closed: UAT §A–§D approved, VERIFICATION passed (5/5), review WR-01/02/03 fixed
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 13
-  percent: 60
+  completed_plans: 14
+  percent: 80
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 4 — Automatic Snapshots
+**Current focus:** Phase 05 — advanced mode & Capa-0 polish (last phase)
 
 ## Current Position
 
-Phase: 4 (Automatic Snapshots) — EXECUTING
-Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-07-05 -- Phase 4 execution started
+Phase: 4 (Automatic Snapshots) — COMPLETE
+Plan: 3 of 3 (all SUMMARYs present; VERIFICATION passed 5/5; UAT §A–§D approved)
+Status: Closed — ready to start Phase 05 (final phase)
+Last activity: 2026-07-05 -- Phase 04 closed: auto-snapshots (cadence timer, safety snapshots, never AI)
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 

@@ -99,7 +99,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A safety snapshot is taken before going back in time, switching vault, or quitting the app — and only when there are changes.
   4. Auto-snapshots are labeled by relative date and never call AI; AI runs only on manual save.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+  - [ ] 04-01-PLAN.md — Motor de auto-snapshots: config de cadencia + timer en main + snapshotIfChanged + sección "Guardado automático" (SNAP-01/02/04)
+  - [ ] 04-02-PLAN.md — Instantáneas de seguridad: antes de cambiar de bóveda y al cerrar la app (SNAP-03)
+  - [ ] 04-03-PLAN.md — Checkpoint UAT §A–§D: SNAP-01/02/03/04
+
+**UI hint**: yes
 
 ### Phase 5: Advanced Mode & Capa-0 Polish
 
@@ -127,5 +133,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
 | 2. Go Back in Time | 6/6 | Complete   | 2026-07-04 |
 | 3. Save a Named Version | 3/3 | Complete   | 2026-07-04 |
-| 4. Automatic Snapshots | 0/TBD | Not started | - |
+| 4. Automatic Snapshots | 0/3 | Not started | - |
 | 5. Advanced Mode & Capa-0 Polish | 0/TBD | Not started | - |

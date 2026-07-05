@@ -62,6 +62,8 @@ export const IPC = {
   aiSuggestVersion: 'geode:ai-suggest-version',
   aiGenerateText: 'geode:ai-generate-text',
   aiUsage: 'geode:ai-usage',
+  snapshotsGet: 'geode:snapshots-get',
+  snapshotsSet: 'geode:snapshots-set',
   pluginsList: 'geode:plugins-list',
   pluginsOpenDir: 'geode:plugins-open-dir',
   pluginsSetEnabled: 'geode:plugins-set-enabled',
@@ -341,6 +343,20 @@ export interface AiApi {
   usage(): Promise<AiUsage | null>
 }
 
+// ── Snapshots automáticos (guardado por cadencia, sin IA) ───────────────────
+
+export interface SnapshotsConfig {
+  /** minutos entre snapshots; null = manual (sin timer). */
+  cadenceMinutes: number | null
+}
+
+export interface SnapshotsApi {
+  /** Config actual; default 10 min si nunca se configuró. */
+  get(): Promise<SnapshotsConfig>
+  /** Fija la cadencia (null = manual) y reinicia el timer. */
+  set(cadenceMinutes: number | null): Promise<SnapshotsConfig>
+}
+
 // ── Plugins externos (Fase A: locales confiables, cargados en runtime) ──────
 
 /**
@@ -396,5 +412,6 @@ export interface GeodeApi {
   git: GitApi
   ai: AiApi
   github: GithubApi
+  snapshots: SnapshotsApi
   plugins: PluginsApi
 }

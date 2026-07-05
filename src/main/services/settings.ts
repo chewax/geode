@@ -36,6 +36,10 @@ export interface Settings {
     /** Activado por id de plugin. Ausente = desactivado (default seguro). */
     enabled?: Record<string, boolean>
   }
+  snapshots?: {
+    /** minutos entre snapshots automáticos; null = manual (sin timer). */
+    cadenceMinutes?: number | null
+  }
 }
 
 function settingsPath(): string {
@@ -146,5 +150,14 @@ export async function setPluginEnabled(id: string, enabled: boolean): Promise<vo
   const settings = await loadSettings()
   const map = { ...settings.plugins?.enabled, [id]: enabled }
   settings.plugins = { ...settings.plugins, enabled: map }
+  await saveSettings(settings)
+}
+
+// ── Snapshots automáticos ─────────────────────────────────────────────────────
+
+/** Fija la cadencia de snapshots (null = manual) sin tocar el resto de ajustes. */
+export async function setSnapshotCadence(cadenceMinutes: number | null): Promise<void> {
+  const settings = await loadSettings()
+  settings.snapshots = { ...settings.snapshots, cadenceMinutes }
   await saveSettings(settings)
 }

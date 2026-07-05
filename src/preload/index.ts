@@ -77,6 +77,10 @@ const api: GeodeApi = {
       ipcRenderer.invoke(IPC.aiGenerateText, instruction, selection, before),
     usage: () => ipcRenderer.invoke(IPC.aiUsage)
   },
+  snapshots: {
+    get: () => ipcRenderer.invoke(IPC.snapshotsGet),
+    set: (cadenceMinutes) => ipcRenderer.invoke(IPC.snapshotsSet, cadenceMinutes)
+  },
   plugins: {
     list: () => ipcRenderer.invoke(IPC.pluginsList),
     openDir: () => ipcRenderer.invoke(IPC.pluginsOpenDir),

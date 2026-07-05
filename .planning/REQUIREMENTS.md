@@ -9,13 +9,13 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 
 ### Advanced Mode & Git Hiding
 
-- [ ] **ADV-01**: In the default experience, the user never encounters git vocabulary (commit, branch, merge, push, HEAD) or commit hashes anywhere in the UI
+- [x] **ADV-01**: In the default experience, the user never encounters git vocabulary (commit, branch, merge, push, HEAD) or commit hashes anywhere in the UI
 - [x] **ADV-02**: User can toggle "Modo Avanzado" from Settings, and the choice is global and persisted across sessions
-- [ ] **ADV-03**: Advanced Mode reveals the version graph, branches, branch labels, hashes, and the branch switcher; the default keeps all of them hidden
+- [x] **ADV-03**: Advanced Mode reveals the version graph, branches, branch labels, hashes, and the branch switcher; the default keeps all of them hidden
 
 ### Ambient Save Status
 
-- [ ] **STAT-01**: The save state is shown in human language ("Guardando…", "Guardado", "Todo en la nube", "Guardado en este dispositivo") instead of raw git/timestamp status
+- [x] **STAT-01**: The save state is shown in human language ("Guardando…", "Guardado", "Todo en la nube", "Guardado en este dispositivo") instead of raw git/timestamp status
 
 ### Soft Linear Restore
 
@@ -57,8 +57,8 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 
 ### Diff Readability
 
-- [ ] **DIFF-01**: The diff view hides commit hashes, hunk headers (`@@`), and "No newline at end of file" markers
-- [ ] **DIFF-02**: The diff uses human labels (date + version name) and states "agregado"/"quitado" in words alongside color
+- [x] **DIFF-01**: The diff view hides commit hashes, hunk headers (`@@`), and "No newline at end of file" markers
+- [x] **DIFF-02**: The diff uses human labels (date + version name) and states "agregado"/"quitado" in words alongside color
 
 ## v2 Requirements
 
@@ -113,12 +113,12 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SNAP-02 | Phase 4 | Complete |
 | SNAP-03 | Phase 4 | Complete |
 | SNAP-04 | Phase 4 | Complete |
-| ADV-01 | Phase 5 | Pending |
+| ADV-01 | Phase 5 | Complete |
 | ADV-02 | Phase 5 | Complete |
-| ADV-03 | Phase 5 | Pending |
-| STAT-01 | Phase 5 | Pending |
-| DIFF-01 | Phase 5 | Pending |
-| DIFF-02 | Phase 5 | Pending |
+| ADV-03 | Phase 5 | Complete |
+| STAT-01 | Phase 5 | Complete |
+| DIFF-01 | Phase 5 | Complete |
+| DIFF-02 | Phase 5 | Complete |
 
 **Coverage:**
 

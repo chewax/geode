@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal } from 'lucide-react'
 import type {
   AiConfig,
   AiModel,
@@ -16,7 +16,7 @@ interface SettingsModalProps {
 }
 
 /** Secciones del panel de ajustes (aside izquierdo). */
-type Section = 'ai' | 'github' | 'plugins' | 'snapshots'
+type Section = 'general' | 'ai' | 'github' | 'plugins' | 'snapshots'
 
 /** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
 function perMillion(perToken: string | null): string {
@@ -46,6 +46,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
   // Guardado automático (cadencia de snapshots; null = manual)
   const [cadence, setCadence] = useState<number | null>(10)
+
+  // Modo Avanzado (interruptor de las superficies git; default off)
+  const [advanced, setAdvanced] = useState(false)
 
   // Plugins externos
   const [extPlugins, setExtPlugins] = useState<InstalledPlugin[]>([])
@@ -85,6 +88,12 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       setGithub(g)
       setRemoteInput(g.remote ?? '')
       setCadence((await window.geode.snapshots.get()).cadenceMinutes)
+      // Fallback git-free: si la lectura del flag falla, queda en off (sin error bloqueante).
+      try {
+        setAdvanced((await window.geode.advanced.get()).enabled)
+      } catch {
+        setAdvanced(false)
+      }
       void refreshPlugins()
     })()
   }, [apply, loadModels, refreshPlugins])
@@ -96,6 +105,11 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const changeCadence = async (value: number | null): Promise<void> => {
     const cfg = await window.geode.snapshots.set(value)
     setCadence(cfg.cadenceMinutes)
+  }
+
+  const changeAdvanced = async (value: boolean): Promise<void> => {
+    const cfg = await window.geode.advanced.set(value)
+    setAdvanced(cfg.enabled)
   }
 
   const connectGithub = async (): Promise<void> => {
@@ -159,6 +173,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
         <div className="settings-body">
           <nav className="settings-nav">
+            <button className={section === 'general' ? 'active' : ''} onClick={() => setSection('general')}>
+              <SlidersHorizontal size={15} /> General
+            </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
               <Sparkles size={15} /> Mensajes por IA
             </button>
@@ -174,6 +191,28 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
           </nav>
 
           <div className="settings-content">
+            {section === 'general' && (
+              <section className="settings-section">
+                <h2><SlidersHorizontal size={18} /> General</h2>
+                <p className="modal-sub">
+                  Modo Avanzado muestra el historial técnico de versiones (ramas, etiquetas y grafo).
+                  Desactivado por defecto.
+                </p>
+
+                <label className="field-label">Modo Avanzado</label>
+                <label className="switch-row">
+                  <input
+                    type="checkbox"
+                    className="switch-input"
+                    checked={advanced}
+                    onChange={(e) => void changeAdvanced(e.target.checked)}
+                  />
+                  <span className="switch-track" aria-hidden="true" />
+                  <span className="switch-text">{advanced ? 'Activado' : 'Desactivado'}</span>
+                </label>
+              </section>
+            )}
+
             {section === 'ai' && (
               <section className="settings-section">
                 <h2><Sparkles size={18} /> Mensajes por IA</h2>

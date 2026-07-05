@@ -127,21 +127,36 @@ async function snapshotIfChanged(reason: string): Promise<string | null> {
   }
 }
 
+/** Cadencias válidas en minutos (además de null = manual). Única fuente de verdad. */
+const SNAPSHOT_CADENCES = new Set([5, 10, 15, 30])
+
+/**
+ * Cadencia efectiva desde la config: `undefined` (nunca configurado) → 10 (default
+ * ON); `null` (Manual explícito) → null; cualquier otro valor (0, negativo, basura
+ * de un settings.json corrupto o editado a mano) → null. Así ni el timer ni la UI
+ * derivan nunca un `setInterval` de 0 ms (defensa en profundidad, T-04-01).
+ */
+function resolveCadenceMinutes(raw: number | null | undefined): number | null {
+  if (raw === undefined) return 10
+  if (raw === null) return null
+  return SNAPSHOT_CADENCES.has(raw) ? raw : null
+}
+
 /**
  * (Re)inicia el timer de snapshots según la cadencia guardada. Se llama al abrir/
- * cambiar de bóveda y al cambiar la cadencia. Distingue `undefined` (nunca
- * configurado → default 10 min ON) de `null` (Manual explícito → sin timer): un
- * `?? 10` reactivaría el timer contra la elección del usuario, por eso NO se usa.
+ * cambiar de bóveda y al cambiar la cadencia. El clear + set van juntos DESPUÉS del
+ * await (no antes): si no, dos llamadas concurrentes —cambios rápidos de bóveda o
+ * un set de cadencia cruzándose con un vaultOpen— podrían dejar un intervalo
+ * huérfano (ambas limpian `null` y luego ambas asignan).
  */
 async function restartSnapshotTimer(): Promise<void> {
+  const { snapshots } = await loadSettings()
+  const minutes = resolveCadenceMinutes(snapshots?.cadenceMinutes)
   if (snapshotTimer) {
     clearInterval(snapshotTimer)
     snapshotTimer = null
   }
-  const { snapshots } = await loadSettings()
-  const raw = snapshots?.cadenceMinutes
-  const minutes = raw === undefined ? 10 : raw
-  if (minutes == null) return // Manual: sin timer
+  if (minutes == null) return // Manual (o cadencia inválida): sin timer
   snapshotTimer = setInterval(() => {
     void snapshotIfChanged('cadencia')
   }, minutes * 60_000)
@@ -421,9 +436,8 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.snapshotsGet, async (): Promise<SnapshotsConfig> => {
     const { snapshots } = await loadSettings()
-    const raw = snapshots?.cadenceMinutes
-    // undefined = nunca configurado → default 10 min ON; null = Manual explícito.
-    return { cadenceMinutes: raw === undefined ? 10 : raw }
+    // Mismo resolver que el timer: undefined→10 ON, null→manual, inválido→manual.
+    return { cadenceMinutes: resolveCadenceMinutes(snapshots?.cadenceMinutes) }
   })
 
   ipcMain.handle(
@@ -431,10 +445,9 @@ function registerIpcHandlers(): void {
     async (_e, cadenceMinutes: number | null): Promise<SnapshotsConfig> => {
       // Validación (T-04-01): solo null|5|10|15|30. Cualquier otro valor (0,
       // negativos, basura) se coacciona a Manual para que nunca llegue a
-      // setInterval como un bucle de 0 ms.
-      const allowed = new Set<number | null>([null, 5, 10, 15, 30])
+      // setInterval como un bucle de 0 ms. Reusa el set único SNAPSHOT_CADENCES.
       let safe: number | null = cadenceMinutes
-      if (!allowed.has(cadenceMinutes)) {
+      if (cadenceMinutes !== null && !SNAPSHOT_CADENCES.has(cadenceMinutes)) {
         console.warn('[snapshot] cadencia inválida, usando manual:', cadenceMinutes)
         safe = null
       }
@@ -587,7 +600,10 @@ app.on('before-quit', (event) => {
   event.preventDefault()
   quitting = true
   void (async () => {
-    await snapshotIfChanged('cierre')
+    // La app SIEMPRE debe poder cerrar: si el commit se colgara, salimos igual
+    // tras un tope de 3 s en vez de dejar el proceso vivo sin ventana.
+    const limite = new Promise<null>((r) => setTimeout(() => r(null), 3000))
+    await Promise.race([snapshotIfChanged('cierre'), limite])
     app.quit() // re-dispara before-quit; la guarda lo deja pasar
   })()
 })

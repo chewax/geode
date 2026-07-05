@@ -11,6 +11,7 @@ import {
   type GithubConfig,
   type NamedVersion,
   type SnapshotsConfig,
+  type AdvancedConfig,
   type VaultInfo
 } from '@shared/ipc'
 
@@ -51,7 +52,8 @@ import {
   clearGithub,
   getPluginsEnabled,
   setPluginEnabled,
-  setSnapshotCadence
+  setSnapshotCadence,
+  setAdvanced
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
 
@@ -456,6 +458,20 @@ function registerIpcHandlers(): void {
       return { cadenceMinutes: safe }
     }
   )
+
+  // ── Modo Avanzado (interruptor de las superficies git) ──────────────────────
+
+  ipcMain.handle(IPC.advancedGet, async (): Promise<AdvancedConfig> => {
+    const { advanced } = await loadSettings()
+    // Ausente = off: la experiencia por defecto es sin git.
+    return { enabled: advanced?.enabled ?? false }
+  })
+
+  ipcMain.handle(IPC.advancedSet, async (_e, enabled: boolean): Promise<AdvancedConfig> => {
+    // Coerción booleana pura (T-05-01): nunca se persiste el valor crudo.
+    await setAdvanced(!!enabled)
+    return { enabled: !!enabled }
+  })
 
   // ── Plugins externos (descubrimiento + gestión; la carga la hace el renderer) ─
 

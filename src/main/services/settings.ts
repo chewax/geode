@@ -40,6 +40,10 @@ export interface Settings {
     /** minutos entre snapshots automáticos; null = manual (sin timer). */
     cadenceMinutes?: number | null
   }
+  advanced?: {
+    /** Modo Avanzado: expone las superficies git. Ausente = off (experiencia sin git). */
+    enabled?: boolean
+  }
 }
 
 function settingsPath(): string {
@@ -159,5 +163,14 @@ export async function setPluginEnabled(id: string, enabled: boolean): Promise<vo
 export async function setSnapshotCadence(cadenceMinutes: number | null): Promise<void> {
   const settings = await loadSettings()
   settings.snapshots = { ...settings.snapshots, cadenceMinutes }
+  await saveSettings(settings)
+}
+
+// ── Modo Avanzado ─────────────────────────────────────────────────────────────
+
+/** Activa/desactiva el Modo Avanzado (persistente) sin tocar el resto de ajustes. */
+export async function setAdvanced(enabled: boolean): Promise<void> {
+  const settings = await loadSettings()
+  settings.advanced = { ...settings.advanced, enabled }
   await saveSettings(settings)
 }

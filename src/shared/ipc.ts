@@ -64,6 +64,8 @@ export const IPC = {
   aiUsage: 'geode:ai-usage',
   snapshotsGet: 'geode:snapshots-get',
   snapshotsSet: 'geode:snapshots-set',
+  advancedGet: 'geode:advanced-get',
+  advancedSet: 'geode:advanced-set',
   pluginsList: 'geode:plugins-list',
   pluginsOpenDir: 'geode:plugins-open-dir',
   pluginsSetEnabled: 'geode:plugins-set-enabled',
@@ -357,6 +359,20 @@ export interface SnapshotsApi {
   set(cadenceMinutes: number | null): Promise<SnapshotsConfig>
 }
 
+// ── Modo Avanzado (interruptor de las superficies git) ──────────────────────
+
+export interface AdvancedConfig {
+  /** Modo Avanzado activo. Default false (sin git). */
+  enabled: boolean
+}
+
+export interface AdvancedApi {
+  /** Config actual; default false si nunca se configuró. */
+  get(): Promise<AdvancedConfig>
+  /** Activa/desactiva el Modo Avanzado (persistente). Devuelve la config. */
+  set(enabled: boolean): Promise<AdvancedConfig>
+}
+
 // ── Plugins externos (Fase A: locales confiables, cargados en runtime) ──────
 
 /**
@@ -413,5 +429,6 @@ export interface GeodeApi {
   ai: AiApi
   github: GithubApi
   snapshots: SnapshotsApi
+  advanced: AdvancedApi
   plugins: PluginsApi
 }

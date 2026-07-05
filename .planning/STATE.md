@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed Phase 04 (automatic-snapshots) — UAT approved, verification passed
-last_updated: "2026-07-05T03:00:00.000Z"
-last_activity: 2026-07-05 -- Phase 04 closed: UAT §A–§D approved, VERIFICATION passed (5/5), review WR-01/02/03 fixed
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-07-05T22:24:14.744Z"
+last_activity: 2026-07-05 -- Phase null execution started
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 18
+  completed_plans: 15
   percent: 80
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 05 — advanced mode & Capa-0 polish (last phase)
+**Current focus:** Phase 5 — Advanced Mode & Capa-0 Polish
 
 ## Current Position
 
-Phase: 4 (Automatic Snapshots) — COMPLETE
-Plan: 3 of 3 (all SUMMARYs present; VERIFICATION passed 5/5; UAT §A–§D approved)
-Status: Closed — ready to start Phase 05 (final phase)
-Last activity: 2026-07-05 -- Phase 04 closed: auto-snapshots (cadence timer, safety snapshots, never AI)
+Phase: 05-advanced-mode-capa-0-polish — EXECUTING
+Plan: 1 of 4
+Status: Completed 05-01-PLAN.md
+Last activity: 2026-07-05 -- 05-01 (Modo Avanzado flag + sección General) completado
 
-Progress: [████████░░] 80%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [████████░░] 80%
 | Phase 03 P02 | 4min | 1 tasks | 1 files |
 | Phase 04 P01 | 12min | 3 tasks | 5 files |
 | Phase 04 P02 | 6min | 2 tasks | 1 files |
+| Phase 05 P01 | 12 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-05T01:59:52.213Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-07-05T22:24:14.737Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

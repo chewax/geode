@@ -10,7 +10,7 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 ### Advanced Mode & Git Hiding
 
 - [ ] **ADV-01**: In the default experience, the user never encounters git vocabulary (commit, branch, merge, push, HEAD) or commit hashes anywhere in the UI
-- [ ] **ADV-02**: User can toggle "Modo Avanzado" from Settings, and the choice is global and persisted across sessions
+- [x] **ADV-02**: User can toggle "Modo Avanzado" from Settings, and the choice is global and persisted across sessions
 - [ ] **ADV-03**: Advanced Mode reveals the version graph, branches, branch labels, hashes, and the branch switcher; the default keeps all of them hidden
 
 ### Ambient Save Status
@@ -114,7 +114,7 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SNAP-03 | Phase 4 | Complete |
 | SNAP-04 | Phase 4 | Complete |
 | ADV-01 | Phase 5 | Pending |
-| ADV-02 | Phase 5 | Pending |
+| ADV-02 | Phase 5 | Complete |
 | ADV-03 | Phase 5 | Pending |
 | STAT-01 | Phase 5 | Pending |
 | DIFF-01 | Phase 5 | Pending |

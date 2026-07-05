@@ -67,6 +67,9 @@ let pendingDeviceCode: DeviceCode | null = null
 /** Timer de snapshots automáticos del vault activo; null = sin cadencia (manual). */
 let snapshotTimer: NodeJS.Timeout | null = null
 
+/** Guarda de re-entrada del cierre: evita el loop infinito en before-quit. */
+let quitting = false
+
 async function githubConfig(): Promise<GithubConfig> {
   const { github } = await loadSettings()
   return {
@@ -568,4 +571,23 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Instantánea de seguridad al cerrar la app (SNAP-03): sólo si hay cambios.
+// isomorphic-git es asíncrono, así que "snapshot síncrono antes de salir" se
+// implementa bloqueando el cierre (preventDefault) hasta que el commit resuelve,
+// y recién ahí app.quit(). La guarda `quitting` deja pasar la segunda pasada del
+// evento (evita el loop infinito). snapshotIfChanged nunca lanza, así que un
+// snapshot fallido no puede bloquear el cierre: la app siempre termina saliendo.
+// Limitación MVP: en la ruta window-all-closed → app.quit() el renderer ya puede
+// estar desmontado, así que los últimos edits sin debounce (<600 ms) pueden no
+// estar en disco todavía; se acepta para MVP (el timer periódico captura el resto).
+app.on('before-quit', (event) => {
+  if (quitting) return // segunda pasada: dejar salir
+  event.preventDefault()
+  quitting = true
+  void (async () => {
+    await snapshotIfChanged('cierre')
+    app.quit() // re-dispara before-quit; la guarda lo deja pasar
+  })()
 })

@@ -981,8 +981,8 @@ export function App(): JSX.Element {
             {githubCfg?.connected && githubCfg.remote && (
               <button
                 className="tb-btn icon push"
-                title={pushCount > 0 ? `Push a GitHub (${pushCount} pendiente(s))` : 'Push a GitHub'}
-                aria-label="Push a GitHub"
+                title={pushCount > 0 ? `Subir cambios a la nube (${pushCount} pendiente(s))` : 'Subir cambios a la nube'}
+                aria-label="Subir cambios a la nube"
                 disabled={pushing || pushCount === 0}
                 onClick={() => void doPush()}
               >
@@ -1147,8 +1147,8 @@ export function App(): JSX.Element {
                       <div className="pop-title"><Cloud size={13} /> GitHub</div>
                       <div className="pop-row"><span>Cuenta</span><b>{githubCfg.login}</b></div>
                       <div className="pop-row"><span>Repo</span><b>{githubCfg.remote ?? 'sin configurar'}</b></div>
-                      <div className="pop-row"><span>Sin pushear</span><b>{pushCount} commit(s)</b></div>
-                      <div className="pop-row"><span>Auto-push</span><b>{githubCfg.autoPush ? 'sí' : 'no'}</b></div>
+                      <div className="pop-row"><span>Cambios sin subir</span><b>{pushCount}</b></div>
+                      <div className="pop-row"><span>Subida automática</span><b>{githubCfg.autoPush ? 'sí' : 'no'}</b></div>
                     </>
                   ) : (
                     <>

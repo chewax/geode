@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed Phase 03 (save-a-named-version) — UAT approved, verification passed
-last_updated: "2026-07-04T22:30:00.000Z"
-last_activity: 2026-07-04 -- Phase 03 closed: UAT §1–§7 approved, VERIFICATION passed (3/3), IA pulida (delta/punteo/título conciso)
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-07-05T01:54:37.311Z"
+last_activity: 2026-07-05 -- Phase 4 execution started
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 14
+  completed_plans: 12
   percent: 60
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 04 — automatic snapshots (next)
+**Current focus:** Phase 4 — Automatic Snapshots
 
 ## Current Position
 
-Phase: 3 (Save a Named Version) — COMPLETE
-Plan: 3 of 3 (all SUMMARYs present; VERIFICATION passed 3/3; UAT §1–§7 approved)
-Status: Closed — ready to start Phase 04
-Last activity: 2026-07-04 -- Phase 03 closed: naming a moment + AI title/description (delta-focused, bullet list, concise title)
+Phase: 4 (Automatic Snapshots) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-07-05 -- Phase 4 execution started
 
 Progress: [██████░░░░] 60%
 
@@ -60,6 +60,7 @@ Progress: [██████░░░░] 60%
 | Phase 02 P05 | ~15m | 3 tasks | 2 files |
 | Phase 03 P01 | 9 | 2 tasks | 6 files |
 | Phase 03 P02 | 4min | 1 tasks | 1 files |
+| Phase 04 P01 | 12min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ Recent decisions affecting current work:
 - [Phase ?]: SidebarSection usa display:none al colapsar para conservar el estado interno de FileTree
 - [Phase ?]: Phase 3: AI genera título+descripción discriminados vía nuevo canal geode:ai-suggest-version (aditivo); pendingDiff se acota a .md sin tocar el path de commit
 - [Phase ?]: 03-02: Note-count filter (.md) for the changed-notes summary lives inside CommitDialog (renderer), keeping the plan scoped to a single file
+- [Phase ?]: Snapshots automáticos: mensaje marcador distinto (nunca IA); timer en main con distinción undefined(=10 ON)/null(=manual); validación de cadencia null|5|10|15|30
 
 ### Pending Todos
 
@@ -98,6 +100,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-04T21:32:20.477Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-07-05T01:54:37.303Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

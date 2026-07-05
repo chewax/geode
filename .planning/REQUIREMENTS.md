@@ -50,10 +50,10 @@ Requirements for this milestone (the Capa 0 / Advanced Mode refactor). Each maps
 
 ### Auto-snapshots
 
-- [ ] **SNAP-01**: User can configure the auto-snapshot cadence in Settings (manual, or every 5 / 10 / 15 / 30 minutes)
-- [ ] **SNAP-02**: A timed snapshot is created only when there are actual changes, detected by content (racy-git-safe), never on an unchanged working tree
+- [x] **SNAP-01**: User can configure the auto-snapshot cadence in Settings (manual, or every 5 / 10 / 15 / 30 minutes)
+- [x] **SNAP-02**: A timed snapshot is created only when there are actual changes, detected by content (racy-git-safe), never on an unchanged working tree
 - [ ] **SNAP-03**: Safety snapshots are taken before going back in time, switching vault, or quitting the app — and only when there are changes
-- [ ] **SNAP-04**: Auto-snapshots never invoke AI and are labeled by relative date; AI runs only on manual save
+- [x] **SNAP-04**: Auto-snapshots never invoke AI and are labeled by relative date; AI runs only on manual save
 
 ### Diff Readability
 
@@ -109,10 +109,10 @@ Which phases cover which requirements. Populated during roadmap creation.
 | SAVE-01 | Phase 3 | Complete |
 | SAVE-02 | Phase 3 | Complete |
 | SAVE-03 | Phase 3 | Complete |
-| SNAP-01 | Phase 4 | Pending |
-| SNAP-02 | Phase 4 | Pending |
+| SNAP-01 | Phase 4 | Complete |
+| SNAP-02 | Phase 4 | Complete |
 | SNAP-03 | Phase 4 | Pending |
-| SNAP-04 | Phase 4 | Pending |
+| SNAP-04 | Phase 4 | Complete |
 | ADV-01 | Phase 5 | Pending |
 | ADV-02 | Phase 5 | Pending |
 | ADV-03 | Phase 5 | Pending |

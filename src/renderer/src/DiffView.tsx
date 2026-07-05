@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { CSSProperties, JSX } from 'react'
+import type { JSX } from 'react'
 import { X, FilePlus2, FilePen, FileMinus2 } from 'lucide-react'
 import type { FileDiff } from '@shared/ipc'
 
@@ -36,13 +36,13 @@ export function DiffView({ oid, date, label, onClose }: DiffViewProps): JSX.Elem
           <p className="modal-sub">Es la versión actual (o no difiere de ella).</p>
         ) : (
           <>
-            <div className="diff-legend" style={LEGEND_STYLE}>
-              <span className="diff-legend-item" style={LEGEND_ITEM_STYLE}>
-                <span className="diff-swatch diff-swatch-add" aria-hidden="true" style={SWATCH_ADD_STYLE} />
+            <div className="diff-legend">
+              <span className="diff-legend-item">
+                <span className="diff-swatch diff-swatch-add" aria-hidden="true" />
                 agregado
               </span>
-              <span className="diff-legend-item" style={LEGEND_ITEM_STYLE}>
-                <span className="diff-swatch diff-swatch-del" aria-hidden="true" style={SWATCH_DEL_STYLE} />
+              <span className="diff-legend-item">
+                <span className="diff-swatch diff-swatch-del" aria-hidden="true" />
                 quitado
               </span>
             </div>
@@ -70,7 +70,7 @@ function FileDiffBlock({ file }: { file: FileDiff }): JSX.Element {
       <pre className="diff-body">
         {patchLines(file.patch).map((ln, i) => {
           if (ln.kind === 'divider') {
-            return <div key={i} className="diff-ln divider" aria-hidden="true" style={DIVIDER_STYLE} />
+            return <div key={i} className="diff-ln divider" aria-hidden="true" />
           }
           const aria =
             ln.kind === 'add' ? `agregado: ${ln.text}` : ln.kind === 'del' ? `quitado: ${ln.text}` : undefined
@@ -124,39 +124,4 @@ function headLabel(date?: string, label?: string): string {
 
 function statusLabel(s: FileDiff['status']): string {
   return s === 'added' ? 'agregado' : s === 'deleted' ? 'borrado' : 'modificado'
-}
-
-// Estilos inline del diff (colores semánticos verde/rojo, sólo dentro del visor).
-const LEGEND_STYLE: CSSProperties = {
-  display: 'flex',
-  gap: '16px',
-  padding: '4px 12px 8px',
-  fontSize: '12px',
-  color: 'var(--muted)',
-}
-const LEGEND_ITEM_STYLE: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-}
-const SWATCH_ADD_STYLE: CSSProperties = {
-  display: 'inline-block',
-  width: '10px',
-  height: '10px',
-  borderRadius: '2px',
-  background: '#68d391',
-}
-const SWATCH_DEL_STYLE: CSSProperties = {
-  display: 'inline-block',
-  width: '10px',
-  height: '10px',
-  borderRadius: '2px',
-  background: '#ff6b6b',
-}
-// Divisor mudo entre hunks: una regla fina, sin texto.
-const DIVIDER_STYLE: CSSProperties = {
-  height: '0',
-  padding: '0',
-  margin: '6px 0',
-  borderTop: '1px solid var(--border)',
 }

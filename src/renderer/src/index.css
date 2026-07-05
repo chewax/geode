@@ -2045,11 +2045,31 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   margin: 0;
 }
 
-.diff-oid {
-  font-family: 'JetBrains Mono', Consolas, monospace;
-  font-size: 0.7em;
-  color: var(--accent);
+/* Leyenda de colores del diff: verde "agregado" / rojo "quitado" (DIFF-02). */
+.diff-legend {
+  display: flex;
+  gap: 16px;
+  padding: 4px 12px 8px;
+  font-size: 12px;
+  color: var(--muted);
 }
+
+.diff-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* Colores semánticos (verde/rojo) — mismos tokens que las líneas del diff. */
+.diff-swatch-add { background: #68d391; }
+.diff-swatch-del { background: #ff6b6b; }
 
 .diff-files {
   display: flex;
@@ -2118,9 +2138,12 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   color: #feb2b2;
 }
 
-.diff-ln.hunk {
-  color: var(--muted);
-  background: var(--panel-2);
+/* Divisor mudo entre hunks: una regla fina de --border, sin texto. */
+.diff-ln.divider {
+  height: 0;
+  padding: 0;
+  margin: 6px 0;
+  border-top: 1px solid var(--border);
 }
 
 .diff-ln.ctx {

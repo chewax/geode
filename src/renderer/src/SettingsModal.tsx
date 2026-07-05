@@ -199,7 +199,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   Desactivado por defecto.
                 </p>
 
-                <label className="field-label">Modo Avanzado</label>
+                <div className="field-label">Modo Avanzado</div>
                 <label className="switch-row">
                   <input
                     type="checkbox"

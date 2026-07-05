@@ -245,6 +245,10 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.vaultSwitch, async (_e, root: string): Promise<VaultInfo | null> => {
     try {
+      // Instantánea de seguridad de la bóveda actual antes de cambiar: corre ANTES
+      // de setRoot para que snapshotIfChanged (que lee vault.getInfo()) commitee el
+      // root viejo/activo, no el nuevo. El orden es load-bearing (SNAP-03).
+      await snapshotIfChanged('cambio-de-boveda')
       const info = await vault.setRoot(root)
       await gitService.ensureRepo(info.root)
       await rememberVault(info.root)

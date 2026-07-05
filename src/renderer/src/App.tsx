@@ -1375,6 +1375,12 @@ interface StatusDescriptor {
  * STAT-01: estado de guardado en lenguaje humano (4 frases exactas, sin hora).
  * Combina el estado de guardado con la conexión a GitHub y los cambios sin
  * subir para distinguir "Todo en la nube" de "Guardado en este dispositivo".
+ *
+ * Honestidad (valor central "nunca perdés nada"): "Todo en la nube" sólo puede
+ * aparecer cuando el contenido está realmente confirmado Y subido — es decir
+ * `clean` (== HEAD) con nada pendiente de subir. Un `saved` es sólo un
+ * autoguardado en disco (contenido escrito localmente, aún sin commit), por lo
+ * que siempre es "Guardado en este dispositivo": no afirmamos la nube ahí.
  */
 function statusLabel(
   status: SaveStatus,
@@ -1385,10 +1391,15 @@ function statusLabel(
     case 'saving':
       return { text: 'Guardando…', Icon: Loader2, spin: true }
     case 'saved':
-      return githubConnected && pushCount === 0
-        ? { text: 'Todo en la nube', Icon: Cloud }
-        : { text: 'Guardado en este dispositivo', Icon: HardDrive }
+      // Autoguardado en disco, sin commit: sólo vive en este dispositivo.
+      return { text: 'Guardado en este dispositivo', Icon: HardDrive }
     case 'clean':
+      // El árbol de trabajo coincide con HEAD. Sólo entonces la nube es honesta.
+      if (githubConnected) {
+        return pushCount === 0
+          ? { text: 'Todo en la nube', Icon: Cloud }
+          : { text: 'Guardado en este dispositivo', Icon: HardDrive }
+      }
       return { text: 'Guardado', Icon: Check }
     default:
       return null

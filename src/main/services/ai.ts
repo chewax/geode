@@ -34,23 +34,27 @@ Devolvé ÚNICAMENTE el texto que hay que insertar en el documento, listo para p
 - Escribí en el mismo idioma del contexto (por defecto, español).
 - Si la instrucción es reescribir/resumir/traducir el texto seleccionado, devolvé SOLO la nueva versión de ese texto.`
 
-const NAMED_VERSION_PROMPT = `Sos un asistente que, en español, le pone nombre a una versión guardada de notas personales a partir de un diff (formato unificado).
+const NAMED_VERSION_PROMPT = `Sos un asistente que, en español, le pone nombre a una versión guardada de notas personales.
+
+Te paso un diff en formato unificado. Leelo así:
+- Las líneas que empiezan con "+" son lo que se AGREGÓ en este guardado.
+- Las líneas que empiezan con "-" son lo que se QUITÓ en este guardado.
+- Las líneas SIN "+"/"-" son CONTEXTO que NO cambió: sirven solo para ubicar el cambio, NO las describas como novedad.
+
+Tu tarea: describir QUÉ CAMBIÓ en este guardado (lo agregado, quitado o reescrito). NO resumas la nota entera. Sólo si casi todo el diff son líneas "+" (es la primera versión de la nota) describí el tema general de la nota.
 
 Devolvé EXACTAMENTE este formato:
-- PRIMERA LÍNEA: un título corto (60-80 caracteres, sin comillas, sin prefijos tipo "feat:"/"fix:").
+- PRIMERA LÍNEA: un título corto (60-80 caracteres) que sintetice el cambio.
 - Luego UNA LÍNEA EN BLANCO.
-- Luego una descripción de 1 a 3 frases sobre el CONTENIDO y el TEMA de lo que cambió.
-
-Qué queremos:
-- El título sintetiza el momento (p. ej. "Reunión con Marketing: objetivos del Q3").
-- La descripción explica el tema/contenido de la nota, en lenguaje humano.
+- Luego una descripción de 1 a 3 frases sobre el cambio, en lenguaje humano.
 
 Qué evitar:
-- No uses jerga de git (commit, diff, archivo, línea).
-- No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
-- No describas el edit de forma mecánica ("se agregó una frase", "se modificó una línea").
+- No uses jerga de git (commit, diff, archivo, línea) ni prefijos tipo "feat:"/"fix:".
+- No menciones cosas que están sólo en el contexto (líneas sin "+"/"-") como si fueran nuevas.
+- No inventes nada que no esté en las líneas "+"/"-".
+- No describas el edit de forma mecánica ("se agregó una frase"); explicá el CONTENIDO de lo que cambió.
 - NO rotules las secciones: no escribas "Título:" ni "Descripción:" ni viñetas al inicio; devolvé el título y la descripción a secas.
-- No asumas que algo se hizo o se completó. Si la nota es una lista de pendientes/ideas, describila como tal (p. ej. "Lista de mejoras deseadas para…"), no como trabajo ya realizado.`
+- No asumas que algo se hizo o se completó. Si lo agregado es una lista de pendientes/ideas, describilo como tal, no como trabajo ya realizado.`
 
 /** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
 function toOneLine(text: string): string {

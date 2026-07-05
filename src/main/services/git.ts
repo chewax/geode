@@ -775,7 +775,9 @@ export class GitService {
         out += `Archivo binario ${verb}: ${filepath}\n\n`
         continue
       }
-      out += createPatch(filepath, oldText, newText, '', '') + '\n'
+      // context: 2 — menos líneas sin cambios alrededor, para que la IA se
+      // enfoque en lo agregado/quitado y no resuma la nota entera.
+      out += createPatch(filepath, oldText, newText, '', '', { context: 2 }) + '\n'
     }
     return out.trim()
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock } from 'lucide-react'
 import type {
   AiConfig,
   AiModel,
@@ -16,7 +16,7 @@ interface SettingsModalProps {
 }
 
 /** Secciones del panel de ajustes (aside izquierdo). */
-type Section = 'ai' | 'github' | 'plugins'
+type Section = 'ai' | 'github' | 'plugins' | 'snapshots'
 
 /** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
 function perMillion(perToken: string | null): string {
@@ -43,6 +43,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const [remoteInput, setRemoteInput] = useState('')
   const [device, setDevice] = useState<DeviceFlowStart | null>(null)
   const [connecting, setConnecting] = useState(false)
+
+  // Guardado automático (cadencia de snapshots; null = manual)
+  const [cadence, setCadence] = useState<number | null>(10)
 
   // Plugins externos
   const [extPlugins, setExtPlugins] = useState<InstalledPlugin[]>([])
@@ -81,12 +84,18 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       const g = await window.geode.github.getConfig()
       setGithub(g)
       setRemoteInput(g.remote ?? '')
+      setCadence((await window.geode.snapshots.get()).cadenceMinutes)
       void refreshPlugins()
     })()
   }, [apply, loadModels, refreshPlugins])
 
   const togglePlugin = async (id: string, enabled: boolean): Promise<void> => {
     setExtPlugins(await window.geode.plugins.setEnabled(id, enabled))
+  }
+
+  const changeCadence = async (value: number | null): Promise<void> => {
+    const cfg = await window.geode.snapshots.set(value)
+    setCadence(cfg.cadenceMinutes)
   }
 
   const connectGithub = async (): Promise<void> => {
@@ -155,6 +164,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             </button>
             <button className={section === 'github' ? 'active' : ''} onClick={() => setSection('github')}>
               <Cloud size={15} /> GitHub
+            </button>
+            <button className={section === 'snapshots' ? 'active' : ''} onClick={() => setSection('snapshots')}>
+              <Clock size={15} /> Guardado automático
             </button>
             <button className={section === 'plugins' ? 'active' : ''} onClick={() => setSection('plugins')}>
               <Puzzle size={15} /> Plugins
@@ -369,6 +381,32 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 <p className="hint">
                   Abrí la paleta de comandos con <b>Ctrl+P</b> para ver lo que aportan.
                 </p>
+              </section>
+            )}
+
+            {section === 'snapshots' && (
+              <section className="settings-section">
+                <h2><Clock size={18} /> Guardado automático</h2>
+                <p className="modal-sub">
+                  La bóveda se guarda sola cada cierto tiempo, sólo cuando algo cambió. No usa IA (no
+                  tiene costo).
+                </p>
+
+                <label className="field-label">Cadencia</label>
+                <select
+                  className="text-input"
+                  value={cadence === null ? 'manual' : String(cadence)}
+                  onChange={(e) =>
+                    void changeCadence(e.target.value === 'manual' ? null : Number(e.target.value))
+                  }
+                >
+                  <option value="manual">Manual (sólo al guardar)</option>
+                  <option value="5">Cada 5 minutos</option>
+                  <option value="10">Cada 10 minutos</option>
+                  <option value="15">Cada 15 minutos</option>
+                  <option value="30">Cada 30 minutos</option>
+                </select>
+                <p className="hint">Por defecto: cada 10 minutos.</p>
               </section>
             )}
 

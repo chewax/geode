@@ -103,6 +103,9 @@ export function App(): JSX.Element {
   // NUNCA se persiste — la app siempre abre en el presente (SOFT-05, T-02-10).
   const [previewOid, setPreviewOid] = useState<string | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
+  // Modo Avanzado: revela las superficies git (toolbar, grafo, ramas, paleta).
+  // Default false ⇒ experiencia sin jerga git (fail-safe ante error IPC).
+  const [advanced, setAdvanced] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [commitChanges, setCommitChanges] = useState<string[] | null>(null)
   // Commit desde el cual crear una rama (abre el diálogo de nombre); null = cerrado.
@@ -256,6 +259,15 @@ export function App(): JSX.Element {
     const cfg = await window.geode.github.getConfig()
     setGithubCfg(cfg)
     setPushCount(cfg.connected && cfg.remote ? await window.geode.git.pendingPush() : 0)
+  }, [])
+
+  /** Relee el flag de Modo Avanzado. Ante error IPC cae a false (sin git). */
+  const refreshAdvanced = useCallback(async () => {
+    try {
+      setAdvanced((await window.geode.advanced.get()).enabled)
+    } catch {
+      setAdvanced(false)
+    }
   }, [])
 
   const refreshAiUsage = useCallback(async () => {
@@ -679,6 +691,7 @@ export function App(): JSX.Element {
       setAiConfig(cfg)
       if (cfg.hasKey) void refreshAiUsage()
       await refreshGithub() // también sin bóveda: la pantalla de bienvenida lo usa
+      void refreshAdvanced() // interruptor de las superficies git
       const info = await window.geode.vault.current()
       if (!info) return
       setVault(info)
@@ -686,7 +699,7 @@ export function App(): JSX.Element {
       await refreshGraph()
       await refreshVaults()
     })()
-  }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage, refreshVaults])
+  }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage, refreshVaults, refreshAdvanced])
 
   // Ctrl/Cmd+S: abre el diálogo de guardar versión.
   useEffect(() => {
@@ -772,17 +785,16 @@ export function App(): JSX.Element {
     })()
 
     const api = (): typeof commandApiRef.current => commandApiRef.current
+    // Comandos no-git: siempre registrados. Los de superficie git (crear rama,
+    // integrar, push, árbol de versiones) NO viven acá: se registran sólo en
+    // Modo Avanzado (efecto dedicado) para no filtrar jerga git en el default.
     const cmds = [
       host.registerCommand({ id: 'core.saveVersion', title: 'Guardar versión', category: 'Núcleo', shortcut: 'Ctrl+S', run: () => api().saveVersion() }),
       host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
-      host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
-      host.registerCommand({ id: 'core.toggleGraph', title: 'Alternar árbol de versiones', category: 'Vista', run: () => api().toggleGraph() }),
-      host.registerCommand({ id: 'core.createBranch', title: 'Crear rama desde la versión actual', category: 'Git', run: () => api().createBranch(), isEnabled: () => api().hasHead }),
-      host.registerCommand({ id: 'core.merge', title: 'Integrar rama a su base', category: 'Git', run: () => api().merge(), isEnabled: () => api().canMerge }),
-      host.registerCommand({ id: 'core.push', title: 'Push a GitHub', category: 'Git', run: () => api().push(), isEnabled: () => api().pushEnabled })
+      host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() })
     ]
     return () => {
       cancelled = true
@@ -792,6 +804,21 @@ export function App(): JSX.Element {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Comandos de superficie git en la paleta: registrados SÓLO en Modo Avanzado.
+  // En default no están listados ni son invocables, y la categoría 'Git' no
+  // existe (ADV-01/ADV-03). Al apagar el flag (o desmontar) se `dispose()`.
+  useEffect(() => {
+    if (!advanced) return
+    const api = (): typeof commandApiRef.current => commandApiRef.current
+    const gitCmds = [
+      host.registerCommand({ id: 'core.toggleGraph', title: 'Alternar árbol de versiones', category: 'Vista', run: () => api().toggleGraph() }),
+      host.registerCommand({ id: 'core.createBranch', title: 'Crear rama desde la versión actual', category: 'Git', run: () => api().createBranch(), isEnabled: () => api().hasHead }),
+      host.registerCommand({ id: 'core.merge', title: 'Integrar rama a su base', category: 'Git', run: () => api().merge(), isEnabled: () => api().canMerge }),
+      host.registerCommand({ id: 'core.push', title: 'Push a GitHub', category: 'Git', run: () => api().push(), isEnabled: () => api().pushEnabled })
+    ]
+    return () => gitCmds.forEach((c) => c.dispose())
+  }, [advanced, host])
 
   // Ctrl/Cmd+P: paleta de comandos. Ctrl+\: dividir el editor a la derecha.
   useEffect(() => {
@@ -913,7 +940,7 @@ export function App(): JSX.Element {
             >
               <CommandIcon size={15} />
             </button>
-            {hasHead && (
+            {advanced && hasHead && (
               <button
                 className="tb-btn icon"
                 title="Crear una rama desde esta versión"
@@ -923,7 +950,7 @@ export function App(): JSX.Element {
                 <GitBranchPlus size={15} />
               </button>
             )}
-            {canMerge && (
+            {advanced && canMerge && (
               <button
                 className="tb-btn icon"
                 title="Integrar la rama a su rama de origen"
@@ -941,14 +968,16 @@ export function App(): JSX.Element {
             >
               <Save size={15} />
             </button>
-            <button
-              className={`tb-btn icon${graphOpen ? ' active' : ''}`}
-              title="Árbol de versiones"
-              aria-label="Árbol de versiones"
-              onClick={toggleGraph}
-            >
-              <GitBranch size={15} />
-            </button>
+            {advanced && (
+              <button
+                className={`tb-btn icon${graphOpen ? ' active' : ''}`}
+                title="Árbol de versiones"
+                aria-label="Árbol de versiones"
+                onClick={toggleGraph}
+              >
+                <GitBranch size={15} />
+              </button>
+            )}
             {githubCfg?.connected && githubCfg.remote && (
               <button
                 className="tb-btn icon push"
@@ -1065,7 +1094,7 @@ export function App(): JSX.Element {
           </div>
         </main>
 
-        {graphOpen && graph && (
+        {advanced && graphOpen && graph && (
           <VersionGraph
             graph={graph}
             onSelect={(oid) => void goToVersion(oid)}
@@ -1100,7 +1129,7 @@ export function App(): JSX.Element {
             <div className="status-right">
               <PluginStatusItems host={host} />
 
-              {graph && graph.head.oid && (
+              {advanced && graph && graph.head.oid && (
                 <BranchSwitcher
                   branches={graph.branches}
                   head={graph.head}
@@ -1215,7 +1244,7 @@ export function App(): JSX.Element {
 
       {settingsOpen && (
         <SettingsModal
-          onClose={() => { setSettingsOpen(false); void refreshGithub(); void refreshAiUsage() }}
+          onClose={() => { setSettingsOpen(false); void refreshGithub(); void refreshAiUsage(); void refreshAdvanced() }}
           onConfigChange={setAiConfig}
         />
       )}

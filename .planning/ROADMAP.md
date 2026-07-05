@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Sidebar Sections** - Sidebar becomes a stack of collapsible sections with an inline vault switcher (completed 2026-07-04)
 - [x] **Phase 2: Go Back in Time** - Repo-level timeline + soft linear restore: rewind the whole vault as a read-only preview (completed 2026-07-04)
-- [ ] **Phase 3: Save a Named Version** - Saving is naming a point in time; AI writes the description
+- [x] **Phase 3: Save a Named Version** - Saving is naming a point in time; AI writes the description (completed 2026-07-04)
 - [ ] **Phase 4: Automatic Snapshots** - Configurable, change-aware auto-snapshots plus safety snapshots, no AI
 - [ ] **Phase 5: Advanced Mode & Capa-0 Polish** - Hide all git behind a toggle; ambient save signal; readable diffs
 
@@ -82,7 +82,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
   - [x] 03-01-PLAN.md — Motor de IA título+descripción (canal geode:ai-suggest-version) + fix de scope de diff a .md + etiqueta de primera línea (SAVE-01/02)
   - [x] 03-02-PLAN.md — Reencuadre del diálogo "Guardar versión": dos campos, resumen humano, sin jerga git (SAVE-01/02/03)
-  - [ ] 03-03-PLAN.md — Checkpoint UAT: SAVE-01/02/03 + fix de diff + etiqueta de título
+  - [x] 03-03-PLAN.md — Checkpoint UAT: SAVE-01/02/03 + fix de diff + etiqueta de título
 
 **UI hint**: yes
 
@@ -126,6 +126,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Sidebar Sections | 2/2 | Complete   | 2026-07-04 |
 | 2. Go Back in Time | 6/6 | Complete   | 2026-07-04 |
-| 3. Save a Named Version | 2/3 | In Progress|  |
+| 3. Save a Named Version | 3/3 | Complete   | 2026-07-04 |
 | 4. Automatic Snapshots | 0/TBD | Not started | - |
 | 5. Advanced Mode & Capa-0 Polish | 0/TBD | Not started | - |

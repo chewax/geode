@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-07-04T21:32:30.133Z"
-last_activity: 2026-07-04 -- Phase 3 execution started
+stopped_at: Completed Phase 03 (save-a-named-version) — UAT approved, verification passed
+last_updated: "2026-07-04T22:30:00.000Z"
+last_activity: 2026-07-04 -- Phase 03 closed: UAT §1–§7 approved, VERIFICATION passed (3/3), IA pulida (delta/punteo/título conciso)
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
-  percent: 40
+  completed_plans: 11
+  percent: 60
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 3 — Save a Named Version
+**Current focus:** Phase 04 — automatic snapshots (next)
 
 ## Current Position
 
-Phase: 3 (Save a Named Version) — EXECUTING
-Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-07-04 -- Phase 3 execution started
+Phase: 3 (Save a Named Version) — COMPLETE
+Plan: 3 of 3 (all SUMMARYs present; VERIFICATION passed 3/3; UAT §1–§7 approved)
+Status: Closed — ready to start Phase 04
+Last activity: 2026-07-04 -- Phase 03 closed: naming a moment + AI title/description (delta-focused, bullet list, concise title)
 
-Progress: [████░░░░░░] 40%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 

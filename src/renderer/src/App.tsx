@@ -266,11 +266,16 @@ export function App(): JSX.Element {
 
   /** Relee el flag de Modo Avanzado. Ante error IPC cae a false (sin git). */
   const refreshAdvanced = useCallback(async () => {
+    let enabled = false
     try {
-      setAdvanced((await window.geode.advanced.get()).enabled)
+      enabled = (await window.geode.advanced.get()).enabled
     } catch {
-      setAdvanced(false)
+      enabled = false
     }
+    setAdvanced(enabled)
+    // Al salir de Modo Avanzado, cerramos el grafo de versiones para que no
+    // reaparezca "colgado" si luego se reactiva el modo.
+    if (!enabled) setGraphOpen(false)
   }, [])
 
   const refreshAiUsage = useCallback(async () => {

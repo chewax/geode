@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-07-05T01:54:37.311Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-07-05T01:59:52.220Z"
 last_activity: 2026-07-05 -- Phase 4 execution started
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 60
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 ## Current Position
 
 Phase: 4 (Automatic Snapshots) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-05 -- Phase 4 execution started
 
@@ -61,6 +61,7 @@ Progress: [██████░░░░] 60%
 | Phase 03 P01 | 9 | 2 tasks | 6 files |
 | Phase 03 P02 | 4min | 1 tasks | 1 files |
 | Phase 04 P01 | 12min | 3 tasks | 5 files |
+| Phase 04 P02 | 6min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 3: AI genera título+descripción discriminados vía nuevo canal geode:ai-suggest-version (aditivo); pendingDiff se acota a .md sin tocar el path de commit
 - [Phase ?]: 03-02: Note-count filter (.md) for the changed-notes summary lives inside CommitDialog (renderer), keeping the plan scoped to a single file
 - [Phase ?]: Snapshots automáticos: mensaje marcador distinto (nunca IA); timer en main con distinción undefined(=10 ON)/null(=manual); validación de cadencia null|5|10|15|30
+- [Phase ?]: SNAP-03 vault-switch snapshot runs before vault.setRoot so it commits the OLD/active vault (order load-bearing)
+- [Phase ?]: before-quit safety snapshot uses a module-scoped 'quitting' re-entrancy guard to avoid the app.quit() re-fire loop
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-05T01:54:37.303Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-07-05T01:59:52.213Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None

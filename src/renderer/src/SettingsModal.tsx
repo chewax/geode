@@ -307,7 +307,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               <section className="settings-section">
                 <h2><Cloud size={18} /> GitHub — guardar en tu repo</h2>
                 <p className="modal-sub">
-                  Conectá tu cuenta y elegí el repo donde se guardan (push) los commits de tu vault.
+                  Conectá tu cuenta y elegí el repo donde se respalda tu bóveda en la nube.
                 </p>
 
                 {github?.connected ? (
@@ -343,7 +343,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     </div>
 
                     <p className="hint">
-                      El push al remoto es siempre manual: usá el botón <b>Push</b> de la barra
+                      La subida a la nube es siempre manual: usá el botón de subir de la barra
                       superior.
                     </p>
                   </>

@@ -26,39 +26,32 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - ✓ Renderer-side plugin system v1 (commands, panels, status items, editor extensions; built-in + external CommonJS) — existing
 - ✓ Racy-git-safe commit detection (content hashing vs HEAD blobs, not statusMatrix) — existing
 
-### Active
-
-<!-- Current milestone: the Capa 0 / Advanced Mode refactor. Hypotheses until shipped. -->
+### Validated — v1.0 (Capa 0 / Modo Avanzado, shipped 2026-07-05)
 
 **Layered UX — default (Capa 0) vs. Advanced Mode:**
-- [ ] User in the default experience never encounters git vocabulary (commit, branch, merge, push, HEAD) or hashes
-- [ ] User can enable "Modo Avanzado" (global toggle in Settings) to reveal the version graph, branches, branch labels, hashes, and the branch switcher
-- [ ] Ambient save signal in human language ("Guardando…", "Guardado", "Todo en la nube") replaces raw git status
+- ✓ Default experience never shows git vocabulary (commit/branch/merge/push/HEAD) or hashes — incl. tooltips, aria-labels, GitHub popover, and the command palette — v1.0 (ADV-01)
+- ✓ "Modo Avanzado" global toggle (persisted in settings.json) reveals the version graph, branches, labels, hashes, branch switcher; off hides them — v1.0 (ADV-02/03)
+- ✓ Ambient save signal in human language ("Guardando…"/"Guardado"/"Todo en la nube"/"Guardado en este dispositivo"), no raw timestamp — v1.0 (STAT-01)
 
-**Linear soft restore (Capa 0 "go back in time"):**
-- [ ] User can go back to a previous version and the whole app reflects that moment (file tree, tabs, editor as read-only preview)
-- [ ] Going back is a soft, linear restore (old tree brought as pending changes, HEAD not moved — no branches, no detached HEAD)
-- [ ] When the open note doesn't exist at the previewed version, its tab is kept as a ghost with a clear "didn't exist then" state; returning to the present restores everything
-- [ ] While previewing the past, unmistakable "you are in the past" chrome is shown, and editing is gated behind "Volver aquí"
+**Linear soft restore + repo-level timeline:**
+- ✓ Go back = whole-app read-only preview of any past version (tree, tabs, editor); soft linear restore, HEAD never moves, no branch/detached-HEAD — v1.0 (SOFT-01/02)
+- ✓ Ghost tab for notes that didn't exist then; jump-to-present restores everything; "you are in the past" chrome; "Volver aquí" materializes non-destructively — v1.0 (SOFT-03/04/05/06)
+- ✓ Repo-level Timeline sidebar section, always available, human labels only, transport (back/forward/present), previewed vs present distinctly marked — v1.0 (TIME-01..06)
+- ✓ Sidebar = stack of collapsible sections; vault switcher is an inline disclosure — v1.0 (SIDE-01..04)
 
-**Repo-level timeline in the sidebar:**
-- [ ] Timeline is a repo-level (whole-vault) collapsible section in the sidebar, always available (not gated on having a note open)
-- [ ] Timeline entries have human labels only (human name → AI message → relative date; never a hash)
-- [ ] A transport (step back / step forward / jump to present) at the top of the timeline navigates versions
-- [ ] The active/previewed entry and the "present" (newest) entry are both clearly and distinctly marked
-- [ ] Sidebar is a stack of collapsible sections (vault/notes + timeline); the vault switcher becomes an inline disclosure, not a floating popover
+**Save-version flow + auto-snapshots:**
+- ✓ Saving asks for an optional human name; AI writes the description (empty when AI off); no git-commit framing — v1.0 (SAVE-01/02/03)
+- ✓ Configurable cadence (manual / 5/10/15/30 min); snapshot only when content changed (racy-git-safe); safety snapshots before go-back/switch/quit; never AI — v1.0 (SNAP-01..04)
 
-**Save-version flow:**
-- [ ] Saving a version asks for an optional human name; the description is AI-generated (or empty when AI is off)
+**Diff readability:**
+- ✓ Diff hides hash/`@@`/"No newline"; human header (date + version name); "agregado"/"quitado" in words alongside color — v1.0 (DIFF-01/02)
 
-**Configurable auto-snapshots:**
-- [ ] Auto-snapshot cadence is configurable in Settings (manual / every 5/10/15/30 min)
-- [ ] A snapshot (timed or safety) is created only when there are actual changes (content-based, racy-git-safe)
-- [ ] Safety snapshots are taken before destructive-ish actions (going back, switching vault, quitting) regardless of the cadence setting
-- [ ] Auto-snapshots do not invoke AI (labelled by relative date); AI runs only on manual save
+### Active
 
-**Diff readability (Capa 0):**
-- [ ] The diff view hides technical leaks (commit hash, hunk headers, "No newline" markers) and uses human labels
+<!-- Next milestone — not yet planned. Candidates below; run /gsd-new-milestone to define. -->
+
+- [ ] Capa 1 (light intentions): "try a new version" → later "keep" or "discard", no technical names (branch/merge under the hood) — CAPA1-01 (deferred from v1)
+- [ ] Human-language conflict handling on remote/sync divergence (never show conflict markers; keep both sides, surface in human terms) — CONF-01 (deferred from v1)
 
 ### Out of Scope
 
@@ -76,6 +69,7 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - **Prior design conversation** established the load-bearing decisions for this milestone: (1) go-back in Capa 0 must stay linear → soft restore, a new primitive distinct from the existing checkout/detached-HEAD model (which is Advanced-only); (2) the timeline is repo-level, not per-note; (3) the sidebar becomes VSCode-like collapsible sections; (4) save asks for a human name + AI description; (5) auto-snapshots are configurable and only fire when there are changes.
 - **Codebase state:** three-tier Electron architecture (sandboxed renderer ↔ typed IPC/preload ↔ main-process services). Key files for this milestone: `src/renderer/src/App.tsx`, `TimelineScrubber.tsx`, `DiffView.tsx`, `VaultSwitcher.tsx`, `SettingsModal.tsx`, `CommitDialog.tsx`, `src/main/services/git.ts`, `src/shared/ipc.ts`. Recent untracked work on multi-pane splits (`EditorPane.tsx`, `paneTree.ts`).
 - **Business model:** open-core — client is open source, server-side services are closed. Free/BYOK vs Pro/Cloud vs Teams. Non-destructive editing is never gated (it's the traction hook).
+- **Current state (post-v1.0):** the Capa 0 / Modo Avanzado refactor shipped (5 phases, 18 plans, 32 tasks). The default UI is fully git-free; power users flip "Modo Avanzado" to reveal the DAG. Repo-level timeline + soft linear restore replaced the per-note scrubber. Verification model is typecheck+build green + human UAT per phase (repo still has zero automated tests — the top standing risk for the git primitives). Next: Capa 1 (light try/keep/discard intentions) and human-language conflict handling.
 
 ## Constraints
 
@@ -89,11 +83,12 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Hide git behind an "Advanced Mode" toggle rather than removing it | Non-technical users get Capa 0; the technical-PKM wedge keeps the DAG | — Pending |
-| Capa 0 "go back" = soft linear restore (new primitive), not checkout | Checkout + detached-HEAD auto-fork is inherently Capa 2; Capa 0 must stay linear | — Pending |
-| Timeline is repo-level, not per-note | A rewind restores the whole vault; per-note framing misrepresents the model | — Pending |
-| Save asks for a human name; AI writes the description | Names map to intention; commit-message ceremony is a git leak | — Pending |
-| Auto-snapshots configurable + only when changed + no AI | Keeps timeline meaningful, bounds inference cost, honors "never lose anything" | — Pending |
+| Hide git behind an "Advanced Mode" toggle rather than removing it | Non-technical users get Capa 0; the technical-PKM wedge keeps the DAG | ✓ Good (v1.0 — ADV-01/02/03) |
+| Capa 0 "go back" = soft linear restore (new primitive), not checkout | Checkout + detached-HEAD auto-fork is inherently Capa 2; Capa 0 must stay linear | ✓ Good (v1.0 — SOFT-01/02, HEAD-not-moved verified) |
+| Timeline is repo-level, not per-note | A rewind restores the whole vault; per-note framing misrepresents the model | ✓ Good (v1.0 — TIME-01, per-note scrubber retired) |
+| Save asks for a human name; AI writes the description | Names map to intention; commit-message ceremony is a git leak | ✓ Good (v1.0 — SAVE-01/02/03) |
+| Auto-snapshots configurable + only when changed + no AI | Keeps timeline meaningful, bounds inference cost, honors "never lose anything" | ✓ Good (v1.0 — SNAP-01..04) |
+| Save-status "Todo en la nube" only when clean+pushed, not on disk-autosave | A disk save isn't committed/pushed; claiming cloud safety would betray "never lose anything" | ✓ Good (v1.0 — STAT-01, code-review WR-01) |
 | Vault encryption is a NO-GOAL | Encrypted blobs break diffs/merges — the core value | ✓ Good |
 
 ## Evolution
@@ -114,4 +109,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-03 after initialization*
+*Last updated: 2026-07-05 after v1.0 milestone*

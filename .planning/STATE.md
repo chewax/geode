@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed Phase 05 (advanced-mode-capa-0-polish) — UAT approved, verification passed (5/5)
-last_updated: "2026-07-05T23:10:00.000Z"
-last_activity: 2026-07-05 -- Phase 05 closed: UAT §A–§E approved, VERIFICATION passed, code-review WR-01+5 info fixed, ADV-01 gap (SettingsModal) closed
+status: Awaiting next milestone
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-07-05T23:39:20.883Z"
+last_activity: 2026-07-05 — Milestone v1.0 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Current Position
 
-Phase: 05-advanced-mode-capa-0-polish — COMPLETE
-Plan: 4 of 4 (all SUMMARYs present; VERIFICATION passed 5/5; UAT §A–§E approved)
-Status: Closed — all 5 milestone phases complete; ready for milestone lifecycle (audit → complete → cleanup)
-Last activity: 2026-07-05 -- Phase 05 closed: advanced mode toggle, humanized save-status + readable diff, git-free default
-
-Progress: [██████████] 100%
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-05 — Milestone v1.0 completed and archived
 
 ## Performance Metrics
 
@@ -108,3 +106,7 @@ Items acknowledged and carried forward from previous milestone close:
 Last session: 2026-07-05T22:38:03.337Z
 Stopped at: Completed 05-03-PLAN.md
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

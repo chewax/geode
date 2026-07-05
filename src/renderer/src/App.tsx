@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   FilePlus,
   FolderPlus,
@@ -16,7 +17,10 @@ import {
   FoldVertical,
   UnfoldVertical,
   Info,
-  Command as CommandIcon
+  Command as CommandIcon,
+  Loader2,
+  HardDrive,
+  Check
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
@@ -90,7 +94,6 @@ export function App(): JSX.Element {
   // Espejo del panel enfocado (para statusbar, stats, título, IA, timeline).
   const [content, setContent] = useState('')
   const [status, setStatus] = useState<SaveStatus>('none')
-  const [savedAt, setSavedAt] = useState<Date | null>(null)
   /** Handles imperativos de cada panel (flush, editor activo, preview). */
   const paneHandles = useRef<Map<string, PaneHandle>>(new Map())
   /** Último contenido conocido por panel (para refrescar el espejo al enfocar). */
@@ -360,7 +363,6 @@ export function App(): JSX.Element {
   const onPaneSaved = useCallback((paneId: string) => {
     if (paneId === activePaneIdRef.current) {
       setStatus('saved')
-      setSavedAt(new Date())
     }
   }, [])
 
@@ -1121,9 +1123,17 @@ export function App(): JSX.Element {
               ) : (
                 <span>Ninguna nota abierta</span>
               )}
-              {statusLabel(status, savedAt) && (
-                <span className="save-status">{statusLabel(status, savedAt)}</span>
-              )}
+              {(() => {
+                const s = statusLabel(status, !!githubCfg?.connected, pushCount)
+                if (!s) return null
+                const { text, Icon, spin } = s
+                return (
+                  <span className="save-status" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Icon size={14} className={spin ? 'spin' : undefined} />
+                    {text}
+                  </span>
+                )
+              })()}
             </div>
 
             <div className="status-right">
@@ -1220,7 +1230,19 @@ export function App(): JSX.Element {
         />
       )}
 
-      {diffOid && <DiffView oid={diffOid} onClose={() => setDiffOid(null)} />}
+      {diffOid && (() => {
+        // Resolver metadata humana (fecha + nombre) del commit; si no está en el
+        // grafo, no pasar props: DiffView cae a su fallback humano sin hash.
+        const c = graph?.commits.find((x) => x.oid === diffOid)
+        return (
+          <DiffView
+            oid={diffOid}
+            date={c ? relativeDate(c.timestamp) : undefined}
+            label={c && graph ? entryLabel(c, graph.tags) : undefined}
+            onClose={() => setDiffOid(null)}
+          />
+        )
+      })()}
 
       {branchFrom && (
         <BranchDialog
@@ -1336,15 +1358,34 @@ function flattenPaths(nodes: TreeNode[]): string[] {
   return out
 }
 
-function statusLabel(status: SaveStatus, savedAt: Date | null): string {
+/** Descriptor del indicador de guardado: icono Lucide + texto humano (STAT-01). */
+interface StatusDescriptor {
+  text: string
+  Icon: LucideIcon
+  /** true ⇒ el icono gira (estado "guardando"). */
+  spin?: boolean
+}
+
+/**
+ * STAT-01: estado de guardado en lenguaje humano (4 frases exactas, sin hora).
+ * Combina el estado de guardado con la conexión a GitHub y los cambios sin
+ * subir para distinguir "Todo en la nube" de "Guardado en este dispositivo".
+ */
+function statusLabel(
+  status: SaveStatus,
+  githubConnected: boolean,
+  pushCount: number
+): StatusDescriptor | null {
   switch (status) {
     case 'saving':
-      return '● guardando…'
+      return { text: 'Guardando…', Icon: Loader2, spin: true }
     case 'saved':
-      return savedAt ? `✓ guardado ${savedAt.toLocaleTimeString()}` : '✓ guardado'
+      return githubConnected && pushCount === 0
+        ? { text: 'Todo en la nube', Icon: Cloud }
+        : { text: 'Guardado en este dispositivo', Icon: HardDrive }
     case 'clean':
-      return '✓ sin cambios'
+      return { text: 'Guardado', Icon: Check }
     default:
-      return ''
+      return null
   }
 }

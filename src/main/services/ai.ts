@@ -44,7 +44,7 @@ Te paso un diff en formato unificado. Leelo así:
 Tu tarea: describir QUÉ CAMBIÓ en este guardado (lo agregado, quitado o reescrito). NO resumas la nota entera. Sólo si casi todo el diff son líneas "+" (es la primera versión de la nota) describí el tema general de la nota.
 
 Devolvé EXACTAMENTE este formato:
-- PRIMERA LÍNEA: un título corto (60-80 caracteres) que sintetice el cambio.
+- PRIMERA LÍNEA: un título MUY conciso, tipo encabezado — 3 a 6 palabras, máximo ~40 caracteres, SIN viñeta. No una frase completa ni "algo: subtítulo".
 - Luego UNA LÍNEA EN BLANCO.
 - Luego la descripción como un PUNTEO: una viñeta "- " por cada cosa agregada, quitada o reescrita en este guardado (1 a 4 puntos, cada uno corto y concreto). Un cambio por viñeta.
 

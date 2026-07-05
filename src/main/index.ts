@@ -10,6 +10,7 @@ import {
   type AiConfig,
   type GithubConfig,
   type NamedVersion,
+  type SnapshotsConfig,
   type VaultInfo
 } from '@shared/ipc'
 
@@ -49,7 +50,8 @@ import {
   getGithubToken,
   clearGithub,
   getPluginsEnabled,
-  setPluginEnabled
+  setPluginEnabled,
+  setSnapshotCadence
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
 
@@ -61,6 +63,9 @@ const gitService = new GitService()
 
 /** Device flow en curso, entre startDeviceFlow y completeDeviceFlow. */
 let pendingDeviceCode: DeviceCode | null = null
+
+/** Timer de snapshots automáticos del vault activo; null = sin cadencia (manual). */
+let snapshotTimer: NodeJS.Timeout | null = null
 
 async function githubConfig(): Promise<GithubConfig> {
   const { github } = await loadSettings()
@@ -90,6 +95,53 @@ function requireRoot(): string {
 
 function autoCommitMessage(): string {
   return `Snapshot ${new Date().toISOString()}`
+}
+
+/**
+ * Mensaje marcador de los snapshots automáticos. DISTINTO de autoCommitMessage()
+ * (que es el fallback del commit manual): al ser un mensaje explícito, el snapshot
+ * NUNCA invoca a la IA (SNAP-04) y se reconoce en la timeline por su etiqueta.
+ */
+function snapshotMessage(): string {
+  return 'Instantánea automática — ' + new Date().toLocaleString()
+}
+
+/**
+ * Toma un snapshot del vault activo SOLO si hay cambios, sin IA. Centraliza el
+ * "si cambió, commiteá con mensaje marcador" reusado por el timer (y, en el Plan
+ * 02, por el cambio de bóveda y el cierre). NUNCA lanza: corre también en la ruta
+ * de salida de la app. `commit()` ya devuelve null en un árbol limpio (SNAP-02),
+ * así que no hace falta un pre-check con changes() (sería una ventana TOCTOU).
+ */
+async function snapshotIfChanged(reason: string): Promise<string | null> {
+  const info = vault.getInfo()
+  if (!info) return null // sin vault: no-op, sin lanzar
+  try {
+    return await gitService.commit(info.root, snapshotMessage())
+  } catch (e) {
+    console.warn('[snapshot] falló (' + reason + '):', e)
+    return null
+  }
+}
+
+/**
+ * (Re)inicia el timer de snapshots según la cadencia guardada. Se llama al abrir/
+ * cambiar de bóveda y al cambiar la cadencia. Distingue `undefined` (nunca
+ * configurado → default 10 min ON) de `null` (Manual explícito → sin timer): un
+ * `?? 10` reactivaría el timer contra la elección del usuario, por eso NO se usa.
+ */
+async function restartSnapshotTimer(): Promise<void> {
+  if (snapshotTimer) {
+    clearInterval(snapshotTimer)
+    snapshotTimer = null
+  }
+  const { snapshots } = await loadSettings()
+  const raw = snapshots?.cadenceMinutes
+  const minutes = raw === undefined ? 10 : raw
+  if (minutes == null) return // Manual: sin timer
+  snapshotTimer = setInterval(() => {
+    void snapshotIfChanged('cadencia')
+  }, minutes * 60_000)
 }
 
 function createWindow(): void {
@@ -171,6 +223,7 @@ function registerIpcHandlers(): void {
     if (info) {
       await gitService.ensureRepo(info.root)
       await rememberVault(info.root)
+      await restartSnapshotTimer() // rebind el timer de snapshots al nuevo vault
     }
     return info
   })
@@ -195,6 +248,7 @@ function registerIpcHandlers(): void {
       const info = await vault.setRoot(root)
       await gitService.ensureRepo(info.root)
       await rememberVault(info.root)
+      await restartSnapshotTimer() // rebind el timer de snapshots al nuevo vault
       return info
     } catch {
       return null
@@ -356,6 +410,33 @@ function registerIpcHandlers(): void {
     return key ? getOpenRouterUsage(key) : null
   })
 
+  // ── Snapshots automáticos (cadencia + timer) ────────────────────────────────
+
+  ipcMain.handle(IPC.snapshotsGet, async (): Promise<SnapshotsConfig> => {
+    const { snapshots } = await loadSettings()
+    const raw = snapshots?.cadenceMinutes
+    // undefined = nunca configurado → default 10 min ON; null = Manual explícito.
+    return { cadenceMinutes: raw === undefined ? 10 : raw }
+  })
+
+  ipcMain.handle(
+    IPC.snapshotsSet,
+    async (_e, cadenceMinutes: number | null): Promise<SnapshotsConfig> => {
+      // Validación (T-04-01): solo null|5|10|15|30. Cualquier otro valor (0,
+      // negativos, basura) se coacciona a Manual para que nunca llegue a
+      // setInterval como un bucle de 0 ms.
+      const allowed = new Set<number | null>([null, 5, 10, 15, 30])
+      let safe: number | null = cadenceMinutes
+      if (!allowed.has(cadenceMinutes)) {
+        console.warn('[snapshot] cadencia inválida, usando manual:', cadenceMinutes)
+        safe = null
+      }
+      await setSnapshotCadence(safe)
+      await restartSnapshotTimer()
+      return { cadenceMinutes: safe }
+    }
+  )
+
   // ── Plugins externos (descubrimiento + gestión; la carga la hace el renderer) ─
 
   ipcMain.handle(IPC.pluginsList, async () => listPlugins(await getPluginsEnabled()))
@@ -456,6 +537,7 @@ async function restoreLastVault(): Promise<void> {
     await vault.setRoot(lastVault)
     await gitService.ensureRepo(lastVault)
     await rememberVault(lastVault) // asegura que el último vault esté en knownVaults
+    await restartSnapshotTimer() // arranca el timer de snapshots del vault restaurado
   } catch {
     // La carpeta se movió o borró: arrancamos sin vault, sin romper.
   }

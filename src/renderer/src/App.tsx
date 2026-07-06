@@ -801,14 +801,12 @@ export function App(): JSX.Element {
   }, [refreshGraph])
 
   /** Solo abre el diálogo de confirmación de borrado de rama; el borrado real vive
-   *  en confirmDeleteBranch. Mantiene la firma (name, merged) => Promise<boolean>
-   *  para no romper la prop onDeleteBranch de VersionGraph. Devuelve true: la
-   *  apertura del diálogo cuenta como aceptada por el menú (el ocultado real de la
-   *  rama ocurre tras el borrado, vía refresco del grafo en confirmDeleteBranch). */
-  const deleteBranch = useCallback(async (name: string, merged: boolean): Promise<boolean> => {
+   *  en confirmDeleteBranch. Devuelve void (IN-02): el resultado booleano anterior
+   *  era engañoso (siempre true, aun al cancelar). El ocultado real de la rama
+   *  ocurre tras el borrado, vía refresco del grafo en confirmDeleteBranch. */
+  const deleteBranch = useCallback((name: string, merged: boolean): void => {
     setDeleteBranchError(null)
     setPendingDeleteBranch({ name, merged })
-    return true
   }, [])
 
   /** Ejecuta el borrado real de la rama tras la confirmación explícita del diálogo.

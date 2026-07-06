@@ -9,8 +9,8 @@ interface VersionGraphProps {
   onClose: () => void
   onAddTag: (oid: string, name: string) => void
   onRemoveTag: (name: string) => void
-  /** Borra una rama; devuelve si se borró (false = cancelado/error). */
-  onDeleteBranch: (name: string, merged: boolean) => Promise<boolean>
+  /** Abre el diálogo de confirmación de borrado de una rama. */
+  onDeleteBranch: (name: string, merged: boolean) => void
   /** Crea una rama desde el commit dado (y cambia a ella). */
   onCreateBranch: (fromOid: string) => void
   /** Abre el visor de cambios de la versión (diff vs su padre). */
@@ -266,9 +266,10 @@ export function VersionGraph({
     branches.filter((b) => b.name !== PROD && model.mainReachable.has(b.tip)).map((b) => b.name)
   )
 
-  const handleDeleteBranch = async (name: string): Promise<void> => {
-    const ok = await onDeleteBranch(name, mergedBranchNames.has(name))
-    if (ok) setHiddenBranches((f) => f.filter((x) => x !== name))
+  const handleDeleteBranch = (name: string): void => {
+    // Solo abre el diálogo de confirmación; el borrado real ocurre en App tras la
+    // confirmación explícita y la rama desaparece del grafo vía refreshGraph.
+    onDeleteBranch(name, mergedBranchNames.has(name))
   }
 
   return (

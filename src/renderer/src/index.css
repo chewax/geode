@@ -1892,12 +1892,18 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  padding: 3px;
+  gap: 4px;
+  padding: 3px 6px;
   border: none;
   border-radius: 5px;
   background: transparent;
   color: var(--muted);
   opacity: 0.7;
+}
+
+/* Etiqueta de texto junto al ícono para hacer la opción de borrar más visible. */
+.branch-del-label {
+  font-size: 11px;
 }
 
 .branch-del:hover {

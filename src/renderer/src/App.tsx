@@ -54,6 +54,7 @@ import { ActivityBar } from './ActivityBar'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
+import { ConfirmDeleteBranchDialog } from './ConfirmDeleteBranchDialog'
 import { ConfirmRemoveVaultDialog } from './ConfirmRemoveVaultDialog'
 import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
@@ -128,6 +129,10 @@ export function App(): JSX.Element {
   const [renameSeed, setRenameSeed] = useState<string | null>(null)
   /** Nodo pendiente de confirmar borrado (abre el diálogo); null = cerrado. */
   const [pendingDelete, setPendingDelete] = useState<TreeNode | null>(null)
+  /** Rama pendiente de confirmar borrado (abre el diálogo); null = cerrado. */
+  const [pendingDeleteBranch, setPendingDeleteBranch] = useState<{ name: string; merged: boolean } | null>(null)
+  /** Error inline del borrado de rama (reemplaza a window.alert); null = sin error. */
+  const [deleteBranchError, setDeleteBranchError] = useState<string | null>(null)
   /** Nodo seleccionado en el árbol (archivo o carpeta): el "+" crea acá dentro. */
   const [selected, setSelected] = useState<{ path: string; isDir: boolean } | null>(null)
   /** Ruta a revelar en el árbol (auto-expande sus carpetas ancestro). */
@@ -774,25 +779,37 @@ export function App(): JSX.Element {
     await refreshGraph()
   }, [refreshGraph])
 
-  /** Borra/descarta una rama. Confirma según esté fusionada o no. Devuelve si se borró. */
+  /** Solo abre el diálogo de confirmación de borrado de rama; el borrado real vive
+   *  en confirmDeleteBranch. Mantiene la firma (name, merged) => Promise<boolean>
+   *  para no romper la prop onDeleteBranch de VersionGraph. Devuelve true: la
+   *  apertura del diálogo cuenta como aceptada por el menú (el ocultado real de la
+   *  rama ocurre tras el borrado, vía refresco del grafo en confirmDeleteBranch). */
   const deleteBranch = useCallback(async (name: string, merged: boolean): Promise<boolean> => {
-    const warn = merged
-      ? `La rama "${name}" ya está fusionada: se puede descartar sin perder versiones.`
-      : `⚠ La rama "${name}" tiene versiones que NO están en su base. Si la borrás, se pierden.`
-    if (!window.confirm(`${warn}\n\n¿Borrar la rama?`)) return false
+    setDeleteBranchError(null)
+    setPendingDeleteBranch({ name, merged })
+    return true
+  }, [])
+
+  /** Ejecuta el borrado real de la rama tras la confirmación explícita del diálogo.
+   *  En error, muestra el detalle inline en el diálogo (sin window.alert) y NO cierra. */
+  const confirmDeleteBranch = useCallback(async () => {
+    if (!pendingDeleteBranch) return
+    const { name } = pendingDeleteBranch
     await flushAll()
     try {
       await window.geode.git.deleteBranch(name)
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo borrar la rama')
-      return false
+      const detalle = e instanceof Error ? e.message : ''
+      setDeleteBranchError(detalle ? `No se pudo borrar la rama. ${detalle}` : 'No se pudo borrar la rama.')
+      return
     }
     // Borrar la rama actual cambia a su base: recargar árbol/editor.
+    setPendingDeleteBranch(null)
+    setDeleteBranchError(null)
     syncPanesToTree(await refreshTree())
     await refreshGraph()
     await refreshGithub()
-    return true
-  }, [flushAll, refreshTree, syncPanesToTree, refreshGraph, refreshGithub])
+  }, [pendingDeleteBranch, flushAll, refreshTree, syncPanesToTree, refreshGraph, refreshGithub])
 
   const toggleGraph = useCallback(() => setGraphOpen((open) => !open), [])
 
@@ -1399,6 +1416,19 @@ export function App(): JSX.Element {
           node={pendingDelete}
           onConfirm={() => void confirmDelete()}
           onClose={() => setPendingDelete(null)}
+        />
+      )}
+
+      {pendingDeleteBranch && (
+        <ConfirmDeleteBranchDialog
+          name={pendingDeleteBranch.name}
+          merged={pendingDeleteBranch.merged}
+          error={deleteBranchError}
+          onConfirm={() => void confirmDeleteBranch()}
+          onClose={() => {
+            setPendingDeleteBranch(null)
+            setDeleteBranchError(null)
+          }}
         />
       )}
 

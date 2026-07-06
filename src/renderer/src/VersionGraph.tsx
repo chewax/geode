@@ -609,9 +609,11 @@ function BranchMenu({
                     <button
                       className="branch-del"
                       title={merged ? 'Borrar rama (ya fusionada)' : 'Borrar rama (no fusionada)'}
+                      aria-label={`Borrar la rama ${b.name}`}
                       onClick={(e) => { e.stopPropagation(); onDelete(b.name) }}
                     >
                       <Trash2 size={13} />
+                      <span className="branch-del-label">Borrar</span>
                     </button>
                   )}
                 </li>

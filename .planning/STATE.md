@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Explorador y gestión de archivos
 status: executing
-stopped_at: Completed Phase 06 (operaciones del árbol lateral) — UAT approved, verification passed (3/3)
-last_updated: "2026-07-06T12:00:00.000Z"
-last_activity: 2026-07-06 — Phase 06 cerrada: FILE-01/02/03; code-review CR-01+3WR fijados; fixes de UAT (rename mismo-nombre/case, refresh spin)
+stopped_at: Completed 07-02-PLAN.md (FILE-05 baja de bóveda)
+last_updated: "2026-07-06T05:50:37.233Z"
+last_activity: 2026-07-06 — 07-02 cerrado: FILE-05 baja de bóveda (IPC geode:vault-remove + papelera recuperable)
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 50
+  total_plans: 6
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-05)
 
 ## Current Position
 
-Phase: 6 — Operaciones del árbol lateral — COMPLETE (UAT §A–§C aprobado, VERIFICATION 3/3)
-Plan: 3 de 3
-Status: Cerrada. Siguiente: Phase 7 (FILE-04 tab preview + FILE-05 baja de bóveda).
-Last activity: 2026-07-06 — Phase 06 cerrada
+Phase: 7 — Tabs de preview y gestión de bóvedas (última de v1.1)
+Plan: 2 de 3 (07-01 preview + 07-02 baja de bóveda completos; falta 07-03 UAT)
+Status: 07-02 (FILE-05) cerrado a nivel de código, typecheck verde. Siguiente: 07-03 UAT con relaunch.
+Last activity: 2026-07-06 — 07-02 baja de bóveda (IPC geode:vault-remove, papelera recuperable)
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Last activity: 2026-07-06 — Phase 06 cerrada
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 07 P02 | 20 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -86,8 +87,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-06 — Completed 06-02-PLAN.md
-Stopped at: Completed 06-02-PLAN.md (FILE-03)
+Last session: 2026-07-06T05:50:37.226Z
+Stopped at: Completed 07-02-PLAN.md (FILE-05 baja de bóveda)
 Resume file: None
 
 ## Operator Next Steps

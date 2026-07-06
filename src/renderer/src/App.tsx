@@ -120,6 +120,9 @@ export function App(): JSX.Element {
   const [editingPath, setEditingPath] = useState<string | null>(null)
   /** Error de validación del rename en curso, mostrado inline bajo el input; null si no hay. */
   const [renameError, setRenameError] = useState<string | null>(null)
+  /** Texto tipeado a preservar al reabrir el input tras un rename fallido; null =
+   *  sembrar con el nombre actual del nodo (rename nuevo, no reintento). */
+  const [renameSeed, setRenameSeed] = useState<string | null>(null)
   /** Nodo pendiente de confirmar borrado (abre el diálogo); null = cerrado. */
   const [pendingDelete, setPendingDelete] = useState<TreeNode | null>(null)
   /** Nodo seleccionado en el árbol (archivo o carpeta): el "+" crea acá dentro. */
@@ -428,6 +431,8 @@ export function App(): JSX.Element {
     setRevealPath(node.path) // auto-expande la carpeta destino
     setSelected({ path: node.path, isDir: false })
     await openNote(node.path)
+    setRenameError(null)
+    setRenameSeed(null)
     setEditingPath(node.path) // permitir nombrarla al toque
   }, [refreshTree, openNote])
 
@@ -436,6 +441,8 @@ export function App(): JSX.Element {
     await refreshTree()
     setRevealPath(node.path)
     setSelected({ path: node.path, isDir: true })
+    setRenameError(null)
+    setRenameSeed(null)
     setEditingPath(node.path)
   }, [refreshTree])
 
@@ -483,12 +490,16 @@ export function App(): JSX.Element {
     try {
       await window.geode.vault.rename(node.path, toRel)
     } catch (e) {
-      // Sin diálogo nativo: mostramos el error inline y reabrimos el input para corregir.
+      // Sin diálogo nativo: mostramos el error inline y reabrimos el input para
+      // corregir. Preservamos lo tipeado (rawName) como semilla del input para
+      // que el usuario corrija en vez de reescribir desde cero.
       setRenameError(e instanceof Error ? e.message : 'No se pudo renombrar')
+      setRenameSeed(rawName)
       setEditingPath(node.path)
       return
     }
     setRenameError(null)
+    setRenameSeed(null)
     // Reflejar en todos los paneles (tabs + nota activa) y en la selección.
     const remap = (p: string): string =>
       p === node.path ? toRel : p.startsWith(`${node.path}/`) ? toRel + p.slice(node.path.length) : p
@@ -1089,10 +1100,11 @@ export function App(): JSX.Element {
                 onSelect={(node) => setSelected({ path: node.path, isDir: node.isDir })}
                 onContext={(node, x, y) => setMenu({ node, x, y })}
                 onRename={(node, name) => void renameNode(node, name)}
-                onRenameCancel={() => { setEditingPath(null); setRenameError(null) }}
+                onRenameCancel={() => { setEditingPath(null); setRenameError(null); setRenameSeed(null) }}
                 onDelete={(node) => void deleteNode(node)}
-                onStartRename={(node) => { setRenameError(null); setEditingPath(node.path) }}
+                onStartRename={(node) => { setRenameError(null); setRenameSeed(null); setEditingPath(node.path) }}
                 renameError={renameError}
+                renameSeed={renameSeed}
               />
             ) : (
               <div className="tree-empty">
@@ -1373,7 +1385,7 @@ export function App(): JSX.Element {
                 <li className="ctx-sep" />
               </>
             )}
-            <li onClick={() => { setEditingPath(menu.node.path); setMenu(null) }}>
+            <li onClick={() => { setRenameError(null); setRenameSeed(null); setEditingPath(menu.node.path); setMenu(null) }}>
               <Pencil size={14} /> Renombrar
             </li>
             <li className="ctx-danger" onClick={() => { const n = menu.node; setMenu(null); void deleteNode(n) }}>

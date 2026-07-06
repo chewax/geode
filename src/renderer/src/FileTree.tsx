@@ -28,6 +28,9 @@ export interface FileTreeProps {
   onStartRename: (node: TreeNode) => void
   /** Mensaje de error del rename en curso, mostrado inline bajo el input; null si no hay error. */
   renameError: string | null
+  /** Texto a sembrar en el input al reabrir tras un rename fallido (preserva lo
+   *  tipeado); null = sembrar con el nombre actual del nodo. */
+  renameSeed: string | null
 }
 
 /** Nombre visible de un nodo (las notas se muestran sin la extensión .md). */
@@ -60,7 +63,7 @@ function TreeItem({
   depth,
   ...props
 }: { node: TreeNode; depth: number } & Omit<FileTreeProps, 'nodes'>): JSX.Element {
-  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete, onStartRename, renameError } = props
+  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete, onStartRename, renameError, renameSeed } = props
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   // "Colapsar/expandir todo": al cambiar la señal, reiniciar al estado pedido.
@@ -89,7 +92,9 @@ function TreeItem({
   }
 
   const nameEl = editing ? (
-    <NameInput initial={displayName(node)} onCommit={(v) => onRename(node, v)} onCancel={onRenameCancel} error={renameError} />
+    // Tras un rename fallido se resiembra con lo tipeado (renameSeed) para que el
+    // usuario corrija; en un rename nuevo, con el nombre actual del nodo.
+    <NameInput initial={renameSeed ?? displayName(node)} onCommit={(v) => onRename(node, v)} onCancel={onRenameCancel} error={renameError} />
   ) : (
     <span className="node-label">{displayName(node)}</span>
   )

@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Explorador y gestión de archivos
 status: planning
-last_updated: "2026-07-06T03:04:27.818Z"
+last_updated: "2026-07-06T00:00:00.000Z"
 last_activity: 2026-07-06
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,23 +17,23 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-03)
+See: .planning/PROJECT.md (updated 2026-07-05)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 5 — Advanced Mode & Capa-0 Polish
+**Current focus:** Phase 6 — Operaciones del árbol lateral (borrar/renombrar/refrescar)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 6 — Operaciones del árbol lateral (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-06 — Milestone v1.1 started
+Status: Roadmap approved; ready to plan Phase 6
+Last activity: 2026-07-06 — v1.1 roadmap created (Phases 6-7)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 0 (this milestone)
 - Average duration: — min
 - Total execution time: 0.0 hours
 
@@ -49,18 +49,6 @@ Last activity: 2026-07-06 — Milestone v1.1 started
 - Trend: —
 
 *Updated after each plan completion*
-| Phase 1 P1 | 14 | 3 tasks | 4 files |
-| Phase 2 P1 | 8 | 3 tasks | 5 files |
-| Phase 2 P2 | 6 | 2 tasks | 2 files |
-| Phase 2 P3 | 7 | 2 tasks | 2 files |
-| Phase 02 P04 | 6m | 2 tasks | 2 files |
-| Phase 02 P05 | ~15m | 3 tasks | 2 files |
-| Phase 03 P01 | 9 | 2 tasks | 6 files |
-| Phase 03 P02 | 4min | 1 tasks | 1 files |
-| Phase 04 P01 | 12min | 3 tasks | 5 files |
-| Phase 04 P02 | 6min | 2 tasks | 1 files |
-| Phase 05 P01 | 12 min | 2 tasks | 6 files |
-| Phase 05 P03 | 15 min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -69,17 +57,10 @@ Last activity: 2026-07-06 — Milestone v1.1 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Capa 0 "go back" = soft linear restore (new primitive, distinct from checkout/detached-HEAD) — foundational to Phase 2.
-- Timeline is repo-level, not per-note; replaces the current per-note TimelineScrubber and is always available.
-- Save asks for a human name; AI writes the description (Phase 3).
-- Auto-snapshots configurable + only when changed + no AI; racy-git-safe via existing content-hash detection (Phase 4).
-- Git stays hidden (not removed) behind an Advanced Mode toggle (Phase 5).
-- [Phase ?]: SidebarSection usa display:none al colapsar para conservar el estado interno de FileTree
-- [Phase ?]: Phase 3: AI genera título+descripción discriminados vía nuevo canal geode:ai-suggest-version (aditivo); pendingDiff se acota a .md sin tocar el path de commit
-- [Phase ?]: 03-02: Note-count filter (.md) for the changed-notes summary lives inside CommitDialog (renderer), keeping the plan scoped to a single file
-- [Phase ?]: Snapshots automáticos: mensaje marcador distinto (nunca IA); timer en main con distinción undefined(=10 ON)/null(=manual); validación de cadencia null|5|10|15|30
-- [Phase ?]: SNAP-03 vault-switch snapshot runs before vault.setRoot so it commits the OLD/active vault (order load-bearing)
-- [Phase ?]: before-quit safety snapshot uses a module-scoped 'quitting' re-entrancy guard to avoid the app.quit() re-fire loop
+- v1.1 se estructura en 2 fases: Phase 6 (operaciones de árbol: FILE-01/02/03) y Phase 7 (tabs de preview + baja de bóveda: FILE-04/05). Ambas son independientes entre sí; se ejecutan 6 → 7 por orden numérico.
+- Los borrados (FILE-01 elemento del árbol, FILE-05 bóveda) deben preservar la recuperabilidad vía historial git; todo borrado irreversible de disco queda detrás de un aviso explícito e inequívoco (valor central: nada se pierde).
+- FILE-03 arranca como refresh manual (comando/botón), no watcher de FS automático (diferido a Out of Scope).
+- Verificación por fase: typecheck+build en verde + UAT humano end-of-phase (config human_verify_mode=end-of-phase), consistente con v1.0. El repo sigue con cero tests automatizados.
 
 ### Pending Todos
 
@@ -87,10 +68,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Racy-git landmine: change detection must hash real content vs HEAD blobs — never revert to statusMatrix (affects Phases 2 and 4).
-- Force checkouts overwrite the working dir; the soft-restore primitive (Phase 2) must NOT use force checkout / detached-HEAD.
-- App.tsx is a 47KB monolith with 40+ state vars — the sidebar (Phase 1) and time-travel (Phase 2) refactors touch it heavily.
-- Zero automated test coverage; git operations are untested — high risk for the new restore/snapshot primitives.
+- Cero cobertura de tests automatizados; cada fase se apoya en typecheck+build + UAT humano.
+- FILE-01/FILE-05: cuidar que el borrado sea recuperable y que ninguna eliminación de disco irreversible ocurra sin confirmación explícita (valor central en juego).
+- FILE-02 (rename): preservar el estado de tabs/edición abiertos al renombrar (paneTree usa paths como identidad de tab → un rename debe re-mapear los paths abiertos).
+- FILE-04 (preview tab): paneTree LeafPane usa `tabs: string[]` con `active = openPath`; el estado de "preview vs fijada" es un concepto nuevo a modelar sin romper los splits existentes.
+- Restricciones duras: solo íconos Lucide (sin emojis/glyphs), strings y comentarios en español, TS strict con tipos de retorno explícitos, canales IPC con prefijo `geode:`, preload permanece CommonJS.
 
 ## Deferred Items
 
@@ -98,14 +80,15 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| Capa 1 | try/keep/discard sin nombres técnicos (CAPA1-01) | Deferred | v1.0 close |
+| Sync | conflictos en lenguaje humano (CONF-01) | Deferred | v1.0 close |
 
 ## Session Continuity
 
-Last session: 2026-07-05T22:38:03.337Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-07-06 — v1.1 roadmap created
+Stopped at: ROADMAP.md + REQUIREMENTS.md traceability + STATE.md written for Phases 6-7
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 6 with /gsd-plan-phase 6

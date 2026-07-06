@@ -53,16 +53,17 @@ Qué fases cubren qué requisitos. Se completa al crear el roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FILE-01 | TBD | Pending |
-| FILE-02 | TBD | Pending |
-| FILE-03 | TBD | Pending |
-| FILE-04 | TBD | Pending |
-| FILE-05 | TBD | Pending |
+| FILE-01 | Phase 6 | Pending |
+| FILE-02 | Phase 6 | Pending |
+| FILE-03 | Phase 6 | Pending |
+| FILE-04 | Phase 7 | Pending |
+| FILE-05 | Phase 7 | Pending |
 
 **Coverage:**
 
 - v1.1 requirements: 5 total
-- Mapped to phases: (pending roadmap)
+- Mapped to phases: 5/5 ✓ (Phase 6: FILE-01/02/03 · Phase 7: FILE-04/05)
+- Orphaned: none
 
 ---
-*Requirements defined: 2026-07-06*
+*Requirements defined: 2026-07-06 · Roadmap mapped: 2026-07-06*

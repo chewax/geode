@@ -15,7 +15,7 @@ Paridad tipo VSCode para el explorador de archivos y la gestión de bóvedas. Ca
 
 ### Tabs y bóvedas
 
-- [ ] **FILE-04**: Un solo click sobre una nota la abre en una tab de "preview" temporal (visualmente distinta, no permanente, reutilizable); un doble click o cualquier edición fija la tab como permanente — comportamiento tipo VSCode.
+- [x] **FILE-04**: Un solo click sobre una nota la abre en una tab de "preview" temporal (visualmente distinta, no permanente, reutilizable); un doble click o cualquier edición fija la tab como permanente — comportamiento tipo VSCode.
 - [x] **FILE-05**: El usuario puede eliminar una bóveda: quitarla de la lista de bóvedas conocidas siempre, con la opción de borrarla también del disco tras un aviso explícito e inequívoco.
 
 ## Future Requirements
@@ -60,7 +60,7 @@ Qué fases cubren qué requisitos. Se completa al crear el roadmap.
 | FILE-01 | Phase 6 | Complete |
 | FILE-02 | Phase 6 | Complete |
 | FILE-03 | Phase 6 | Complete (06-02) |
-| FILE-04 | Phase 7 | Pending |
+| FILE-04 | Phase 7 | Complete |
 | FILE-05 | Phase 7 | Complete |
 
 **Coverage:**

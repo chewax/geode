@@ -30,7 +30,7 @@ Lleva el explorador de archivos y la gestión de bóvedas a paridad tipo VSCode 
 - Decimal phases (6.1, 6.2): Urgent insertions (marked INSERTED), appear between their surrounding integers
 
 - [x] **Phase 6: Operaciones del árbol lateral** - Borrar (Del/Supr), renombrar (F2) y refrescar el árbol para reflejar cambios externos (completed 2026-07-06)
-- [ ] **Phase 7: Tabs de preview y gestión de bóvedas** - Tab temporal estilo VSCode (1 click) y baja de bóveda (de la lista, opcionalmente del disco con aviso)
+- [x] **Phase 7: Tabs de preview y gestión de bóvedas** - Tab temporal estilo VSCode (1 click) y baja de bóveda (de la lista, opcionalmente del disco con aviso) (completed 2026-07-06)
 
 ## Phase Details
 
@@ -73,7 +73,7 @@ Plans:
 
 - [x] 07-01-PLAN.md — Tabs de preview estilo VSCode: campo preview en paneTree + single/double click + itálica (FILE-04)
 - [x] 07-02-PLAN.md — Baja de bóveda: IPC geode:vault-remove + shell.trashItem + ConfirmRemoveVaultDialog en VaultSwitcher (FILE-05)
-- [ ] 07-03-PLAN.md — UAT end-of-phase: gate de build verde + verificación humana FILE-04/05 (con relaunch por el main process)
+- [x] 07-03-PLAN.md — UAT end-of-phase: gate de build verde + verificación humana FILE-04/05 (con relaunch por el main process)
 
 **UI hint**: yes
 
@@ -90,4 +90,4 @@ Phases execute in numeric order: 6 → 7 (independientes entre sí; se ejecutan 
 | 4. Automatic Snapshots | v1.0 | 3/3 | Complete | 2026-07-05 |
 | 5. Advanced Mode & Capa-0 Polish | v1.0 | 4/4 | Complete | 2026-07-05 |
 | 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
-| 7. Tabs de preview y gestión de bóvedas | v1.1 | 2/3 | In Progress|  |
+| 7. Tabs de preview y gestión de bóvedas | v1.1 | 3/3 | Complete | 2026-07-06 |

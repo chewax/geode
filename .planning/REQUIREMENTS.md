@@ -45,16 +45,17 @@ Excluido explícitamente de v1.2 para evitar scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VER-01 | TBD | Pending |
-| CHG-01 | TBD | Pending |
-| AISNAP-01 | TBD | Pending |
-| PLUG-01 | TBD | Pending |
-| PLUG-02 | TBD | Pending |
+| VER-01 | Phase 8 | Pending |
+| CHG-01 | Phase 8 | Pending |
+| AISNAP-01 | Phase 9 | Pending |
+| PLUG-01 | Phase 10 | Pending |
+| PLUG-02 | Phase 11 | Pending |
 
 **Coverage:**
 
 - v1.2 requirements: 5 total
-- Mapped to phases: (pending roadmap)
+- Mapped to phases: 5/5 ✓ (no orphans, no duplicates)
+- Phase 8: VER-01, CHG-01 · Phase 9: AISNAP-01 · Phase 10: PLUG-01 · Phase 11: PLUG-02
 
 ---
 *Requirements defined: 2026-07-06*

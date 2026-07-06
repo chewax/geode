@@ -1,8 +1,16 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { JSX } from 'react'
-import { Compartment, EditorState, type Extension } from '@codemirror/state'
+import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { baseExtensions } from './extensions'
+
+/**
+ * Marca las transacciones de recarga programática (cambio de nota, checkout,
+ * restore) para distinguirlas de las ediciones reales del usuario. Sin esto, el
+ * reemplazo completo del documento dispararía `onChange` como si el usuario
+ * hubiese tecleado, fijando la tab de preview en la misma carga que la creó.
+ */
+const programmaticReload = Annotation.define<boolean>()
 
 export interface EditorContext {
   selection: string
@@ -137,7 +145,15 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
             ]),
             ...(extraExtensionsRef.current ?? []),
             EditorView.updateListener.of((update) => {
-              if (update.docChanged) onChangeRef.current?.(update.state.doc.toString())
+              // Solo las ediciones reales del usuario propagan onChange. Las
+              // recargas programáticas (cambio de nota/checkout) llevan la
+              // anotación y NO deben fijar la preview ni marcar la nota sucia.
+              if (
+                update.docChanged &&
+                !update.transactions.some((tr) => tr.annotation(programmaticReload))
+              ) {
+                onChangeRef.current?.(update.state.doc.toString())
+              }
             })
           ]
         }),
@@ -166,7 +182,8 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       if (!view) return
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: docRef.current },
-        selection: { anchor: 0 }
+        selection: { anchor: 0 },
+        annotations: programmaticReload.of(true)
       })
       view.focus()
       // eslint-disable-next-line react-hooks/exhaustive-deps

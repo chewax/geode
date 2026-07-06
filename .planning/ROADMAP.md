@@ -56,7 +56,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 **Plans**: 3 plans
 
   - [x] 08-01-PLAN.md — VER-01: diálogo estilizado de borrado de rama (Cancelar autofocus, Enter no borra, aviso de pérdida)
-  - [ ] 08-02-PLAN.md — CHG-01: contador +N/-N en la status bar (git.pendingLineStat + IPC + UI)
+  - [x] 08-02-PLAN.md — CHG-01: contador +N/-N en la status bar (git.pendingLineStat + IPC + UI)
   - [ ] 08-03-PLAN.md — UAT humano (VER-01 + CHG-01) tras relanzar la app
 
 **UI hint**: yes
@@ -116,7 +116,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 | 5. Advanced Mode & Capa-0 Polish | v1.0 | 4/4 | Complete | 2026-07-05 |
 | 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 7. Tabs de preview y gestión de bóvedas | v1.1 | 3/3 | Complete | 2026-07-06 |
-| 8. Versionado avanzado — borrar rama + contador | v1.2 | 1/3 | In Progress|  |
+| 8. Versionado avanzado — borrar rama + contador | v1.2 | 2/3 | In Progress|  |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 0/? | Not started | - |
 | 10. Gestión de plugins — built-ins | v1.2 | 0/? | Not started | - |
 | 11. Aislamiento de plugins de terceros (Fase B) | v1.2 | 0/? | Not started | - |

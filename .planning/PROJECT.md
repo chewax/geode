@@ -8,6 +8,17 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
+## Current Milestone: v1.1 Explorador y gestión de archivos
+
+**Goal:** Llevar el explorador de archivos y la gestión de bóvedas a paridad tipo VSCode — operaciones de árbol rápidas por teclado, sincronización con cambios externos, tabs de preview y baja de bóvedas — sin romper el valor central (nada se pierde).
+
+**Target features:**
+- Borrar elementos del árbol lateral con Del/Supr (recuperable vía historial; nada irreversible sin aviso)
+- Renombrar archivos/carpetas con F2 (edición inline en el árbol)
+- Refrescar el árbol para reflejar cambios hechos por fuera de la app (explorer del SO)
+- Tab temporal/preview estilo VSCode (1 click = preview no permanente; doble click o editar = fija)
+- Eliminar una bóveda (quitarla de la lista; borrado de disco con aviso explícito)
+
 ## Requirements
 
 ### Validated
@@ -46,12 +57,22 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 **Diff readability:**
 - ✓ Diff hides hash/`@@`/"No newline"; human header (date + version name); "agregado"/"quitado" in words alongside color — v1.0 (DIFF-01/02)
 
-### Active
+### Active — v1.1 (Explorador y gestión de archivos)
 
-<!-- Next milestone — not yet planned. Candidates below; run /gsd-new-milestone to define. -->
+**Operaciones del árbol lateral:**
+- [ ] Borrar el elemento seleccionado del árbol con Del/Supr (recuperable; sin pérdida irreversible sin aviso)
+- [ ] Renombrar archivo/carpeta con F2 (edición inline en el árbol)
+- [ ] Refrescar el árbol para reflejar cambios externos (creados/movidos/borrados desde el explorer del SO)
 
-- [ ] Capa 1 (light intentions): "try a new version" → later "keep" or "discard", no technical names (branch/merge under the hood) — CAPA1-01 (deferred from v1)
-- [ ] Human-language conflict handling on remote/sync divergence (never show conflict markers; keep both sides, surface in human terms) — CONF-01 (deferred from v1)
+**Tabs y bóvedas:**
+- [ ] Tab temporal/preview estilo VSCode (1 click abre en preview no permanente; doble click o editar la fija)
+- [ ] Eliminar una bóveda (quitarla de la lista de bóvedas conocidas; borrado de disco tras aviso explícito)
+
+<!-- Future candidates (deferred, not this milestone): -->
+<!-- CAPA1-01: Capa 1 light intentions (try/keep/discard sin nombres técnicos) -->
+<!-- CONF-01: conflict handling en lenguaje humano en divergencia de sync -->
+<!-- Otros del ToDo: hiperlinks/block links, imágenes, toolbar markdown, editor de tablas, Mermaid en preview, dictado voz, +N/-N sin commitear, deshacer rama, blindar/desactivar plugins, pantalla de ayuda -->
+
 
 ### Out of Scope
 

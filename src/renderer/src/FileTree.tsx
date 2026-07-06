@@ -24,6 +24,10 @@ export interface FileTreeProps {
   onRenameCancel: () => void
   /** Del/Supr sobre el elemento enfocado. */
   onDelete: (node: TreeNode) => void
+  /** F2 sobre el elemento enfocado inicia el rename inline. */
+  onStartRename: (node: TreeNode) => void
+  /** Mensaje de error del rename en curso, mostrado inline bajo el input; null si no hay error. */
+  renameError: string | null
 }
 
 /** Nombre visible de un nodo (las notas se muestran sin la extensión .md). */
@@ -56,7 +60,7 @@ function TreeItem({
   depth,
   ...props
 }: { node: TreeNode; depth: number } & Omit<FileTreeProps, 'nodes'>): JSX.Element {
-  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete } = props
+  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete, onStartRename, renameError } = props
   const [expanded, setExpanded] = useState(defaultExpanded)
 
   // "Colapsar/expandir todo": al cambiar la señal, reiniciar al estado pedido.
@@ -77,11 +81,15 @@ function TreeItem({
     if (e.key === 'Delete' && e.target === e.currentTarget) {
       e.preventDefault()
       onDelete(node)
+    } else if (e.key === 'F2' && e.target === e.currentTarget) {
+      // F2 (estilo VSCode) inicia la edición inline del nombre del nodo enfocado.
+      e.preventDefault()
+      onStartRename(node)
     }
   }
 
   const nameEl = editing ? (
-    <NameInput initial={displayName(node)} onCommit={(v) => onRename(node, v)} onCancel={onRenameCancel} />
+    <NameInput initial={displayName(node)} onCommit={(v) => onRename(node, v)} onCancel={onRenameCancel} error={renameError} />
   ) : (
     <span className="node-label">{displayName(node)}</span>
   )
@@ -177,11 +185,14 @@ function TreeItem({
 function NameInput({
   initial,
   onCommit,
-  onCancel
+  onCancel,
+  error
 }: {
   initial: string
   onCommit: (value: string) => void
   onCancel: () => void
+  /** Error de validación del rename, mostrado inline bajo el input; null/undefined si no hay. */
+  error?: string | null
 }): JSX.Element {
   const [value, setValue] = useState(initial)
   // Enter y blur pueden dispararse juntos; commit corre una sola vez.
@@ -206,15 +217,18 @@ function NameInput({
   }
 
   return (
-    <input
-      className="tree-rename"
-      value={value}
-      autoFocus
-      onFocus={(e) => e.currentTarget.select()}
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={onKey}
-      onBlur={commit}
-      onClick={(e) => e.stopPropagation()}
-    />
+    <>
+      <input
+        className="tree-rename"
+        value={value}
+        autoFocus
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={onKey}
+        onBlur={commit}
+        onClick={(e) => e.stopPropagation()}
+      />
+      {error ? <p className="modal-error">{error}</p> : null}
+    </>
   )
 }

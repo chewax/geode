@@ -548,6 +548,16 @@ export function App(): JSX.Element {
     }
   }, [previewOid, flushAll, refreshTree, syncPanesToTree])
 
+  // Auto-refresh al recuperar el foco de la ventana: capta cambios hechos por
+  // fuera de Geode mientras estaba en segundo plano. No hace falta lógica
+  // anti-clobber aquí: `refreshFromDisk` ya persiste lo tipeado con `flushAll`
+  // antes de recargar (protege el journal) y no actúa durante el preview.
+  useEffect(() => {
+    const handler = (): void => void refreshFromDisk()
+    window.addEventListener('focus', handler)
+    return () => window.removeEventListener('focus', handler)
+  }, [refreshFromDisk])
+
   /** "Volver aquí": materializa la versión en preview como cambios sin guardar,
    *  SIN mover HEAD (T-02-05). Si el árbol está sucio, toma una instantánea de
    *  seguridad (mensaje explícito ⇒ SIN IA, T-02-03) para no perder nada; luego

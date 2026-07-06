@@ -979,8 +979,9 @@ export function App(): JSX.Element {
       </button>
       <button
         className="icon-btn"
-        title="Actualizar notas"
+        title={previewOid != null ? 'No disponible durante el viaje en el tiempo' : 'Actualizar notas'}
         aria-label="Actualizar notas"
+        disabled={previewOid != null}
         onClick={() => void refreshFromDisk()}
       >
         <RefreshCw size={14} className={refreshing ? 'spin' : ''} />

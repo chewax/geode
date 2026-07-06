@@ -11,7 +11,7 @@ Paridad tipo VSCode para el explorador de archivos y la gestión de bóvedas. Ca
 
 - [x] **FILE-01**: El usuario puede borrar el elemento seleccionado del árbol lateral con Del/Supr; el borrado es recuperable (queda en el historial de versiones) y nunca elimina contenido de forma irreversible sin un aviso claro.
 - [x] **FILE-02**: El usuario puede renombrar un archivo o carpeta del árbol lateral con F2 mediante edición inline, con validación de nombre y sin perder el estado de tabs/edición abiertos.
-- [ ] **FILE-03**: El usuario puede refrescar el árbol para reflejar cambios hechos por fuera de la app (archivos creados, movidos, renombrados o borrados desde el explorer del sistema operativo), sin reiniciar la app.
+- [x] **FILE-03**: El usuario puede refrescar el árbol para reflejar cambios hechos por fuera de la app (archivos creados, movidos, renombrados o borrados desde el explorer del sistema operativo), sin reiniciar la app.
 
 ### Tabs y bóvedas
 
@@ -59,7 +59,7 @@ Qué fases cubren qué requisitos. Se completa al crear el roadmap.
 |-------------|-------|--------|
 | FILE-01 | Phase 6 | Complete |
 | FILE-02 | Phase 6 | Complete |
-| FILE-03 | Phase 6 | Pending |
+| FILE-03 | Phase 6 | Complete (06-02) |
 | FILE-04 | Phase 7 | Pending |
 | FILE-05 | Phase 7 | Pending |
 

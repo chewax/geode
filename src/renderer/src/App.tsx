@@ -524,10 +524,13 @@ export function App(): JSX.Element {
 
   /** Tras un cambio de working tree (checkout/merge/rama): cierra las tabs de notas
    *  que ya no existen y recarga el contenido de todos los paneles desde disco. */
-  const syncPanesToTree = useCallback((t: TreeNode[]) => {
+  const syncPanesToTree = useCallback((t: TreeNode[], reloadEditors = true) => {
     const existing = new Set(flattenPaths(t))
     setPanes((prev) => keepOnly(prev, existing))
-    bumpAll()
+    // `reloadEditors` false evita remontar los editores (pierde cursor/undo). Se
+    // usa en el refresco al enfocar la ventana, que ocurre en cada alt-tab: ahí
+    // sólo interesa reconciliar la estructura del árbol, no recargar contenido.
+    if (reloadEditors) bumpAll()
   }, [bumpAll])
 
   /** Re-lee la bóveda desde disco (refresh manual + auto-refresh al enfocar).
@@ -536,13 +539,16 @@ export function App(): JSX.Element {
    *  `flushAll` para no pisar ediciones en curso (respeta el journal, T-06-04).
    *  Durante el viaje en el tiempo NO relee disco: el árbol muestra la versión
    *  pasada vía `treeAt` y releer pisaría esa vista (guard de preview, T-06-05). */
-  const refreshFromDisk = useCallback(async (): Promise<void> => {
+  const refreshFromDisk = useCallback(async ({ reloadEditors = true }: { reloadEditors?: boolean } = {}): Promise<void> => {
     if (previewOid != null) return
     setRefreshing(true)
     try {
       await flushAll()
       const t = await refreshTree()
-      syncPanesToTree(t)
+      // El botón de refresco (acción del usuario) recarga los editores; el
+      // auto-refresco al enfocar no, para no reiniciar cursor/undo en cada
+      // alt-tab cuando nada cambió por fuera.
+      syncPanesToTree(t, reloadEditors)
     } finally {
       setRefreshing(false)
     }
@@ -551,9 +557,11 @@ export function App(): JSX.Element {
   // Auto-refresh al recuperar el foco de la ventana: capta cambios hechos por
   // fuera de Geode mientras estaba en segundo plano. No hace falta lógica
   // anti-clobber aquí: `refreshFromDisk` ya persiste lo tipeado con `flushAll`
-  // antes de recargar (protege el journal) y no actúa durante el preview.
+  // antes de recargar (protege el journal) y no actúa durante el preview. Va con
+  // `reloadEditors: false` para no reiniciar cursor/undo de los editores abiertos
+  // en cada alt-tab; sólo se reconcilia la estructura del árbol.
   useEffect(() => {
-    const handler = (): void => void refreshFromDisk()
+    const handler = (): void => void refreshFromDisk({ reloadEditors: false })
     window.addEventListener('focus', handler)
     return () => window.removeEventListener('focus', handler)
   }, [refreshFromDisk])

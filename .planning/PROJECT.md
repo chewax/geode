@@ -8,6 +8,17 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
+## Current Milestone: v1.2 Power-user y plataforma
+
+**Goal:** Dar a los usuarios avanzados control sobre el versionado y abrir la plataforma de plugins de forma segura — sin cambiar la experiencia por defecto ni el valor central.
+
+**Target features:**
+- Deshacer/borrar una rama sin necesidad de mergearla (superficie de Modo Avanzado)
+- Recuento de líneas sin commitear (+N/-N, verde/rojo) en la status bar
+- IA opcional (opt-in, solo en idle) para título/descripción de snapshots automáticas — modifica el invariante v1.0 "auto-snapshots nunca IA", acotado para no disparar costo por tiempo
+- Blindar el sandbox de plugins (Fase B: aislamiento de terceros + modelo de permisos, ver docs/PLUGINS.md)
+- Desactivar plugins internos (built-in)
+
 ## Requirements
 
 ### Validated
@@ -57,16 +68,20 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - ✓ Tab de preview estilo VSCode (1 click = preview itálica reutilizable; doble click / edición / doble-click-tab la fija) — v1.1 (FILE-04)
 - ✓ Baja de bóveda: quitar de la lista sin tocar disco, u opción explícita de enviar a la papelera del SO (recuperable) — v1.1 (FILE-05)
 
-### Active
+### Active — v1.2 (Power-user y plataforma)
 
-<!-- Próximo hito — no planeado aún. Candidatos del ToDo del usuario; correr /gsd-new-milestone para definir. -->
+**Versionado avanzado (Modo Avanzado):**
+- [ ] Deshacer/borrar una rama sin mergearla (hoy no deja)
+- [ ] Recuento de líneas sin commitear (+N/-N, verde/rojo) en la status bar
 
-- [ ] Edición Markdown enriquecida: toolbar de formato, editor de tablas, insertar imágenes, hiperlinks/block links, Mermaid en preview (plugin), pantalla de ayuda
-- [ ] Power-user versionado: deshacer/borrar una rama sin mergear; recuento +N/-N sin commitear en la status bar; IA opcional para snapshots automáticas
-- [ ] Plugins: blindar el sandbox (Fase B), desactivar plugins internos
-- [ ] Capa 1 (CAPA1-01, diferido de v1.0): probar/conservar/descartar sin nombres técnicos
-- [ ] Conflictos en lenguaje humano (CONF-01, diferido de v1.0)
-- [ ] Dictado por voz (speech-to-text con hook global) — su propio hito (permisos de micrófono, motor STT)
+**Snapshots + IA:**
+- [ ] IA opcional (opt-in, configurable, solo en idle) para título/descripción de snapshots automáticas
+
+**Plataforma de plugins:**
+- [ ] Blindar el sandbox de plugins (Fase B: aislamiento de terceros + permisos)
+- [ ] Desactivar plugins internos (built-in)
+
+<!-- Diferidos a hitos futuros: edición Markdown rica (toolbar/tablas/imágenes/links/Mermaid/ayuda); dictado por voz (STT); CAPA1-01 (try/keep/discard); CONF-01 (conflictos humanos). -->
 
 
 ### Out of Scope

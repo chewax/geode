@@ -1,5 +1,35 @@
 # Milestones
 
+## v1.1 Explorador y gestión de archivos (Shipped: 2026-07-06)
+
+**Phases completed:** 2 phases, 6 plans, 10 tasks
+
+**Key accomplishments:**
+
+- F2 inicia el rename inline con error en español sin alert nativo (FILE-02), y Del/Supr abre un diálogo de confirmación de borrado propio (ConfirmDeleteDialog, Lucide/español, botón rojo destructivo) que comunica la recuperabilidad vía historial git (FILE-01).
+- Botón RefreshCw en la cabecera EXPLORADOR + auto-refresh al recuperar el foco de la ventana, ambos releen la bóveda desde disco vía refreshFromDisk (flushAll -> refreshTree -> syncPanesToTree) sin pisar ediciones en curso ni actuar durante el preview.
+- El usuario opera el árbol lateral con el teclado — borrar (Del/Supr, con diálogo estilizado donde Enter cancela y solo el click en "Eliminar" borra) y renombrar (F2 inline con error inline) — y lo mantiene sincronizado con cambios externos (botón de refresh con giro visible + auto-refresh al enfocar sin resetear el editor), sin perder nada — verificado §A–§C en un build corriendo con sign-off del usuario.
+- Tabs de preview reutilizables (itálicas, una por panel) con single-click en el árbol; doble-click, edición o doble-click sobre la tab la fijan como permanente.
+- Baja de bóveda end-to-end vía nuevo IPC geode:vault-remove: "Quitar de la lista" nunca toca el disco y un checkbox default-OFF escala a envío a la papelera del SO (recuperable) con `shell.trashItem`, validando la ruta contra knownVaults en el main.
+- El usuario navega notas con tabs de preview estilo VSCode (1 click = preview en itálica reutilizable; doble click/edición/doble-click-en-tab = fija) y da de baja bóvedas — quitándolas de la lista sin tocar disco, o enviándolas a la papelera del SO (recuperable) tras un aviso explícito con seguridad de teclado — verificado §A–§B en un build relanzado con sign-off del usuario.
+
+---
+
+## v1.1 Explorador y gestión de archivos (Shipped: 2026-07-06)
+
+**Phases completed:** 2 phases, 6 plans, 10 tasks
+
+**Key accomplishments:**
+
+- F2 inicia el rename inline con error en español sin alert nativo (FILE-02), y Del/Supr abre un diálogo de confirmación de borrado propio (ConfirmDeleteDialog, Lucide/español, botón rojo destructivo) que comunica la recuperabilidad vía historial git (FILE-01).
+- Botón RefreshCw en la cabecera EXPLORADOR + auto-refresh al recuperar el foco de la ventana, ambos releen la bóveda desde disco vía refreshFromDisk (flushAll -> refreshTree -> syncPanesToTree) sin pisar ediciones en curso ni actuar durante el preview.
+- El usuario opera el árbol lateral con el teclado — borrar (Del/Supr, con diálogo estilizado donde Enter cancela y solo el click en "Eliminar" borra) y renombrar (F2 inline con error inline) — y lo mantiene sincronizado con cambios externos (botón de refresh con giro visible + auto-refresh al enfocar sin resetear el editor), sin perder nada — verificado §A–§C en un build corriendo con sign-off del usuario.
+- Tabs de preview reutilizables (itálicas, una por panel) con single-click en el árbol; doble-click, edición o doble-click sobre la tab la fijan como permanente.
+- Baja de bóveda end-to-end vía nuevo IPC geode:vault-remove: "Quitar de la lista" nunca toca el disco y un checkbox default-OFF escala a envío a la papelera del SO (recuperable) con `shell.trashItem`, validando la ruta contra knownVaults en el main.
+- El usuario navega notas con tabs de preview estilo VSCode (1 click = preview en itálica reutilizable; doble click/edición/doble-click-en-tab = fija) y da de baja bóvedas — quitándolas de la lista sin tocar disco, o enviándolas a la papelera del SO (recuperable) tras un aviso explícito con seguridad de teclado — verificado §A–§B en un build relanzado con sign-off del usuario.
+
+---
+
 ## v1.0 Capa 0 / Modo Avanzado (Shipped: 2026-07-05)
 
 **Phases completed:** 5 phases, 18 plans, 32 tasks

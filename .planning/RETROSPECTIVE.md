@@ -46,10 +46,54 @@ The git engine became invisible for non-technical users while staying fully avai
 - Model mix: planning/execution/review agents ran predominantly on opus, with sonnet for checkers/verifiers/integration.
 - AI-inference cost (product-side) held to manual saves only — auto/safety snapshots never touch OpenRouter, as designed.
 
-## Cross-Milestone Trends
+## Milestone: v1.1 — Explorador y gestión de archivos
 
-*(First milestone — trends accumulate here from v1.1 onward.)*
+**Shipped:** 2026-07-06
+**Phases:** 2 | **Plans:** 6
+
+### What Was Built
+
+Paridad tipo VSCode para el explorador de archivos y la gestión de bóvedas:
+
+- **Operaciones del árbol lateral (Fase 6)** — borrar con Del/Supr (diálogo estilizado, recuperable por historial), renombrar con F2 (edición inline, error inline, tabs sobreviven), y refrescar el árbol (botón + auto al recuperar foco) para reflejar cambios hechos por fuera de la app. Gran parte se apoyó en infra ya existente (renameNode/deleteNode/refreshTree) — la fase fue mayormente wiring + un diálogo + un botón.
+- **Tabs de preview y gestión de bóvedas (Fase 7)** — tab de preview estilo VSCode (1 click = itálica reutilizable; doble click / edición / doble-click-tab la fija) modelada con un campo `preview` en `paneTree`; y baja de bóveda (quitar de la lista sin tocar disco, o enviar a la papelera del SO con `shell.trashItem`, recuperable).
+
+### What Worked
+
+- **Reusar y escanear antes de planear.** El scout de código de la Fase 6 detectó que borrar/renombrar/refresh ya existían casi completos → el plan evitó reconstruir y se acotó al gap real (trigger F2, botón de refresh, diálogo Lucide). Planes chicos, ejecución casi mecánica.
+- **Los gates adversariales atajaron todo lo importante.** Cada defecto de peso vino de un gate, no de la ejecución: el plan-checker no encontró blockers, pero el **code-review** atajó el crítico de la Fase 7 (la preview se fijaba sola porque el load programático de CodeMirror disparaba onChange — misma clase que el CR-01 de la Fase 2), y el **integration-checker del hito** atajó un blocker cross-phase que ninguna verificación de fase individual podía ver (renameNode de la Fase 6 no remapeaba el campo `preview` nuevo de la Fase 7).
+- **UAT humano encontró un bug preexistente.** El usuario, probando F2, disparó el "Ya existe" al renombrar al mismo nombre / cambiando solo el case en un FS case-insensitive — bug viejo de `vault.rename` que el flujo nuevo hizo visible; corregido en el momento.
+- **Papelera > rm.** La decisión de que el borrado de bóveda vaya a la papelera del SO (no `rm`) mantuvo el valor central intacto incluso para una acción que borra el `.git` entero.
+
+### What Was Inefficient
+
+- **Anotación de reload reinventada.** El bug de "load programático dispara onChange" ya se había visto en la Fase 2 (fix por `previewOid` guard). En la Fase 7 volvió en otra forma (pin-on-load) y se resolvió recién en code-review con la anotación de transacción — la solución general (anotar reloads) podría haberse aplicado desde el diseño.
+- **STATE.md / linter races** de nuevo: archivos tocados en paralelo forzaron re-lecturas y algunos edits vía `sed`.
+- **Backticks en `git commit -m` bajo bash** command-substituyeron y mancharon un mensaje (amendado).
+
+### Patterns Established
+
+- Antes de planear un feature "nuevo" en brownfield, escanear si la infra ya existe — varias veces el trabajo real es wiring, no construcción.
+- Todo reload programático del editor debe llevar una anotación para que `onChange` (dirty + pin) solo lo disparen ediciones reales del usuario.
+- Operaciones de archivo destructivas o que cambian de contexto (borrar, renombrar, refrescar, cambiar/baja de bóveda) hacen `flushAll()` del journal ANTES de tocar disco.
+- Diálogos destructivos: Cancelar autofocus, Enter nunca confirma, Escape cancela (patrón fijado en Fase 6 CR-01, reusado en Fase 7).
+- El **integration-checker del hito** es el único gate que ve los seams entre fases nuevas (campo agregado en una fase, mutación escrita en otra) — no saltearlo.
+
+### Key Lessons
+
+- Un campo nuevo en un modelo compartido (`LeafPane.preview`) obliga a auditar TODAS las mutaciones de ese modelo, incluidas las de fases anteriores (renameNode). El integration-checker es el lugar donde eso se caza.
+- Cuando un bug de una clase ya conocida reaparece, aplicar la solución general, no otro parche puntual.
+
+### Cost Observations
+
+- Mezcla de modelos: planificación/ejecución/review en opus; checkers/verifiers/integration en sonnet.
+- Costo de IA de producto: sin cambios — esta línea de trabajo no toca ningún path de OpenRouter.
+
+## Cross-Milestone Trends
 
 | Milestone | Phases | Plans | Tasks | Shipped |
 |-----------|--------|-------|-------|---------|
 | v1.0 Capa 0 / Modo Avanzado | 5 | 18 | 32 | 2026-07-05 |
+| v1.1 Explorador y gestión de archivos | 2 | 6 | 15 | 2026-07-06 |
+
+**Recurring signal:** en ambos hitos, los defectos que importaron (data-loss/UX-breaking) salieron de gates adversariales (code-review, integration-checker), no de la ejecución ni del UAT feliz. El patrón "load programático dispara onChange" apareció en v1.0 (Fase 2) y v1.1 (Fase 7) — vale tratarlo como invariante de diseño del editor.

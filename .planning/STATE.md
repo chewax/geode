@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Explorador y gestión de archivos
-status: executing
-stopped_at: Completed Phase 07 — UAT approved, verification passed (4/4). Milestone v1.1 phases done.
-last_updated: "2026-07-06T05:50:37.233Z"
-last_activity: 2026-07-06 — Phase 07 cerrada (FILE-04/05); v1.1 completo, listo para lifecycle
+status: Awaiting next milestone
+stopped_at: Completed 07-02-PLAN.md (FILE-05 baja de bóveda)
+last_updated: "2026-07-06T17:02:33.486Z"
+last_activity: 2026-07-06 — Milestone v1.1 completed and archived
 progress:
   total_phases: 2
   completed_phases: 2
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-05)
 
 ## Current Position
 
-Phase: 7 — Tabs de preview y gestión de bóvedas (última de v1.1)
-Plan: 2 de 3 (07-01 preview + 07-02 baja de bóveda completos; falta 07-03 UAT)
-Status: 07-02 (FILE-05) cerrado a nivel de código, typecheck verde. Siguiente: 07-03 UAT con relaunch.
-Last activity: 2026-07-06 — 07-02 baja de bóveda (IPC geode:vault-remove, papelera recuperable)
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-06 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -93,4 +93,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 6 with /gsd-plan-phase 6
+- Start the next milestone with /gsd-new-milestone

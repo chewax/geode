@@ -8,17 +8,6 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
-## Current Milestone: v1.1 Explorador y gestión de archivos
-
-**Goal:** Llevar el explorador de archivos y la gestión de bóvedas a paridad tipo VSCode — operaciones de árbol rápidas por teclado, sincronización con cambios externos, tabs de preview y baja de bóvedas — sin romper el valor central (nada se pierde).
-
-**Target features:**
-- Borrar elementos del árbol lateral con Del/Supr (recuperable vía historial; nada irreversible sin aviso)
-- Renombrar archivos/carpetas con F2 (edición inline en el árbol)
-- Refrescar el árbol para reflejar cambios hechos por fuera de la app (explorer del SO)
-- Tab temporal/preview estilo VSCode (1 click = preview no permanente; doble click o editar = fija)
-- Eliminar una bóveda (quitarla de la lista; borrado de disco con aviso explícito)
-
 ## Requirements
 
 ### Validated
@@ -57,21 +46,27 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 **Diff readability:**
 - ✓ Diff hides hash/`@@`/"No newline"; human header (date + version name); "agregado"/"quitado" in words alongside color — v1.0 (DIFF-01/02)
 
-### Active — v1.1 (Explorador y gestión de archivos)
+### Validated — v1.1 (Explorador y gestión de archivos, shipped 2026-07-06)
 
-**Operaciones del árbol lateral:**
-- [ ] Borrar el elemento seleccionado del árbol con Del/Supr (recuperable; sin pérdida irreversible sin aviso)
-- [ ] Renombrar archivo/carpeta con F2 (edición inline en el árbol)
-- [ ] Refrescar el árbol para reflejar cambios externos (creados/movidos/borrados desde el explorer del SO)
+**Operaciones del árbol lateral (paridad VSCode):**
+- ✓ Borrar con Del/Supr vía diálogo estilizado; recuperable por historial git; nada irreversible sin confirmación explícita — v1.1 (FILE-01)
+- ✓ Renombrar con F2 (edición inline, error inline, tabs sobreviven; mismo-nombre/solo-case ya no da "Ya existe") — v1.1 (FILE-02)
+- ✓ Refrescar el árbol (botón en cabecera + auto al recuperar foco, sin resetear cursor/undo ni perder ediciones) — v1.1 (FILE-03)
 
 **Tabs y bóvedas:**
-- [ ] Tab temporal/preview estilo VSCode (1 click abre en preview no permanente; doble click o editar la fija)
-- [ ] Eliminar una bóveda (quitarla de la lista de bóvedas conocidas; borrado de disco tras aviso explícito)
+- ✓ Tab de preview estilo VSCode (1 click = preview itálica reutilizable; doble click / edición / doble-click-tab la fija) — v1.1 (FILE-04)
+- ✓ Baja de bóveda: quitar de la lista sin tocar disco, u opción explícita de enviar a la papelera del SO (recuperable) — v1.1 (FILE-05)
 
-<!-- Future candidates (deferred, not this milestone): -->
-<!-- CAPA1-01: Capa 1 light intentions (try/keep/discard sin nombres técnicos) -->
-<!-- CONF-01: conflict handling en lenguaje humano en divergencia de sync -->
-<!-- Otros del ToDo: hiperlinks/block links, imágenes, toolbar markdown, editor de tablas, Mermaid en preview, dictado voz, +N/-N sin commitear, deshacer rama, blindar/desactivar plugins, pantalla de ayuda -->
+### Active
+
+<!-- Próximo hito — no planeado aún. Candidatos del ToDo del usuario; correr /gsd-new-milestone para definir. -->
+
+- [ ] Edición Markdown enriquecida: toolbar de formato, editor de tablas, insertar imágenes, hiperlinks/block links, Mermaid en preview (plugin), pantalla de ayuda
+- [ ] Power-user versionado: deshacer/borrar una rama sin mergear; recuento +N/-N sin commitear en la status bar; IA opcional para snapshots automáticas
+- [ ] Plugins: blindar el sandbox (Fase B), desactivar plugins internos
+- [ ] Capa 1 (CAPA1-01, diferido de v1.0): probar/conservar/descartar sin nombres técnicos
+- [ ] Conflictos en lenguaje humano (CONF-01, diferido de v1.0)
+- [ ] Dictado por voz (speech-to-text con hook global) — su propio hito (permisos de micrófono, motor STT)
 
 
 ### Out of Scope
@@ -90,7 +85,7 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - **Prior design conversation** established the load-bearing decisions for this milestone: (1) go-back in Capa 0 must stay linear → soft restore, a new primitive distinct from the existing checkout/detached-HEAD model (which is Advanced-only); (2) the timeline is repo-level, not per-note; (3) the sidebar becomes VSCode-like collapsible sections; (4) save asks for a human name + AI description; (5) auto-snapshots are configurable and only fire when there are changes.
 - **Codebase state:** three-tier Electron architecture (sandboxed renderer ↔ typed IPC/preload ↔ main-process services). Key files for this milestone: `src/renderer/src/App.tsx`, `TimelineScrubber.tsx`, `DiffView.tsx`, `VaultSwitcher.tsx`, `SettingsModal.tsx`, `CommitDialog.tsx`, `src/main/services/git.ts`, `src/shared/ipc.ts`. Recent untracked work on multi-pane splits (`EditorPane.tsx`, `paneTree.ts`).
 - **Business model:** open-core — client is open source, server-side services are closed. Free/BYOK vs Pro/Cloud vs Teams. Non-destructive editing is never gated (it's the traction hook).
-- **Current state (post-v1.0):** the Capa 0 / Modo Avanzado refactor shipped (5 phases, 18 plans, 32 tasks). The default UI is fully git-free; power users flip "Modo Avanzado" to reveal the DAG. Repo-level timeline + soft linear restore replaced the per-note scrubber. Verification model is typecheck+build green + human UAT per phase (repo still has zero automated tests — the top standing risk for the git primitives). Next: Capa 1 (light try/keep/discard intentions) and human-language conflict handling.
+- **Current state (post-v1.1):** two milestones shipped. v1.0 (Capa 0 / Modo Avanzado — 5 phases) made the default UI git-free with an Advanced Mode toggle, repo-level timeline + soft linear restore, humanized save-status/diff. v1.1 (Explorador y gestión de archivos — 2 phases, 6 plans, 15 tasks) brought VSCode-parity file ops: Del/Supr delete + F2 rename + tree refresh, preview tabs, and vault removal (unlist / OS-trash). Verification model is typecheck+build green + human UAT per phase (repo still has zero automated tests — the top standing risk). Recurring win: adversarial gates (code-review, plan-checker, integration-checker) catch cross-phase breaks the happy path misses (e.g. preview-tab pin-on-load, rename not remapping the preview pointer). Next candidates: rich Markdown editing (toolbar/tables/images/links/Mermaid), power-user versioning, plugin hardening, voice dictation.
 
 ## Constraints
 
@@ -111,6 +106,10 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 | Auto-snapshots configurable + only when changed + no AI | Keeps timeline meaningful, bounds inference cost, honors "never lose anything" | ✓ Good (v1.0 — SNAP-01..04) |
 | Save-status "Todo en la nube" only when clean+pushed, not on disk-autosave | A disk save isn't committed/pushed; claiming cloud safety would betray "never lose anything" | ✓ Good (v1.0 — STAT-01, code-review WR-01) |
 | Vault encryption is a NO-GOAL | Encrypted blobs break diffs/merges — the core value | ✓ Good |
+| Borrar bóveda del disco va a la papelera del SO (shell.trashItem), no rm permanente | La bóveda incluye .git (todo el historial); un rm lo destruiría — la papelera da red de seguridad ("nada se pierde") | ✓ Good (v1.1 — FILE-05) |
+| Borrar/renombrar/refrescar hacen flush del journal antes de tocar disco/cambiar estado | Evita perder los últimos ms tipeados en operaciones de archivo | ✓ Good (v1.1 — FILE-01/02/03) |
+| Tab de preview reutilizable, se fija solo con intención (doble-click/edición) | Paridad VSCode; navegar sin ensuciar el set de tabs | ✓ Good (v1.1 — FILE-04) |
+| Reload programático de CodeMirror lleva una anotación para no disparar onChange | Distingue carga-de-nota de edición-real; sin ella la preview se fijaba sola y latían falsos "dirty" | ✓ Good (v1.1 — FILE-04, code-review CR-01) |
 
 ## Evolution
 
@@ -130,4 +129,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-05 after v1.0 milestone*
+*Last updated: 2026-07-06 after v1.1 milestone*

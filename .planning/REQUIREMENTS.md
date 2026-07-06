@@ -9,7 +9,7 @@ Control avanzado del versionado + apertura segura de la plataforma de plugins. L
 
 ### Versionado avanzado (Modo Avanzado)
 
-- [ ] **VER-01**: El usuario puede deshacer/borrar una rama sin necesidad de mergearla, desde una superficie de Modo Avanzado, con confirmación; la rama base/protegida (`main`) no se puede borrar, y la operación no destruye trabajo de forma irrecuperable sin aviso.
+- [x] **VER-01**: El usuario puede deshacer/borrar una rama sin necesidad de mergearla, desde una superficie de Modo Avanzado, con confirmación; la rama base/protegida (`main`) no se puede borrar, y la operación no destruye trabajo de forma irrecuperable sin aviso.
 - [ ] **CHG-01**: La status bar muestra el recuento de líneas sin commitear del vault como `+N`/`-N` (agregadas en verde, quitadas en rojo), actualizado al editar/guardar; se muestra solo cuando hay cambios pendientes.
 
 ### Snapshots automáticos con IA opcional
@@ -45,7 +45,7 @@ Excluido explícitamente de v1.2 para evitar scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VER-01 | Phase 8 | Pending |
+| VER-01 | Phase 8 | Complete |
 | CHG-01 | Phase 8 | Pending |
 | AISNAP-01 | Phase 9 | Pending |
 | PLUG-01 | Phase 10 | Pending |

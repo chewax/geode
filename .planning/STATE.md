@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Power-user y plataforma
 status: planning
-last_updated: "2026-07-06T22:30:00.000Z"
-last_activity: 2026-07-06
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-07-06T23:08:26.694Z"
+last_activity: 2026-07-06 — v1.2 roadmap created (Phases 8-11)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
   percent: 0
 ---
 
@@ -24,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 ## Current Position
 
-Phase: 8 — Versionado avanzado (not started; roadmap approved)
-Plan: —
-Status: Roadmap created — ready to plan Phase 8
-Last activity: 2026-07-06 — v1.2 roadmap created (Phases 8-11)
+Phase: 8 — Versionado avanzado (en progreso)
+Plan: 1/3 completado (08-01 VER-01)
+Status: 08-01 ejecutado — listo para 08-02 (contador CHG-01)
+Last activity: 2026-07-06 — 08-01 completado (diálogo de borrado de rama, VER-01)
 
 ## Performance Metrics
 
@@ -49,6 +50,7 @@ Last activity: 2026-07-06 — v1.2 roadmap created (Phases 8-11)
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 08 P01 | 12 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -90,8 +92,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-06T22:30:00.000Z
-Stopped at: v1.2 roadmap created (ROADMAP.md, REQUIREMENTS.md traceability, STATE.md)
+Last session: 2026-07-06T23:08:26.686Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

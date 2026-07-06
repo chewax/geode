@@ -712,9 +712,10 @@ export function App(): JSX.Element {
     await refreshGraph()
     await refreshGithub()
     void refreshAiUsage() // el mensaje pudo haber usado la IA
+    void refreshLineStat() // el commit vació lo pendiente → el contador va a 0/oculto (CR-01)
     host.emit('note:afterSave', { path: openPathRef.current })
     // El push es SIEMPRE manual (botón Push). Guardar versión nunca sube al remoto.
-  }, [refreshGraph, refreshGithub, refreshAiUsage, host])
+  }, [refreshGraph, refreshGithub, refreshAiUsage, refreshLineStat, host])
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
   const goToVersion = useCallback(async (oid: string) => {

@@ -14,6 +14,7 @@ import {
   Cloud,
   Coins,
   ArrowDownUp,
+  RefreshCw,
   FoldVertical,
   UnfoldVertical,
   Info,
@@ -139,6 +140,8 @@ export function App(): JSX.Element {
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  /** Refresco desde disco en curso: alimenta el `.spin` del icono RefreshCw. */
+  const [refreshing, setRefreshing] = useState(false)
 
   // Host de plugins: se crea una sola vez (estable entre renders).
   const hostRef = useRef<PluginHost | null>(null)
@@ -526,6 +529,24 @@ export function App(): JSX.Element {
     setPanes((prev) => keepOnly(prev, existing))
     bumpAll()
   }, [bumpAll])
+
+  /** Re-lee la bóveda desde disco (refresh manual + auto-refresh al enfocar).
+   *  Captura cambios hechos por fuera de Geode (crear/mover/renombrar/borrar
+   *  desde el explorer del SO) sin reiniciar. Persiste ANTES lo tipeado con
+   *  `flushAll` para no pisar ediciones en curso (respeta el journal, T-06-04).
+   *  Durante el viaje en el tiempo NO relee disco: el árbol muestra la versión
+   *  pasada vía `treeAt` y releer pisaría esa vista (guard de preview, T-06-05). */
+  const refreshFromDisk = useCallback(async (): Promise<void> => {
+    if (previewOid != null) return
+    setRefreshing(true)
+    try {
+      await flushAll()
+      const t = await refreshTree()
+      syncPanesToTree(t)
+    } finally {
+      setRefreshing(false)
+    }
+  }, [previewOid, flushAll, refreshTree, syncPanesToTree])
 
   /** "Volver aquí": materializa la versión en preview como cambios sin guardar,
    *  SIN mover HEAD (T-02-05). Si el árbol está sucio, toma una instantánea de
@@ -921,6 +942,14 @@ export function App(): JSX.Element {
         onClick={() => void newFolderIn(createTargetDir())}
       >
         <FolderPlus size={14} />
+      </button>
+      <button
+        className="icon-btn"
+        title="Actualizar notas"
+        aria-label="Actualizar notas"
+        onClick={() => void refreshFromDisk()}
+      >
+        <RefreshCw size={14} className={refreshing ? 'spin' : ''} />
       </button>
       <button
         className="icon-btn"

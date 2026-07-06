@@ -373,8 +373,12 @@ export function App(): JSX.Element {
 
   const onPaneNoteChange = useCallback((paneId: string, path: string, doc: string) => {
     paneContentRef.current.set(paneId, doc)
-    // Cualquier edición fija la preview de ese panel (idempotente si no lo es).
-    setPanes((prev) => pinTab(prev, paneId, path))
+    // Cualquier edición fija la preview de ese panel. Solo reconstruimos el árbol
+    // de paneles si realmente hay algo que fijar (evita churn en cada tecla en
+    // layouts divididos, donde mapLeaves siempre aloca un root nuevo, IN-01).
+    if (findLeaf(panesRef.current, paneId)?.preview === path) {
+      setPanes((prev) => pinTab(prev, paneId, path))
+    }
     if (paneId === activePaneIdRef.current) {
       setContent(doc)
       setStatus('saving')

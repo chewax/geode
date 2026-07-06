@@ -400,9 +400,11 @@ export function App(): JSX.Element {
       setContent(doc)
       setStatus('saving')
       host.emit('note:change', { path, content: doc })
-      void refreshLineStat() // fire-and-forget: no bloquear el tecleo (CHG-01)
+      // Sin refreshLineStat aquí (WR-01): el disco aún no tiene el cambio (el
+      // autosave escribe AUTOSAVE_MS después) y la llamada no está secuenciada.
+      // El recuento se hace en onPaneSaved (tras el flush) y en refreshTree/doCommit.
     }
-  }, [host, refreshLineStat])
+  }, [host])
 
   const onPaneSaved = useCallback((paneId: string) => {
     if (paneId === activePaneIdRef.current) {

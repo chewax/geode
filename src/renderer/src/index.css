@@ -973,6 +973,11 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   text-overflow: ellipsis;
 }
 
+/* Tab de preview (VSCode): la itálica es la ÚNICA señal (sin color ni peso nuevo). */
+.tab.preview .tab-label {
+  font-style: italic;
+}
+
 .tab-close {
   padding: 2px;
   border: none;

@@ -32,6 +32,8 @@ export interface EditorPaneProps {
   extraExtensions: Extension[]
   onFocusPane: (paneId: string) => void
   onSelectTab: (paneId: string, path: string) => void
+  /** Fija la tab de preview como permanente (doble click sobre la tab). */
+  onPinTab: (paneId: string, path: string) => void
   onCloseTab: (paneId: string, path: string) => void
   onReorderTab: (paneId: string, path: string, toIndex: number) => void
   onDropTab: (drag: TabDrag, dstPaneId: string, zone: DropZone) => void
@@ -243,7 +245,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         {pane.tabs.map((path, i) => (
           <div
             key={path}
-            className={`tab${path === pane.active ? ' active' : ''}${path === pane.active && ghost ? ' ghost' : ''}${dragOverTab === i ? ' drop-before' : ''}`}
+            className={`tab${path === pane.active ? ' active' : ''}${path === pane.preview ? ' preview' : ''}${path === pane.active && ghost ? ' ghost' : ''}${dragOverTab === i ? ' drop-before' : ''}`}
             title={path}
             draggable
             onDragStart={(e) => onTabDragStart(e, path)}
@@ -252,6 +254,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               setDragOverTab(null)
             }}
             onClick={() => props.onSelectTab(pane.id, path)}
+            onDoubleClick={() => props.onPinTab(pane.id, path)}
             onAuxClick={(e) => {
               if (e.button === 1) {
                 e.preventDefault()

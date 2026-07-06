@@ -1178,6 +1178,7 @@ export function App(): JSX.Element {
               extraExtensions={host.listExtensions()}
               onFocusPane={focusPane}
               onSelectTab={selectTab}
+              onPinTab={(paneId, path) => setPanes((prev) => pinTab(prev, paneId, path))}
               onCloseTab={(paneId, path) => void closeTab(paneId, path)}
               onReorderTab={reorderTabIn}
               onDropTab={(drag, dst, zone) => void dropTab(drag, dst, zone)}

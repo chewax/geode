@@ -11,6 +11,7 @@ export interface PaneViewProps {
   extraExtensions: Extension[]
   onFocusPane: (paneId: string) => void
   onSelectTab: (paneId: string, path: string) => void
+  onPinTab: (paneId: string, path: string) => void
   onCloseTab: (paneId: string, path: string) => void
   onReorderTab: (paneId: string, path: string, toIndex: number) => void
   onDropTab: (drag: TabDrag, dstPaneId: string, zone: DropZone) => void
@@ -40,6 +41,7 @@ export function PaneView(props: PaneViewProps): JSX.Element {
         extraExtensions={props.extraExtensions}
         onFocusPane={props.onFocusPane}
         onSelectTab={props.onSelectTab}
+        onPinTab={props.onPinTab}
         onCloseTab={props.onCloseTab}
         onReorderTab={props.onReorderTab}
         onDropTab={props.onDropTab}

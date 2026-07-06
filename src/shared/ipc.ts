@@ -28,6 +28,7 @@ export const IPC = {
   vaultCreateFolder: 'geode:vault-create-folder',
   vaultRename: 'geode:vault-rename',
   vaultDelete: 'geode:vault-delete',
+  vaultRemove: 'geode:vault-remove',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
@@ -146,6 +147,12 @@ export interface VaultApi {
   rename(from: string, to: string): Promise<void>
   /** Borra una nota o carpeta (recursivo). */
   delete(path: string): Promise<void>
+  /**
+   * Da de baja una bóveda: la quita de knownVaults y, si fromDisk, envía su carpeta
+   * a la papelera del SO (recuperable). Devuelve la bóveda activa resultante
+   * (null si no queda ninguna).
+   */
+  remove(root: string, opts: { fromDisk: boolean }): Promise<VaultInfo | null>
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────

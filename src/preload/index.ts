@@ -34,7 +34,8 @@ const api: GeodeApi = {
     createNote: (dir) => ipcRenderer.invoke(IPC.vaultCreateNote, dir),
     createFolder: (dir) => ipcRenderer.invoke(IPC.vaultCreateFolder, dir),
     rename: (from, to) => ipcRenderer.invoke(IPC.vaultRename, from, to),
-    delete: (path) => ipcRenderer.invoke(IPC.vaultDelete, path)
+    delete: (path) => ipcRenderer.invoke(IPC.vaultDelete, path),
+    remove: (root, opts) => ipcRenderer.invoke(IPC.vaultRemove, root, opts)
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),

@@ -44,6 +44,7 @@ import {
   loadSettings,
   saveSettings,
   rememberVault,
+  forgetVault,
   setAiKey,
   clearAiKey,
   getAiKey,
@@ -278,6 +279,53 @@ function registerIpcHandlers(): void {
       return null
     }
   })
+
+  ipcMain.handle(
+    IPC.vaultRemove,
+    async (_e, root: string, opts: { fromDisk: boolean }): Promise<VaultInfo | null> => {
+      // SEGURIDAD (mitiga T-07-05-01): solo damos de baja bóvedas conocidas. Nunca
+      // pasamos a shell.trashItem una ruta arbitraria que venga del renderer.
+      const { knownVaults } = await loadSettings()
+      if (!(knownVaults ?? []).includes(root)) throw new Error('Bóveda desconocida')
+
+      const wasActive = vault.getInfo()?.root === root
+
+      // Instantánea de seguridad de la bóveda activa antes de soltarla, para no
+      // perder cambios sin commitear (mismo patrón que vaultSwitch).
+      if (wasActive) {
+        await snapshotIfChanged('baja-de-boveda')
+      }
+
+      if (opts.fromDisk) {
+        // Si es la activa, la soltamos primero para no tener la carpeta "abierta"
+        // al enviarla a la papelera.
+        if (wasActive) vault.clearRoot()
+        try {
+          await shell.trashItem(root)
+        } catch (e) {
+          const motivo = e instanceof Error ? e.message : String(e)
+          // Falló la papelera: NO quitamos nada de knownVaults (T-07-05-04).
+          throw new Error(
+            `No se pudo enviar la carpeta a la papelera: ${motivo}. La bóveda sigue en la lista.`
+          )
+        }
+      }
+
+      const nextRoot = await forgetVault(root) // quita de knownVaults + reasigna lastVault
+
+      if (wasActive) {
+        if (nextRoot) {
+          await vault.setRoot(nextRoot)
+          await gitService.ensureRepo(nextRoot)
+        } else {
+          vault.clearRoot()
+        }
+        await restartSnapshotTimer() // rebind del timer al nuevo/ausente vault
+      }
+
+      return vault.getInfo()
+    }
+  )
 
   ipcMain.handle(
     IPC.vaultCloneFromGithub,

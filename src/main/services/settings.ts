@@ -92,6 +92,27 @@ export async function rememberVault(root: string): Promise<void> {
   await saveSettings(settings)
 }
 
+/**
+ * Da de baja `root` de `knownVaults` (inversa de `rememberVault`): lo quita de la
+ * lista y, si era la bóveda activa (`lastVault`), reasigna `lastVault` al nuevo
+ * frente (`knownVaults[0]`) o lo borra si no queda ninguna. Devuelve el nuevo
+ * `lastVault` (undefined si ya no queda ninguna bóveda conocida).
+ */
+export async function forgetVault(root: string): Promise<string | undefined> {
+  const settings = await loadSettings()
+  const known = (settings.knownVaults ?? []).filter((v) => v !== root)
+  settings.knownVaults = known
+  if (settings.lastVault === root) {
+    if (known.length > 0) {
+      settings.lastVault = known[0]
+    } else {
+      delete settings.lastVault
+    }
+  }
+  await saveSettings(settings)
+  return settings.lastVault
+}
+
 /** Guarda la API key de IA cifrada (si se puede) sin tocar el resto de ajustes. */
 export async function setAiKey(plain: string): Promise<void> {
   const settings = await loadSettings()

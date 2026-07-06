@@ -28,6 +28,11 @@ export class VaultService {
     return this.getInfo()!
   }
 
+  /** Deja la app sin bóveda activa — usado al dar de baja la última bóveda. */
+  clearRoot(): void {
+    this.root = null
+  }
+
   async openDialog(): Promise<VaultInfo | null> {
     const res = await dialog.showOpenDialog({
       title: 'Elegí una carpeta como vault',

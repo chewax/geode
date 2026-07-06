@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
-import { createPatch } from 'diff'
+import { createPatch, diffLines } from 'diff'
 import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
 import { atomicWrite } from '../fs/atomic'
 
@@ -780,6 +780,37 @@ export class GitService {
       out += createPatch(filepath, oldText, newText, '', '', { context: 2 }) + '\n'
     }
     return out.trim()
+  }
+
+  /**
+   * Recuento de líneas sin commitear de TODO el vault: cuántas líneas se
+   * agregaron y cuántas se quitaron respecto de HEAD. A diferencia de
+   * `pendingDiff` (que acota a `.md` para la IA), acá se suman TODOS los
+   * pendientes — adjuntos incluidos — porque el contador refleja la magnitud
+   * real del trabajo sin versionar. La detección de cambios es siempre por
+   * content-hash vs blobs de HEAD (vía `pendingChanges`/`headBlobs`/`workBlobs`);
+   * NUNCA statusMatrix (regla racy-git). Los binarios no aportan líneas.
+   */
+  async pendingLineStat(dir: string): Promise<{ added: number; removed: number }> {
+    const changes = await this.pendingChanges(dir) // todos los pendientes, sin filtrar por .md
+    if (changes.length === 0) return { added: 0, removed: 0 }
+    const headOid = await this.headOid(dir)
+
+    let added = 0
+    let removed = 0
+    for (const { filepath, deleted } of changes) {
+      const oldText = headOid ? await this.safeReadAt(dir, headOid, filepath) : ''
+      const newText = deleted ? '' : await readFile(join(dir, filepath), 'utf8').catch(() => '')
+
+      // Los binarios no se diffean por líneas; se saltan del recuento.
+      if (this.looksBinary(oldText) || this.looksBinary(newText)) continue
+
+      for (const part of diffLines(oldText, newText)) {
+        if (part.added) added += part.count ?? 0
+        else if (part.removed) removed += part.count ?? 0
+      }
+    }
+    return { added, removed }
   }
 
   /** Blobs (ruta→oid) del árbol de un commit. Solo archivos, no carpetas. */

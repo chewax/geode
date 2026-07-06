@@ -387,6 +387,7 @@ function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.gitCheckout, (_e, oid: string) => gitService.checkout(requireRoot(), oid))
   ipcMain.handle(IPC.gitChanges, () => gitService.changes(requireRoot()))
+  ipcMain.handle(IPC.gitPendingLineStat, () => gitService.pendingLineStat(requireRoot()))
   ipcMain.handle(IPC.gitCreateBranch, (_e, fromOid: string, name?: string) =>
     gitService.createBranch(requireRoot(), fromOid, name ?? '')
   )

@@ -54,7 +54,8 @@ const api: GeodeApi = {
     readNoteAt: (oid, path) => ipcRenderer.invoke(IPC.gitReadNoteAt, oid, path),
     treeAt: (oid) => ipcRenderer.invoke(IPC.gitTreeAt, oid),
     restoreTree: (oid) => ipcRenderer.invoke(IPC.gitRestoreTree, oid),
-    changedFiles: (oid) => ipcRenderer.invoke(IPC.gitChangedFiles, oid)
+    changedFiles: (oid) => ipcRenderer.invoke(IPC.gitChangedFiles, oid),
+    pendingLineStat: () => ipcRenderer.invoke(IPC.gitPendingLineStat)
   },
   github: {
     getConfig: () => ipcRenderer.invoke(IPC.githubGetConfig),

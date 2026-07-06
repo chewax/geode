@@ -35,6 +35,7 @@ export const IPC = {
   gitChanges: 'geode:git-changes',
   gitPush: 'geode:git-push',
   gitPendingPush: 'geode:git-pending-push',
+  gitPendingLineStat: 'geode:git-pending-linestat',
   gitCreateBranch: 'geode:git-create-branch',
   gitMergeBranch: 'geode:git-merge-branch',
   gitCommitDiff: 'geode:git-commit-diff',
@@ -254,6 +255,8 @@ export interface GitApi {
   removeTag(name: string): Promise<void>
   /** Borra una rama por su nombre. Lanza si es prod (main) o la rama actual. */
   deleteBranch(name: string): Promise<void>
+  /** Recuento de líneas sin commitear de todo el vault: `+added` / `-removed`. */
+  pendingLineStat(): Promise<{ added: number; removed: number }>
 }
 
 // ── GitHub (device flow + push del vault) ───────────────────────────────────

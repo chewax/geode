@@ -559,7 +559,11 @@ export function App(): JSX.Element {
       mapLeaves(prev, (leaf) => ({
         ...leaf,
         tabs: leaf.tabs.map(remap),
-        active: leaf.active ? remap(leaf.active) : null
+        active: leaf.active ? remap(leaf.active) : null,
+        // Remapear también la tab de preview: si no, tras renombrar quedaría
+        // apuntando al path viejo (referencia colgada → pierde la itálica y el
+        // doble-click para fijar deja de funcionar en ese panel).
+        preview: leaf.preview ? remap(leaf.preview) : leaf.preview
       }))
     )
     setSelected((s) => (s ? { ...s, path: remap(s.path) } : s))

@@ -74,6 +74,16 @@ button.primary {
   font-weight: 600;
 }
 
+/* Variante destructiva: rojo para señalar acciones sobre disco (borrar), NO el
+   acento morado. Misma geometría que .primary. */
+button.danger {
+  background: #ff6b6b;
+  color: #16161a;
+  border: none;
+  padding: 10px 18px;
+  font-weight: 600;
+}
+
 /* ── Pantalla de bienvenida (sin vault) ─────────────────────────────────── */
 .welcome {
   position: relative;

@@ -51,6 +51,7 @@ import { SidebarSection } from './SidebarSection'
 import { ActivityBar } from './ActivityBar'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
 import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
@@ -118,6 +119,8 @@ export function App(): JSX.Element {
   const [editingPath, setEditingPath] = useState<string | null>(null)
   /** Error de validación del rename en curso, mostrado inline bajo el input; null si no hay. */
   const [renameError, setRenameError] = useState<string | null>(null)
+  /** Nodo pendiente de confirmar borrado (abre el diálogo); null = cerrado. */
+  const [pendingDelete, setPendingDelete] = useState<TreeNode | null>(null)
   /** Nodo seleccionado en el árbol (archivo o carpeta): el "+" crea acá dentro. */
   const [selected, setSelected] = useState<{ path: string; isDir: boolean } | null>(null)
   /** Ruta a revelar en el árbol (auto-expande sus carpetas ancestro). */
@@ -497,19 +500,24 @@ export function App(): JSX.Element {
     await refreshTree()
   }, [refreshTree])
 
-  const deleteNode = useCallback(async (node: TreeNode) => {
-    const label = node.isDir ? node.name : node.name.replace(/\.md$/i, '')
-    const ok = window.confirm(
-      `¿Eliminar "${label}"?${node.isDir ? ' Se borra toda la carpeta y su contenido.' : ''}`
-    )
-    if (!ok) return
+  // Sólo abre el diálogo de confirmación; el borrado real vive en confirmDelete.
+  const deleteNode = useCallback((node: TreeNode) => {
+    setPendingDelete(node)
+  }, [])
+
+  // Ejecuta el borrado real tras la confirmación explícita del diálogo. El elemento
+  // sigue siendo recuperable desde el historial git.
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDelete) return
+    const node = pendingDelete
+    setPendingDelete(null)
     await window.geode.vault.delete(node.path)
     setPanes((prev) => removePathEverywhere(prev, node.path))
     setSelected((s) =>
       s && (s.path === node.path || s.path.startsWith(`${node.path}/`)) ? null : s
     )
     await refreshTree()
-  }, [refreshTree])
+  }, [pendingDelete, refreshTree])
 
   /** Tras un cambio de working tree (checkout/merge/rama): cierra las tabs de notas
    *  que ya no existen y recarga el contenido de todos los paneles desde disco. */
@@ -1255,6 +1263,14 @@ export function App(): JSX.Element {
           />
         )
       })()}
+
+      {pendingDelete && (
+        <ConfirmDeleteDialog
+          node={pendingDelete}
+          onConfirm={() => void confirmDelete()}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
 
       {branchFrom && (
         <BranchDialog

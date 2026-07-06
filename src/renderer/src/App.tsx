@@ -221,7 +221,9 @@ export function App(): JSX.Element {
     const oid = oidOverride !== undefined ? oidOverride : previewOid
     const t = oid ? await window.geode.git.treeAt(oid) : await window.geode.vault.tree()
     setTree(t)
-    void refreshLineStat() // el árbol cambió → recontar líneas pendientes
+    // En preview (oid != null) no recontamos: el contador es del presente y no
+    // debe mostrarse mientras se viaja al pasado (WR-02). En el presente sí.
+    if (oid == null) void refreshLineStat()
     return t
   }, [previewOid, refreshLineStat])
 
@@ -1307,8 +1309,9 @@ export function App(): JSX.Element {
               ) : (
                 <span>Ninguna nota abierta</span>
               )}
-              {/* Contador de líneas sin commitear (CHG-01): siempre visible, solo con cambios. */}
-              {lineStat.added + lineStat.removed > 0 && (
+              {/* Contador de líneas sin commitear (CHG-01): solo con cambios y en el
+                  presente — se oculta durante el viaje en el tiempo (WR-02). */}
+              {previewOid == null && lineStat.added + lineStat.removed > 0 && (
                 <span className="line-stat">
                   <span className="added">+{lineStat.added}</span>
                   <span className="removed">−{lineStat.removed}</span>

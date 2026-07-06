@@ -558,6 +558,12 @@ export function App(): JSX.Element {
   const refreshFromDisk = useCallback(async ({ reloadEditors = true }: { reloadEditors?: boolean } = {}): Promise<void> => {
     if (previewOid != null) return
     setRefreshing(true)
+    // El refresco de un vault local es casi instantáneo; para que el giro del
+    // icono se perciba como feedback de la acción del usuario, garantizamos un
+    // tiempo mínimo de spin (~medio ciclo) SOLO en el click del botón
+    // (reloadEditors), no en el auto-refresco al enfocar (no gira en cada alt-tab).
+    const minSpin =
+      reloadEditors ? new Promise<void>((r) => setTimeout(r, 500)) : Promise.resolve()
     try {
       await flushAll()
       const t = await refreshTree()
@@ -565,6 +571,7 @@ export function App(): JSX.Element {
       // auto-refresco al enfocar no, para no reiniciar cursor/undo en cada
       // alt-tab cuando nada cambió por fuera.
       syncPanesToTree(t, reloadEditors)
+      await minSpin
     } finally {
       setRefreshing(false)
     }

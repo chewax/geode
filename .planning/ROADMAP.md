@@ -29,7 +29,7 @@ Lleva el explorador de archivos y la gestión de bóvedas a paridad tipo VSCode 
 - Integer phases (6, 7): Planned milestone work (continues from v1.0's Phase 5)
 - Decimal phases (6.1, 6.2): Urgent insertions (marked INSERTED), appear between their surrounding integers
 
-- [ ] **Phase 6: Operaciones del árbol lateral** - Borrar (Del/Supr), renombrar (F2) y refrescar el árbol para reflejar cambios externos
+- [x] **Phase 6: Operaciones del árbol lateral** - Borrar (Del/Supr), renombrar (F2) y refrescar el árbol para reflejar cambios externos (completed 2026-07-06)
 - [ ] **Phase 7: Tabs de preview y gestión de bóvedas** - Tab temporal estilo VSCode (1 click) y baja de bóveda (de la lista, opcionalmente del disco con aviso)
 
 ## Phase Details
@@ -51,7 +51,7 @@ Plans:
 
 - [x] 06-01-PLAN.md — Teclado del árbol: F2 rename inline (con error inline) + diálogo de borrado Lucide/español (FILE-01, FILE-02)
 - [x] 06-02-PLAN.md — Refrescar el árbol: botón en cabecera EXPLORADOR + auto-refresh al recuperar foco (FILE-03)
-- [ ] 06-03-PLAN.md — UAT end-of-phase: gate de build verde + verificación humana FILE-01/02/03
+- [x] 06-03-PLAN.md — UAT end-of-phase: gate de build verde + verificación humana FILE-01/02/03
 
 **UI hint**: yes
 
@@ -83,5 +83,5 @@ Phases execute in numeric order: 6 → 7 (independientes entre sí; se ejecutan 
 | 3. Save a Named Version | v1.0 | 3/3 | Complete | 2026-07-04 |
 | 4. Automatic Snapshots | v1.0 | 3/3 | Complete | 2026-07-05 |
 | 5. Advanced Mode & Capa-0 Polish | v1.0 | 4/4 | Complete | 2026-07-05 |
-| 6. Operaciones del árbol lateral | v1.1 | 2/3 | In Progress|  |
+| 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 7. Tabs de preview y gestión de bóvedas | v1.1 | 0/? | Not started | - |

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Explorador y gestión de archivos
-status: planning
-stopped_at: Completed 06-02-PLAN.md (FILE-03)
-last_updated: "2026-07-06T00:00:00.000Z"
-last_activity: 2026-07-06 — 06-02 ejecutado (FILE-03)
+status: executing
+stopped_at: Completed Phase 06 (operaciones del árbol lateral) — UAT approved, verification passed (3/3)
+last_updated: "2026-07-06T12:00:00.000Z"
+last_activity: 2026-07-06 — Phase 06 cerrada: FILE-01/02/03; code-review CR-01+3WR fijados; fixes de UAT (rename mismo-nombre/case, refresh spin)
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 6 — Operaciones del árbol lateral (borrar/renombrar/refrescar)
+**Current focus:** Phase 7 — Tabs de preview y gestión de bóvedas (última de v1.1)
 
 ## Current Position
 
-Phase: 6 — Operaciones del árbol lateral (en progreso)
-Plan: 06-02 completado (refresh manual + auto-refresh al enfocar); FILE-01/FILE-02/FILE-03 listos
-Status: 06-02 ejecutado; typecheck en verde. Queda 06-03 (UAT) de Phase 6.
-Last activity: 2026-07-06 — 06-02 ejecutado (FILE-03)
+Phase: 6 — Operaciones del árbol lateral — COMPLETE (UAT §A–§C aprobado, VERIFICATION 3/3)
+Plan: 3 de 3
+Status: Cerrada. Siguiente: Phase 7 (FILE-04 tab preview + FILE-05 baja de bóveda).
+Last activity: 2026-07-06 — Phase 06 cerrada
 
 ## Performance Metrics
 

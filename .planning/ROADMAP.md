@@ -50,7 +50,10 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
   3. Si la rama a borrar contiene trabajo sin mergear, el usuario recibe un aviso explícito antes de perderlo — nada se elimina en silencio (valor central: nada se pierde).
   4. La status bar muestra el recuento de líneas sin commitear del vault como `+N`/`-N` (agregado en verde, quitado en rojo), actualizándose al editar y al guardar.
   5. El contador aparece solo cuando hay cambios pendientes y desaparece cuando el vault está limpio; en modo default no filtra jerga git.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 08-01-PLAN.md — VER-01: diálogo estilizado de borrado de rama (Cancelar autofocus, Enter no borra, aviso de pérdida)
+  - [ ] 08-02-PLAN.md — CHG-01: contador +N/-N en la status bar (git.pendingLineStat + IPC + UI)
+  - [ ] 08-03-PLAN.md — UAT humano (VER-01 + CHG-01) tras relanzar la app
 **UI hint**: yes
 
 ### Phase 9: Snapshots automáticos con IA opcional
@@ -99,7 +102,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 | 5. Advanced Mode & Capa-0 Polish | v1.0 | 4/4 | Complete | 2026-07-05 |
 | 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 7. Tabs de preview y gestión de bóvedas | v1.1 | 3/3 | Complete | 2026-07-06 |
-| 8. Versionado avanzado — borrar rama + contador | v1.2 | 0/? | Not started | - |
+| 8. Versionado avanzado — borrar rama + contador | v1.2 | 0/3 | Planned | - |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 0/? | Not started | - |
 | 10. Gestión de plugins — built-ins | v1.2 | 0/? | Not started | - |
 | 11. Aislamiento de plugins de terceros (Fase B) | v1.2 | 0/? | Not started | - |

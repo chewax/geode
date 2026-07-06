@@ -439,6 +439,11 @@ export function App(): JSX.Element {
    */
   const removeVault = useCallback(async (target: VaultInfo, fromDisk: boolean) => {
     try {
+      // Persistir lo tipeado antes de la instantánea de baja y (si aplica) de
+      // mandar la carpeta a la papelera: si no, se perderían los últimos ~600ms
+      // de escritura, y en fromDisk el flush de desmontaje escribiría en una
+      // carpeta ya en la papelera (viola "nada se pierde", WR-02).
+      await flushAll()
       const active = await window.geode.vault.remove(target.root, { fromDisk })
       if (target.root === vault?.root) {
         if (active) {
@@ -466,7 +471,7 @@ export function App(): JSX.Element {
     } finally {
       setRemoveVaultTarget(null)
     }
-  }, [vault, adoptVault, refreshVaults])
+  }, [vault, adoptVault, refreshVaults, flushAll])
 
   const newNoteIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createNote(dir)

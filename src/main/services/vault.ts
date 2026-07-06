@@ -146,7 +146,13 @@ export class VaultService {
   async rename(fromRel: string, toRel: string): Promise<void> {
     const from = this.resolveInside(fromRel)
     const to = this.resolveInside(toRel)
-    if (await this.exists(toRel)) {
+    // Mismo path exacto: nada que hacer (renombrar al mismo nombre no es un error).
+    if (from === to) return
+    // En Windows/macOS el FS suele ser case-insensitive: renombrar solo cambiando
+    // mayúsculas/minúsculas apunta al MISMO archivo. En ese caso no es una colisión
+    // ("Ya existe" sería falso positivo) — se hace el rename para aplicar el nuevo case.
+    const sameFileDifferentCase = from.toLowerCase() === to.toLowerCase()
+    if (!sameFileDifferentCase && (await this.exists(toRel))) {
       throw new Error(`Ya existe: ${toRel}`)
     }
     await rename(from, to)

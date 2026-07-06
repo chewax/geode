@@ -525,13 +525,18 @@ export function App(): JSX.Element {
     if (!pendingDelete) return
     const node = pendingDelete
     setPendingDelete(null)
+    // El árbol puede haber cambiado en disco mientras el diálogo estaba abierto
+    // (auto-refresco al enfocar). Si el nodo capturado ya no existe, no-op: borrar
+    // su ruta obsoleta sería un fs.rm silencioso (force:true) sobre algo que ya no
+    // está, dando falsa sensación de borrado. Cerramos el diálogo sin tocar disco.
+    if (!flattenPaths(tree).includes(node.path)) return
     await window.geode.vault.delete(node.path)
     setPanes((prev) => removePathEverywhere(prev, node.path))
     setSelected((s) =>
       s && (s.path === node.path || s.path.startsWith(`${node.path}/`)) ? null : s
     )
     await refreshTree()
-  }, [pendingDelete, refreshTree])
+  }, [pendingDelete, tree, refreshTree])
 
   /** Tras un cambio de working tree (checkout/merge/rama): cierra las tabs de notas
    *  que ya no existen y recarga el contenido de todos los paneles desde disco. */

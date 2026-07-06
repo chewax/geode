@@ -16,7 +16,8 @@ export interface FileTreeProps {
   defaultExpanded: boolean
   /** Cambia cada vez que se pide colapsar/expandir todo: reinicia el estado. */
   collapseVersion: number
-  onOpen: (path: string) => void
+  /** Abre una nota. Sin `pinned` = preview temporal (un click); `{ pinned: true }` = permanente (doble click). */
+  onOpen: (path: string, opts?: { pinned: boolean }) => void
   /** Selecciona un nodo (click en archivo o carpeta). */
   onSelect: (node: TreeNode) => void
   onContext: (node: TreeNode, x: number, y: number) => void
@@ -168,6 +169,12 @@ function TreeItem({
         if (editing) return
         onSelect(node)
         onOpen(node.path)
+      }}
+      onDoubleClick={() => {
+        if (editing) return
+        onSelect(node)
+        // Doble click fija la nota como tab permanente (misma ruta, idempotente).
+        onOpen(node.path, { pinned: true })
       }}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => {

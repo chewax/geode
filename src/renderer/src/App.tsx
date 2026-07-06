@@ -34,6 +34,7 @@ import {
   findLeaf,
   allLeaves,
   openInLeaf,
+  pinTab,
   updateLeaf,
   mapLeaves,
   reorderTab,
@@ -314,10 +315,11 @@ export function App(): JSX.Element {
     }
   }, [refreshGithub, refreshGraph, host])
 
-  /** Abre (o activa) una nota en el panel enfocado. */
-  const openNote = useCallback(async (path: string) => {
+  /** Abre (o activa) una nota en el panel enfocado. Sin `pinned` = preview (un
+   *  click en el árbol); `{ pinned: true }` = tab permanente (doble click). */
+  const openNote = useCallback(async (path: string, opts?: { pinned: boolean }) => {
     await flushAll() // no perder lo tipeado al cambiar de nota
-    setPanes((prev) => openInLeaf(prev, activePaneIdRef.current, path))
+    setPanes((prev) => openInLeaf(prev, activePaneIdRef.current, path, { preview: !opts?.pinned }))
   }, [flushAll])
 
   // ── Callbacks de los paneles (EditorPane → App) ─────────────────────────────
@@ -369,6 +371,8 @@ export function App(): JSX.Element {
 
   const onPaneNoteChange = useCallback((paneId: string, path: string, doc: string) => {
     paneContentRef.current.set(paneId, doc)
+    // Cualquier edición fija la preview de ese panel (idempotente si no lo es).
+    setPanes((prev) => pinTab(prev, paneId, path))
     if (paneId === activePaneIdRef.current) {
       setContent(doc)
       setStatus('saving')
@@ -430,7 +434,7 @@ export function App(): JSX.Element {
     await refreshTree()
     setRevealPath(node.path) // auto-expande la carpeta destino
     setSelected({ path: node.path, isDir: false })
-    await openNote(node.path)
+    await openNote(node.path, { pinned: true }) // una nota nueva se abre para editar, no como preview
     setRenameError(null)
     setRenameSeed(null)
     setEditingPath(node.path) // permitir nombrarla al toque
@@ -1109,7 +1113,7 @@ export function App(): JSX.Element {
                 revealPath={revealPath}
                 defaultExpanded={allExpanded}
                 collapseVersion={collapseVersion}
-                onOpen={(p) => void openNote(p)}
+                onOpen={(p, opts) => void openNote(p, opts)}
                 onSelect={(node) => setSelected({ path: node.path, isDir: node.isDir })}
                 onContext={(node, x, y) => setMenu({ node, x, y })}
                 onRename={(node, name) => void renameNode(node, name)}

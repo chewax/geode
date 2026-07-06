@@ -17,6 +17,8 @@ export interface LeafPane {
   tabs: string[]
   /** Nota activa del panel (una de `tabs`), o null si está vacío. */
   active: string | null
+  /** Ruta abierta como preview temporal (itálica, reutilizable), o null. Una sola por panel. */
+  preview: string | null
 }
 
 export interface SplitPane {
@@ -45,7 +47,8 @@ export function makeLeaf(tabs: string[] = [], active?: string | null): LeafPane 
     kind: 'leaf',
     id: newId(),
     tabs,
-    active: active ?? (tabs.length ? tabs[tabs.length - 1] : null)
+    active: active ?? (tabs.length ? tabs[tabs.length - 1] : null),
+    preview: null
   }
 }
 
@@ -81,13 +84,54 @@ export function updateLeaf(node: PaneLayout, id: string, fn: (leaf: LeafPane) =>
   return mapLeaves(node, (leaf) => (leaf.id === id ? fn(leaf) : leaf))
 }
 
-/** Abre (o activa) una nota en un panel: la agrega a tabs si falta y la activa. */
-export function openInLeaf(node: PaneLayout, paneId: string, path: string): PaneLayout {
-  return updateLeaf(node, paneId, (leaf) => ({
-    ...leaf,
-    tabs: leaf.tabs.includes(path) ? leaf.tabs : [...leaf.tabs, path],
-    active: path
-  }))
+/**
+ * Abre (o activa) una nota en un panel: la agrega a tabs si falta y la activa.
+ *
+ * Por defecto (permanente) mantiene el comportamiento clásico y, si la ruta era
+ * la preview del panel, la fija (limpia `preview`). Con `{ preview: true }` la
+ * abre como preview temporal reutilizable: si ya hay una preview distinta, la
+ * reemplaza en su misma posición (swap in-place, sin crecer el array de tabs);
+ * una tab permanente ya existente se activa sin convertirse en preview.
+ */
+export function openInLeaf(
+  node: PaneLayout,
+  paneId: string,
+  path: string,
+  opts?: { preview?: boolean }
+): PaneLayout {
+  return updateLeaf(node, paneId, (leaf) => {
+    // Permanente (default): agrega la tab si falta, activa, y fija si era la preview.
+    if (!opts?.preview) {
+      return {
+        ...leaf,
+        tabs: leaf.tabs.includes(path) ? leaf.tabs : [...leaf.tabs, path],
+        active: path,
+        preview: leaf.preview === path ? null : leaf.preview
+      }
+    }
+    // Preview: si ya es una tab permanente, solo activarla (no crear preview).
+    if (leaf.tabs.includes(path) && path !== leaf.preview) {
+      return { ...leaf, active: path }
+    }
+    // Reemplazar la preview existente en su misma posición (sin crecer el array).
+    if (leaf.preview != null && leaf.preview !== path) {
+      const idx = leaf.tabs.indexOf(leaf.preview)
+      const tabs = idx === -1 ? [...leaf.tabs, path] : leaf.tabs.map((p, i) => (i === idx ? path : p))
+      return { ...leaf, tabs, active: path, preview: path }
+    }
+    // No hay preview: agregar la tab (si falta) y marcarla como preview.
+    return {
+      ...leaf,
+      tabs: leaf.tabs.includes(path) ? leaf.tabs : [...leaf.tabs, path],
+      active: path,
+      preview: path
+    }
+  })
+}
+
+/** Fija como permanente la tab de preview indicada (deja de ser itálica). */
+export function pinTab(node: PaneLayout, paneId: string, path: string): PaneLayout {
+  return updateLeaf(node, paneId, (leaf) => (leaf.preview === path ? { ...leaf, preview: null } : leaf))
 }
 
 /** Reordena una tab dentro de un panel (mueve `path` a la posición `toIndex`). */
@@ -108,7 +152,8 @@ function dropTab(leaf: LeafPane, path: string): LeafPane {
   if (idx === -1) return leaf
   const tabs = leaf.tabs.filter((p) => p !== path)
   const active = leaf.active === path ? (tabs[idx] ?? tabs[idx - 1] ?? null) : leaf.active
-  return { ...leaf, tabs, active }
+  const preview = leaf.preview === path ? null : leaf.preview
+  return { ...leaf, tabs, active, preview }
 }
 
 /** Cierra una tab en un panel; poda el panel si queda vacío (salvo el último). */
@@ -124,7 +169,8 @@ export function removePathEverywhere(node: PaneLayout, path: string): PaneLayout
     const tabs = leaf.tabs.filter((p) => !affects(p))
     if (tabs.length === leaf.tabs.length) return leaf
     const active = leaf.active && affects(leaf.active) ? (tabs[tabs.length - 1] ?? null) : leaf.active
-    return { ...leaf, tabs, active }
+    const preview = leaf.preview && affects(leaf.preview) ? null : leaf.preview
+    return { ...leaf, tabs, active, preview }
   })
   return prune(next)
 }
@@ -135,7 +181,8 @@ export function keepOnly(node: PaneLayout, existing: Set<string>): PaneLayout {
     const tabs = leaf.tabs.filter((p) => existing.has(p))
     if (tabs.length === leaf.tabs.length) return leaf
     const active = leaf.active && existing.has(leaf.active) ? leaf.active : (tabs[tabs.length - 1] ?? null)
-    return { ...leaf, tabs, active }
+    const preview = leaf.preview && existing.has(leaf.preview) ? leaf.preview : null
+    return { ...leaf, tabs, active, preview }
   })
   return prune(next)
 }

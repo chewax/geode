@@ -813,7 +813,7 @@ export function App(): JSX.Element {
 
   /** Ejecuta el borrado real de la rama tras la confirmación explícita del diálogo.
    *  En error, muestra el detalle inline en el diálogo (sin window.alert) y NO cierra. */
-  const confirmDeleteBranch = useCallback(async () => {
+  const confirmDeleteBranch = useCallback(async (): Promise<void> => {
     // Guarda anti-reentrada (WR-03): una doble activación (doble click, o click
     // seguido de Enter con el botón enfocado) dispararía dos borrados sobre una
     // rama ya eliminada y escribiría el error en un diálogo ya desmontado.

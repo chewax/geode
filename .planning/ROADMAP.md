@@ -68,7 +68,13 @@ Plans:
   3. El usuario puede quitar una bóveda de la lista de bóvedas conocidas en cualquier momento; quitarla de la lista no toca los archivos del disco.
   4. Al dar de baja una bóveda, la app ofrece además borrarla del disco detrás de un aviso explícito e inequívoco; si el usuario no confirma, los archivos permanecen intactos en disco.
 
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+
+- [ ] 07-01-PLAN.md — Tabs de preview estilo VSCode: campo preview en paneTree + single/double click + itálica (FILE-04)
+- [ ] 07-02-PLAN.md — Baja de bóveda: IPC geode:vault-remove + shell.trashItem + ConfirmRemoveVaultDialog en VaultSwitcher (FILE-05)
+- [ ] 07-03-PLAN.md — UAT end-of-phase: gate de build verde + verificación humana FILE-04/05 (con relaunch por el main process)
+
 **UI hint**: yes
 
 ## Progress
@@ -84,4 +90,4 @@ Phases execute in numeric order: 6 → 7 (independientes entre sí; se ejecutan 
 | 4. Automatic Snapshots | v1.0 | 3/3 | Complete | 2026-07-05 |
 | 5. Advanced Mode & Capa-0 Polish | v1.0 | 4/4 | Complete | 2026-07-05 |
 | 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
-| 7. Tabs de preview y gestión de bóvedas | v1.1 | 0/? | Not started | - |
+| 7. Tabs de preview y gestión de bóvedas | v1.1 | 0/3 | Not started | - |

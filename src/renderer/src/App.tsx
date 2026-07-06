@@ -54,6 +54,7 @@ import { ActivityBar } from './ActivityBar'
 import { BranchSwitcher } from './BranchSwitcher'
 import { BranchDialog } from './BranchDialog'
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog'
+import { ConfirmRemoveVaultDialog } from './ConfirmRemoveVaultDialog'
 import { DiffView } from './DiffView'
 import { WindowControls } from './WindowControls'
 import { VersionGraph } from './VersionGraph'
@@ -81,6 +82,7 @@ export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
   const [vaults, setVaults] = useState<VaultInfo[]>([])
   const [newVaultOpen, setNewVaultOpen] = useState(false)
+  const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [tree, setTree] = useState<TreeNode[]>([])
   // Explorador estilo Obsidian: orden A-Z/Z-A y colapsar/expandir todo.
@@ -428,6 +430,43 @@ export function App(): JSX.Element {
     }
     await adoptVault(info)
   }, [adoptVault, refreshVaults])
+
+  /**
+   * Da de baja una bóveda (FILE-05). `fromDisk` envía además la carpeta a la
+   * papelera del SO (recuperable). Si se da de baja la bóveda ACTIVA, adopta la
+   * restante que devuelve el main, o resetea a la pantalla sin bóveda si no queda
+   * ninguna. Los errores (p.ej. la papelera falló) se muestran en español.
+   */
+  const removeVault = useCallback(async (target: VaultInfo, fromDisk: boolean) => {
+    try {
+      const active = await window.geode.vault.remove(target.root, { fromDisk })
+      if (target.root === vault?.root) {
+        if (active) {
+          // adoptVault ya refresca árbol/grafo/github/lista.
+          await adoptVault(active)
+        } else {
+          // No queda ninguna bóveda: reset al estado sin bóveda (pantalla welcome).
+          setVault(null)
+          setTree([])
+          setGraph(null)
+          const leaf = makeLeaf()
+          paneContentRef.current.clear()
+          setPanes(leaf)
+          setActivePaneId(leaf.id)
+          setContent('')
+          setStatus('none')
+          setSelected(null)
+          await refreshVaults()
+        }
+      } else {
+        await refreshVaults()
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo quitar la bóveda')
+    } finally {
+      setRemoveVaultTarget(null)
+    }
+  }, [vault, adoptVault, refreshVaults])
 
   const newNoteIn = useCallback(async (dir: string) => {
     const node = await window.geode.vault.createNote(dir)
@@ -1153,6 +1192,7 @@ export function App(): JSX.Element {
             onSwitch={(root) => void switchVault(root)}
             onManage={() => void openVault()}
             onNew={() => setNewVaultOpen(true)}
+            onRemove={(v) => setRemoveVaultTarget(v)}
           />
         </aside>
 
@@ -1346,6 +1386,14 @@ export function App(): JSX.Element {
           node={pendingDelete}
           onConfirm={() => void confirmDelete()}
           onClose={() => setPendingDelete(null)}
+        />
+      )}
+
+      {removeVaultTarget && (
+        <ConfirmRemoveVaultDialog
+          vaultName={removeVaultTarget.name}
+          onConfirm={(fromDisk) => void removeVault(removeVaultTarget, fromDisk)}
+          onClose={() => setRemoveVaultTarget(null)}
         />
       )}
 

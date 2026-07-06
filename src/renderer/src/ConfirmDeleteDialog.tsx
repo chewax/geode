@@ -13,7 +13,9 @@ interface ConfirmDeleteDialogProps {
 /**
  * Diálogo de confirmación de borrado. Reemplaza a window.confirm (Electron no lo
  * soporta bien) con la estética propia, espejando BranchDialog. El texto comunica
- * que el borrado es recuperable desde el historial git. Enter confirma, Escape cancela.
+ * que el borrado es recuperable desde el historial git. Escape cancela; Enter NO
+ * dispara el borrado: con "Cancelar" enfocado por defecto, Enter cancela. Borrar
+ * exige activar explícitamente "Eliminar" (clic, o Enter/Espacio con foco en él).
  */
 export function ConfirmDeleteDialog({ node, onConfirm, onClose }: ConfirmDeleteDialogProps): JSX.Element {
   // Las notas se muestran sin la extensión .md; las carpetas con su nombre tal cual.
@@ -26,8 +28,11 @@ export function ConfirmDeleteDialog({ node, onConfirm, onClose }: ConfirmDeleteD
         className="modal"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); onConfirm() }
-          else if (e.key === 'Escape') { e.preventDefault(); onClose() }
+          // Escape siempre cancela. Enter NO dispara el borrado destructivo a
+          // nivel de contenedor: el foco por defecto está en "Cancelar", así que
+          // Enter activa ese control y cancela. Borrar exige mover el foco a
+          // "Eliminar" (Tab) y activarlo, o hacer clic — nunca un Enter reflejo.
+          if (e.key === 'Escape') { e.preventDefault(); onClose() }
         }}
       >
         <h2>

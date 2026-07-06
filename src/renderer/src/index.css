@@ -624,6 +624,34 @@ body.resizing-col {
   white-space: nowrap;
 }
 
+/* Acción de baja por bóveda: oculta en reposo, revelada al hover/focus de la fila
+   (mismo patrón que .sidebar-section-actions .icon-btn). */
+.vault-menu-remove {
+  margin-left: auto;
+  opacity: 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.vault-menu li:hover .vault-menu-remove,
+.vault-menu-remove:focus {
+  opacity: 1;
+}
+
+.vault-menu-remove:hover {
+  color: var(--text);
+}
+
+/* Fila del checkbox "Eliminar también los archivos del disco" en el diálogo de baja. */
+.remove-vault-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .vault-menu-sep {
   height: 1px;
   margin: 4px 0;

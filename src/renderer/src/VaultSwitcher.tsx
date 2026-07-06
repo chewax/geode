@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import { ChevronRight, ChevronDown, Check, FolderOpen, Cloud } from 'lucide-react'
+import { ChevronRight, ChevronDown, Check, FolderOpen, Cloud, Trash2 } from 'lucide-react'
 import type { VaultInfo } from '@shared/ipc'
 
 export interface VaultSwitcherProps {
@@ -14,6 +14,8 @@ export interface VaultSwitcherProps {
   onManage: () => void
   /** "Clonar o crear en GitHub…": abre el diálogo de nueva bóveda. */
   onNew: () => void
+  /** Da de baja una bóveda: abre el diálogo de confirmación de baja. */
+  onRemove: (vault: VaultInfo) => void
 }
 
 /**
@@ -29,7 +31,8 @@ export function VaultSwitcher({
   vaults,
   onSwitch,
   onManage,
-  onNew
+  onNew,
+  onRemove
 }: VaultSwitcherProps): JSX.Element {
   const [open, setOpen] = useState(false)
 
@@ -72,6 +75,17 @@ export function VaultSwitcher({
             >
               <span className="vault-menu-name">{v.name}</span>
               {v.root === current.root && <Check size={14} />}
+              <button
+                className="icon-btn vault-menu-remove"
+                title="Quitar bóveda…"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setOpen(false)
+                  onRemove(v)
+                }}
+              >
+                <Trash2 size={14} />
+              </button>
             </li>
           ))}
           <li className="vault-menu-sep" />

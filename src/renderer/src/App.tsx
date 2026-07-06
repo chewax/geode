@@ -135,6 +135,8 @@ export function App(): JSX.Element {
   const [pendingDeleteBranch, setPendingDeleteBranch] = useState<{ name: string; merged: boolean } | null>(null)
   /** Error inline del borrado de rama (reemplaza a window.alert); null = sin error. */
   const [deleteBranchError, setDeleteBranchError] = useState<string | null>(null)
+  /** Borrado de rama en vuelo: evita reentradas por doble activación (WR-03). */
+  const deletingBranchRef = useRef(false)
   /** Nodo seleccionado en el árbol (archivo o carpeta): el "+" crea acá dentro. */
   const [selected, setSelected] = useState<{ path: string; isDir: boolean } | null>(null)
   /** Ruta a revelar en el árbol (auto-expande sus carpetas ancestro). */
@@ -812,7 +814,11 @@ export function App(): JSX.Element {
   /** Ejecuta el borrado real de la rama tras la confirmación explícita del diálogo.
    *  En error, muestra el detalle inline en el diálogo (sin window.alert) y NO cierra. */
   const confirmDeleteBranch = useCallback(async () => {
-    if (!pendingDeleteBranch) return
+    // Guarda anti-reentrada (WR-03): una doble activación (doble click, o click
+    // seguido de Enter con el botón enfocado) dispararía dos borrados sobre una
+    // rama ya eliminada y escribiría el error en un diálogo ya desmontado.
+    if (!pendingDeleteBranch || deletingBranchRef.current) return
+    deletingBranchRef.current = true
     const { name } = pendingDeleteBranch
     await flushAll()
     try {
@@ -821,6 +827,8 @@ export function App(): JSX.Element {
       const detalle = e instanceof Error ? e.message : ''
       setDeleteBranchError(detalle ? `No se pudo borrar la rama. ${detalle}` : 'No se pudo borrar la rama.')
       return
+    } finally {
+      deletingBranchRef.current = false
     }
     // Borrar la rama actual cambia a su base: recargar árbol/editor.
     setPendingDeleteBranch(null)

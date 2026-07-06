@@ -57,10 +57,12 @@ export function ConfirmRemoveVaultDialog({
           />
           Eliminar también los archivos del disco
         </label>
-        <p className="modal-sub">
-          Se mueven a la papelera del sistema (recuperable). Se borra la carpeta completa, incluido
-          el historial de versiones.
-        </p>
+        {fromDisk && (
+          <p className="modal-sub">
+            Se mueve a la papelera del sistema (recuperable). Se borra la carpeta completa, incluido
+            el historial de versiones.
+          </p>
+        )}
         <div className="modal-actions">
           {/* Foco por defecto en la acción no destructiva. */}
           <button autoFocus onClick={onClose}>

@@ -84,6 +84,17 @@ button.danger {
   font-weight: 600;
 }
 
+/* Feedback de hover/active para la CTA destructiva (el cursor:pointer lo hereda
+   de la regla base `button`). Rojo algo más oscuro, como .primary con el acento. */
+button.danger:hover {
+  background: #ff5252;
+  border-color: transparent;
+}
+
+button.danger:active {
+  background: #e04848;
+}
+
 /* ── Pantalla de bienvenida (sin vault) ─────────────────────────────────── */
 .welcome {
   position: relative;

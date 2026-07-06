@@ -100,6 +100,8 @@ export function App(): JSX.Element {
   // Espejo del panel enfocado (para statusbar, stats, título, IA, timeline).
   const [content, setContent] = useState('')
   const [status, setStatus] = useState<SaveStatus>('none')
+  // Contador de líneas sin commitear de todo el vault (CHG-01): +added / -removed.
+  const [lineStat, setLineStat] = useState<{ added: number; removed: number }>({ added: 0, removed: 0 })
   /** Handles imperativos de cada panel (flush, editor activo, preview). */
   const paneHandles = useRef<Map<string, PaneHandle>>(new Map())
   /** Último contenido conocido por panel (para refrescar el espejo al enfocar). */
@@ -206,12 +208,22 @@ export function App(): JSX.Element {
    * explícito para usar el oid correcto en la misma tanda en que se hace
    * `setPreviewOid` (el estado aún no re-renderizó).
    */
+  /** Recalcula el contador de líneas sin commitear (CHG-01). Sin IA (invariante de costo). */
+  const refreshLineStat = useCallback(async (): Promise<void> => {
+    try {
+      setLineStat(await window.geode.git.pendingLineStat())
+    } catch {
+      setLineStat({ added: 0, removed: 0 })
+    }
+  }, [])
+
   const refreshTree = useCallback(async (oidOverride?: string | null): Promise<TreeNode[]> => {
     const oid = oidOverride !== undefined ? oidOverride : previewOid
     const t = oid ? await window.geode.git.treeAt(oid) : await window.geode.vault.tree()
     setTree(t)
+    void refreshLineStat() // el árbol cambió → recontar líneas pendientes
     return t
-  }, [previewOid])
+  }, [previewOid, refreshLineStat])
 
   const refreshGraph = useCallback(async () => {
     setGraph(await window.geode.git.graph())
@@ -388,14 +400,16 @@ export function App(): JSX.Element {
       setContent(doc)
       setStatus('saving')
       host.emit('note:change', { path, content: doc })
+      void refreshLineStat() // fire-and-forget: no bloquear el tecleo (CHG-01)
     }
-  }, [host])
+  }, [host, refreshLineStat])
 
   const onPaneSaved = useCallback((paneId: string) => {
     if (paneId === activePaneIdRef.current) {
       setStatus('saved')
+      void refreshLineStat() // el guardado cambió lo pendiente → recontar (CHG-01)
     }
-  }, [])
+  }, [refreshLineStat])
 
   const registerPaneHandle = useCallback((paneId: string, handle: PaneHandle | null) => {
     if (handle) paneHandles.current.set(paneId, handle)
@@ -1289,6 +1303,13 @@ export function App(): JSX.Element {
                 </>
               ) : (
                 <span>Ninguna nota abierta</span>
+              )}
+              {/* Contador de líneas sin commitear (CHG-01): siempre visible, solo con cambios. */}
+              {lineStat.added + lineStat.removed > 0 && (
+                <span className="line-stat">
+                  <span className="added">+{lineStat.added}</span>
+                  <span className="removed">−{lineStat.removed}</span>
+                </span>
               )}
               {(() => {
                 const s = statusLabel(status, !!githubCfg?.connected, pushCount)

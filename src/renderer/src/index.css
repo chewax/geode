@@ -199,6 +199,23 @@ button.danger:active {
   white-space: nowrap;
 }
 
+/* Contador de líneas sin commitear (CHG-01): +verde / -rojo, tokens reusados. */
+.line-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.line-stat .added {
+  color: #68d391;
+}
+
+.line-stat .removed {
+  color: #ff6b6b;
+}
+
 .tb-actions {
   display: flex;
   align-items: center;

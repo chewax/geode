@@ -46,6 +46,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
   // Guardado automático (cadencia de snapshots; null = manual)
   const [cadence, setCadence] = useState<number | null>(10)
+  // Opt-in de nombrado por IA de las auto-snapshots (default apagado)
+  const [aiTitles, setAiTitles] = useState(false)
 
   // Modo Avanzado (interruptor de las superficies git; default off)
   const [advanced, setAdvanced] = useState(false)
@@ -87,7 +89,14 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       const g = await window.geode.github.getConfig()
       setGithub(g)
       setRemoteInput(g.remote ?? '')
-      setCadence((await window.geode.snapshots.get()).cadenceMinutes)
+      // Fallback: si snapshots.get() fallara, cadencia y aiTitles quedan en sus defaults.
+      try {
+        const s = await window.geode.snapshots.get()
+        setCadence(s.cadenceMinutes)
+        setAiTitles(s.aiTitles)
+      } catch {
+        setAiTitles(false)
+      }
       // Fallback git-free: si la lectura del flag falla, queda en off (sin error bloqueante).
       try {
         setAdvanced((await window.geode.advanced.get()).enabled)
@@ -105,6 +114,11 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const changeCadence = async (value: number | null): Promise<void> => {
     const cfg = await window.geode.snapshots.set(value)
     setCadence(cfg.cadenceMinutes)
+  }
+
+  const changeAiTitles = async (value: boolean): Promise<void> => {
+    const cfg = await window.geode.snapshots.setAiTitles(value)
+    setAiTitles(cfg.aiTitles)
   }
 
   const changeAdvanced = async (value: boolean): Promise<void> => {
@@ -427,8 +441,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               <section className="settings-section">
                 <h2><Clock size={18} /> Guardado automático</h2>
                 <p className="modal-sub">
-                  La bóveda se guarda sola cada cierto tiempo, sólo cuando algo cambió. No usa IA (no
-                  tiene costo).
+                  La bóveda se guarda sola cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente,
+                  la IA puede ponerle un nombre a cada una de esas snapshots automáticas.
                 </p>
 
                 <label className="field-label">Cadencia</label>
@@ -446,6 +460,19 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   <option value="30">Cada 30 minutos</option>
                 </select>
                 <p className="hint">Por defecto: cada 10 minutos.</p>
+
+                <label className="toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={aiTitles}
+                    onChange={(e) => void changeAiTitles(e.target.checked)}
+                  />
+                  Nombrar las snapshots automáticas con IA
+                </label>
+                <p className="hint">
+                  Usa tu API key de IA, así que tiene costo. La IA sólo se invoca cuando una snapshot
+                  automática realmente tiene cambios — nunca por el tiempo transcurrido.
+                </p>
               </section>
             )}
 

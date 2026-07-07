@@ -93,7 +93,10 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
   3. El estado activado/desactivado de cada built-in se persiste entre sesiones en `settings.plugins.enabled`.
   4. Reactivar un built-in previamente desactivado restaura sus comandos/paneles/extensiones.
 
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 10-01-PLAN.md — IPC de solo lectura `plugins.getEnabled` (canal + preload + handler)
+- [ ] 10-02-PLAN.md — Gating de built-ins en App.tsx (default ON) + grupo "Integrados" con toggles en Ajustes + `GeodePlugin.description`
+- [ ] 10-03-PLAN.md — UAT: relanzar y verificar SC-1..SC-4 y default ON
 **UI hint**: yes
 
 ### Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)

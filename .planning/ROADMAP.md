@@ -35,7 +35,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 
 - [x] **Phase 8: Versionado avanzado — borrar rama + contador de cambios** — En Modo Avanzado se borra una rama sin mergear (con protección de `main` y aviso) y la status bar muestra `+N`/`-N` sin commitear
 - [x] **Phase 9: Snapshots automáticos con IA opcional** — Opt-in en Ajustes (default OFF) para que las auto-snapshots usen IA solo con cambios reales, sin romper el invariante de costo
-- [ ] **Phase 10: Gestión de plugins — activar/desactivar built-ins** — Los plugins internos se activan/desactivan desde Ajustes igual que los externos, con estado persistido
+- [x] **Phase 10: Gestión de plugins — activar/desactivar built-ins** — Los plugins internos se activan/desactivan desde Ajustes igual que los externos, con estado persistido
 - [ ] **Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)** — Terceros corren aislados (iframe + puente postMessage), con permisos declarados aplicados y sin `unsafe-eval` en el CSP
 
 ## Phase Details
@@ -94,9 +94,9 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
   4. Reactivar un built-in previamente desactivado restaura sus comandos/paneles/extensiones.
 
 **Plans**: 3 plans
-- [ ] 10-01-PLAN.md — IPC de solo lectura `plugins.getEnabled` (canal + preload + handler)
-- [ ] 10-02-PLAN.md — Gating de built-ins en App.tsx (default ON) + grupo "Integrados" con toggles en Ajustes + `GeodePlugin.description`
-- [ ] 10-03-PLAN.md — UAT: relanzar y verificar SC-1..SC-4 y default ON
+  - [x] 10-01-PLAN.md — IPC de solo lectura `plugins.getEnabled` (canal + preload + handler)
+  - [x] 10-02-PLAN.md — Gating de built-ins en App.tsx (default ON) + grupo "Integrados" con toggles en Ajustes + `GeodePlugin.description`
+  - [x] 10-03-PLAN.md — UAT: relanzar y verificar SC-1..SC-4 y default ON
 **UI hint**: yes
 
 ### Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)
@@ -127,5 +127,5 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 | 7. Tabs de preview y gestión de bóvedas | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 10. Gestión de plugins — built-ins | v1.2 | 0/? | Not started | - |
+| 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 11. Aislamiento de plugins de terceros (Fase B) | v1.2 | 0/? | Not started | - |

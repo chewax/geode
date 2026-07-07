@@ -18,7 +18,7 @@ Control avanzado del versionado + apertura segura de la plataforma de plugins. L
 
 ### Plataforma de plugins
 
-- [ ] **PLUG-01**: El usuario puede activar/desactivar plugins internos (built-in) desde Ajustes, igual que los externos, con el estado persistido; desactivar uno lo quita de comandos/paneles/status/extensiones.
+- [x] **PLUG-01**: El usuario puede activar/desactivar plugins internos (built-in) desde Ajustes, igual que los externos, con el estado persistido; desactivar uno lo quita de comandos/paneles/status/extensiones.
 - [ ] **PLUG-02**: Los plugins de terceros (no confiables) corren aislados (Fase B, MVP): no acceden a `window.geode`, a Node, ni a globals del renderer; solo reciben el `PluginContext` a través de un puente; los permisos declarados en `plugin.json` se hacen cumplir para las capacidades sensibles (lectura/escritura de notas, red); y se retira `unsafe-eval` del CSP del host.
 
 ## Future Requirements
@@ -48,7 +48,7 @@ Excluido explícitamente de v1.2 para evitar scope creep.
 | VER-01 | Phase 8 | Complete |
 | CHG-01 | Phase 8 | Complete |
 | AISNAP-01 | Phase 9 | Complete |
-| PLUG-01 | Phase 10 | Pending |
+| PLUG-01 | Phase 10 | Complete |
 | PLUG-02 | Phase 11 | Pending |
 
 **Coverage:**

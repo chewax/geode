@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Power-user y plataforma
 status: executing
-stopped_at: Completed 09-03-PLAN.md (Phase 9 closed — UAT approved, verification passed 4/4)
+stopped_at: Completed 10-03-PLAN.md (Phase 10 closed — UAT approved, verification passed 4/4)
 last_updated: "2026-07-07T13:27:52.504Z"
-last_activity: 2026-07-07 -- Phase 9 (AISNAP-01) closed
+last_activity: 2026-07-07 -- Phase 10 (PLUG-01) closed
 progress:
   total_phases: 4
   completed_phases: 3
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 10 — Gestión de plugins (activar/desactivar built-ins, PLUG-01)
+**Current focus:** v1.2 lifecycle (audit → complete → cleanup); Phase 11 (PLUG-02) es la última pendiente
 
 ## Current Position
 
-Phase: 10 — NOT STARTED (Phase 9 closed)
+Phase: 11 — NOT STARTED (Phases 8/9/10 closed)
 Plan: — of —
-Status: Milestone v1.2 at 3/4 phases; next is Phase 10 (PLUG-01)
-Last activity: 2026-07-07 -- Phase 9 (AISNAP-01) closed: UAT approved, verification passed 4/4
+Status: Milestone v1.2 at 4/4 phases planned; Phases 8-10 shipped. Phase 11 (PLUG-02, sandbox Fase B) pendiente.
+Last activity: 2026-07-07 -- Phase 10 (PLUG-01) closed: UAT approved, verification passed 4/4
 
 ## Performance Metrics
 
@@ -94,9 +94,9 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-07-06T23:14:10.181Z
-Stopped at: Completed 09-03-PLAN.md (Phase 9 closed)
+Stopped at: Completed 10-03-PLAN.md (Phase 10 closed)
 Resume file: None
 
 ## Operator Next Steps
 
-- Plan the next phase with /gsd-plan-phase 10
+- Plan the next phase with /gsd-plan-phase 11

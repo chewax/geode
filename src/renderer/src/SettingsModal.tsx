@@ -54,8 +54,11 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
   // Plugins externos
   const [extPlugins, setExtPlugins] = useState<InstalledPlugin[]>([])
+  // Mapa de habilitados de los built-ins (id → on). Ausente = ON por defecto.
+  const [builtinEnabled, setBuiltinEnabled] = useState<Record<string, boolean>>({})
   const refreshPlugins = useCallback(async () => {
     setExtPlugins(await window.geode.plugins.list())
+    setBuiltinEnabled(await window.geode.plugins.getEnabled())
   }, [])
 
   const apply = useCallback(
@@ -109,6 +112,14 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
   const togglePlugin = async (id: string, enabled: boolean): Promise<void> => {
     setExtPlugins(await window.geode.plugins.setEnabled(id, enabled))
+  }
+
+  // Toggle de un built-in: persiste vía setEnabled y relee el mapa para reflejar
+  // el nuevo estado (el retorno de setEnabled es la lista de externos, que acá
+  // no usamos). El cambio se aplica al reiniciar la app.
+  const toggleBuiltin = async (id: string, enabled: boolean): Promise<void> => {
+    await window.geode.plugins.setEnabled(id, enabled)
+    setBuiltinEnabled(await window.geode.plugins.getEnabled())
   }
 
   const changeCadence = async (value: number | null): Promise<void> => {
@@ -370,6 +381,36 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 <h2><Puzzle size={18} /> Plugins</h2>
 
                 <div className="ps-group-head">
+                  <h3>Integrados</h3>
+                </div>
+                <p className="modal-sub">
+                  Vienen incluidos con Geode y están activos por defecto. Al desactivar uno,
+                  el cambio se aplica al reiniciar la app.
+                </p>
+                <ul className="plugin-settings-list">
+                  {BUILTIN_PLUGINS.map((p) => (
+                    <li key={p.id} className="plugin-settings-row">
+                      <div className="ps-info">
+                        <div className="ps-name">{p.name}</div>
+                        <div className="ps-id">{p.id}</div>
+                        {p.description && <div className="ps-desc">{p.description}</div>}
+                      </div>
+                      <label
+                        className="ps-toggle"
+                        title={(builtinEnabled[p.id] ?? true) ? 'Activado' : 'Desactivado'}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={builtinEnabled[p.id] ?? true}
+                          onChange={(e) => void toggleBuiltin(p.id, e.target.checked)}
+                        />
+                        {(builtinEnabled[p.id] ?? true) ? 'activado' : 'desactivado'}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="ps-group-head">
                   <h3>Instalados</h3>
                   <div className="ps-actions">
                     <button className="icon-btn" title="Recargar lista" onClick={() => void refreshPlugins()}>
@@ -417,20 +458,6 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   </ul>
                 )}
 
-                <div className="ps-group-head">
-                  <h3>Internos</h3>
-                </div>
-                <ul className="plugin-settings-list">
-                  {BUILTIN_PLUGINS.map((p) => (
-                    <li key={p.id} className="plugin-settings-row">
-                      <div className="ps-info">
-                        <div className="ps-name">{p.name}</div>
-                        <div className="ps-id">{p.id}</div>
-                      </div>
-                      <span className="ps-on"><Check size={12} /> activo</span>
-                    </li>
-                  ))}
-                </ul>
                 <p className="hint">
                   Abrí la paleta de comandos con <b>Ctrl+P</b> para ver lo que aportan.
                 </p>

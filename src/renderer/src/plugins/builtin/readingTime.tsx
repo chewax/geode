@@ -38,6 +38,7 @@ function ReadingTime(): JSX.Element | null {
 export const readingTimePlugin: GeodePlugin = {
   id: 'reading-time',
   name: 'Tiempo de lectura',
+  description: 'Muestra el tiempo estimado de lectura de la nota en la barra de estado',
   activate(ctx) {
     ctx.statusBar.addItem({ id: 'reading-time', Component: ReadingTime })
   }

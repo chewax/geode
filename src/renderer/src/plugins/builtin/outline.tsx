@@ -71,6 +71,7 @@ function Outline(): JSX.Element {
 export const outlinePlugin: GeodePlugin = {
   id: 'outline',
   name: 'Esquema',
+  description: 'Panel de esquema con los encabezados de la nota; salta al encabezado al hacer click',
   activate(ctx) {
     ctx.panels.register({ id: 'outline', title: 'Esquema', icon: <List size={14} />, Component: Outline })
     ctx.commands.register({

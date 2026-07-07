@@ -949,12 +949,24 @@ export function App(): JSX.Element {
       },
       notify: (m) => setToast(m)
     })
-    const offPlugins = activatePlugins(host, BUILTIN_PLUGINS)
+    let cancelled = false
+
+    // Built-ins: default ON. Se lee el mapa de habilitados por IPC (async) y se
+    // filtran los internos con `?? true` — un built-in ausente del mapa se
+    // activa; solo se excluye si su entrada es explícitamente `false`. Difiere
+    // de los externos, que son opt-in (`?? false`, resuelto en el main). El
+    // await respeta el flag `cancelled` del unmount para no activar tras montar.
+    let offPlugins: { dispose: () => void } | null = null
+    void (async () => {
+      const enabledMap = await window.geode.plugins.getEnabled()
+      if (cancelled) return
+      const enabledBuiltins = BUILTIN_PLUGINS.filter((p) => enabledMap[p.id] ?? true)
+      offPlugins = activatePlugins(host, enabledBuiltins)
+    })()
 
     // Plugins externos: la carga es async (lee la fuente por IPC y la evalúa),
     // así que se activan aparte y se limpian en el unmount aunque lleguen tarde.
     let offExternal: { dispose: () => void } | null = null
-    let cancelled = false
     void (async () => {
       const { plugins, errors } = await loadExternalPlugins()
       if (cancelled) return
@@ -979,7 +991,7 @@ export function App(): JSX.Element {
     return () => {
       cancelled = true
       cmds.forEach((c) => c.dispose())
-      offPlugins.dispose()
+      offPlugins?.dispose()
       offExternal?.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

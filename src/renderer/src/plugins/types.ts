@@ -89,6 +89,8 @@ export interface PluginContext extends Workspace {
 export interface GeodePlugin {
   id: string
   name: string
+  /** Descripción breve en español para la UI de Ajustes (grupo "Integrados"). */
+  description?: string
   /** Se llama una vez al cargar. Puede devolver un Disposable de limpieza. */
   activate(ctx: PluginContext): void | Disposable
 }

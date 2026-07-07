@@ -12,6 +12,7 @@ function isoDate(): string {
 export const insertDatePlugin: GeodePlugin = {
   id: 'insert-date',
   name: 'Insertar fecha',
+  description: 'Inserta la fecha (y hora) de hoy en el cursor desde la paleta',
   activate(ctx) {
     ctx.commands.register({
       id: 'insert-date.today',

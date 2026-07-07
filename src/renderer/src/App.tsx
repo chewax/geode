@@ -1315,14 +1315,6 @@ export function App(): JSX.Element {
               ) : (
                 <span>Ninguna nota abierta</span>
               )}
-              {/* Contador de líneas sin commitear (CHG-01): solo con cambios y en el
-                  presente — se oculta durante el viaje en el tiempo (WR-02). */}
-              {previewOid == null && lineStat.added + lineStat.removed > 0 && (
-                <span className="line-stat">
-                  <span className="added">+{lineStat.added}</span>
-                  <span className="removed">−{lineStat.removed}</span>
-                </span>
-              )}
               {(() => {
                 const s = statusLabel(status, !!githubCfg?.connected, pushCount)
                 if (!s) return null
@@ -1337,6 +1329,15 @@ export function App(): JSX.Element {
             </div>
 
             <div className="status-right">
+              {/* Contador de líneas sin commitear (CHG-01): solo con cambios y en el
+                  presente — se oculta durante el viaje en el tiempo (WR-02). */}
+              {previewOid == null && lineStat.added + lineStat.removed > 0 && (
+                <span className="line-stat">
+                  <span className="added">+{lineStat.added}</span>
+                  <span className="removed">−{lineStat.removed}</span>
+                </span>
+              )}
+
               <PluginStatusItems host={host} />
 
               {advanced && graph && graph.head.oid && (

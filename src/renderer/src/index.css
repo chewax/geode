@@ -2521,16 +2521,7 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   font-family: 'JetBrains Mono', Consolas, monospace;
 }
 
-.ps-on {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #68d391;
-  flex-shrink: 0;
-}
-
-/* Encabezado de grupo (Instalados / Internos) con acciones a la derecha. */
+/* Encabezado de grupo (Instalados / Integrados) con acciones a la derecha. */
 .ps-group-head {
   display: flex;
   align-items: center;

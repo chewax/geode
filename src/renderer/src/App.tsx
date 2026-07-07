@@ -958,7 +958,16 @@ export function App(): JSX.Element {
     // await respeta el flag `cancelled` del unmount para no activar tras montar.
     let offPlugins: { dispose: () => void } | null = null
     void (async () => {
-      const enabledMap = await window.geode.plugins.getEnabled()
+      // Fail-open: los built-ins son ON por defecto (núcleo). Si la IPC falla,
+      // se usa un mapa vacío para que `?? true` reactive TODOS los internos en
+      // vez de dejar al usuario sin funcionalidad. Además evita un unhandled
+      // rejection en el fire-and-forget.
+      let enabledMap: Record<string, boolean> = {}
+      try {
+        enabledMap = await window.geode.plugins.getEnabled()
+      } catch {
+        enabledMap = {}
+      }
       if (cancelled) return
       const enabledBuiltins = BUILTIN_PLUGINS.filter((p) => enabledMap[p.id] ?? true)
       offPlugins = activatePlugins(host, enabledBuiltins)

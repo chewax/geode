@@ -5,7 +5,9 @@
 
 ## v1.2 Requirements
 
-Control avanzado del versionado + apertura segura de la plataforma de plugins. La experiencia por defecto no cambia; lo nuevo vive en Modo Avanzado, Ajustes, o el subsistema de plugins.
+Control avanzado del versionado + gestión de plugins internos. La experiencia por defecto no cambia; lo nuevo vive en Modo Avanzado, Ajustes, o el subsistema de plugins.
+
+> **Nota de alcance (cierre):** v1.2 se cierra con 3 fases (8, 9, 10). El aislamiento de plugins de terceros (PLUG-02 / Fase B) se movió a un **hito dedicado** por su tamaño y riesgo — ver Future Requirements.
 
 ### Versionado avanzado (Modo Avanzado)
 
@@ -19,12 +21,12 @@ Control avanzado del versionado + apertura segura de la plataforma de plugins. L
 ### Plataforma de plugins
 
 - [x] **PLUG-01**: El usuario puede activar/desactivar plugins internos (built-in) desde Ajustes, igual que los externos, con el estado persistido; desactivar uno lo quita de comandos/paneles/status/extensiones.
-- [ ] **PLUG-02**: Los plugins de terceros (no confiables) corren aislados (Fase B, MVP): no acceden a `window.geode`, a Node, ni a globals del renderer; solo reciben el `PluginContext` a través de un puente; los permisos declarados en `plugin.json` se hacen cumplir para las capacidades sensibles (lectura/escritura de notas, red); y se retira `unsafe-eval` del CSP del host.
 
 ## Future Requirements
 
 Diferidos a hitos futuros (del ToDo del usuario / diseño):
 
+- **PLUG-02** (encabeza el próximo hito — *Aislamiento de plugins*): Los plugins de terceros (no confiables) corren aislados (Fase B, MVP): no acceden a `window.geode`, a Node, ni a globals del renderer; solo reciben el `PluginContext` a través de un puente; los permisos declarados en `plugin.json` se hacen cumplir para las capacidades sensibles (lectura/escritura de notas, red); y se retira `unsafe-eval` del CSP del host. **Movido a hito dedicado** durante el cierre de v1.2 por su tamaño (toca el corazón del subsistema de plugins, migra la API de editor a async, quita `unsafe-eval`) y su riesgo (romper los built-ins existentes). Sigue el orden de migración de `docs/PLUGINS.md`.
 - **PLUG-marketplace**: distribución/instalación desde un registro, firma de plugins, `minAppVersion` enforcement, migración de la API de editor a async completa — Fase B "completa" más allá del MVP de aislamiento (PLUG-02).
 - **EDIT-xx**: edición Markdown enriquecida (toolbar, tablas, imágenes, hiperlinks/block links, Mermaid en preview, pantalla de ayuda).
 - **VOICE-xx**: dictado por voz (speech-to-text con hook global).
@@ -36,9 +38,10 @@ Excluido explícitamente de v1.2 para evitar scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Marketplace / instalación remota / firma de plugins | PLUG-02 cubre el AISLAMIENTO (lo que habilita terceros de forma segura); la distribución es un incremento posterior |
+| Aislamiento de plugins de terceros (Fase B / PLUG-02) | Movido a un hito dedicado durante el cierre de v1.2: es el ítem más grande (iframe + puente postMessage + permisos + API editor async + quitar unsafe-eval) y merece su propio ciclo |
+| Marketplace / instalación remota / firma de plugins | La distribución es un incremento posterior al aislamiento (PLUG-02) |
 | Hot enable/disable de plugins sin reiniciar | PLUG-01 puede requerir reinicio (limitación conocida de Fase A); volverlo hot es mejora aparte |
-| IA en snapshots por cadencia de tiempo | AISNAP-01 es solo-idle + solo-con-cambios, para no disparar costo por tiempo transcurrido (invariante de costo v1.0) |
+| IA en snapshots por cadencia de tiempo | AISNAP-01 es solo-con-cambios, para no disparar costo por tiempo transcurrido (invariante de costo v1.0) |
 | Rebase/cherry-pick/DAG surgery arbitraria | Fuera del alcance; VER-01 es solo borrar una rama |
 
 ## Traceability
@@ -49,13 +52,13 @@ Excluido explícitamente de v1.2 para evitar scope creep.
 | CHG-01 | Phase 8 | Complete |
 | AISNAP-01 | Phase 9 | Complete |
 | PLUG-01 | Phase 10 | Complete |
-| PLUG-02 | Phase 11 | Pending |
+| PLUG-02 | (hito futuro) | Deferred |
 
 **Coverage:**
 
-- v1.2 requirements: 5 total
-- Mapped to phases: 5/5 ✓ (no orphans, no duplicates)
-- Phase 8: VER-01, CHG-01 · Phase 9: AISNAP-01 · Phase 10: PLUG-01 · Phase 11: PLUG-02
+- v1.2 requirements: 4 total (PLUG-02 movido a hito futuro)
+- Mapped to phases: 4/4 ✓ (no orphans, no duplicates)
+- Phase 8: VER-01, CHG-01 · Phase 9: AISNAP-01 · Phase 10: PLUG-01
 
 ---
-*Requirements defined: 2026-07-06*
+*Requirements defined: 2026-07-06 · v1.2 re-scoped al cierre 2026-07-07 (PLUG-02 diferido a hito dedicado)*

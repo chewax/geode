@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Capa 0 / Modo Avanzado** — Phases 1-5 (shipped 2026-07-05)
 - ✅ **v1.1 Explorador y gestión de archivos** — Phases 6-7 (shipped 2026-07-06)
-- 🚧 **v1.2 Power-user y plataforma** — Phases 8-11 (in progress)
+- 🚧 **v1.2 Power-user y plataforma** — Phases 8-10 (in progress)
 
 ## Phases
 
@@ -31,12 +31,12 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 
 </details>
 
-### 🚧 v1.2 Power-user y plataforma (Phases 8-11)
+### 🚧 v1.2 Power-user y plataforma (Phases 8-10)
 
 - [x] **Phase 8: Versionado avanzado — borrar rama + contador de cambios** — En Modo Avanzado se borra una rama sin mergear (con protección de `main` y aviso) y la status bar muestra `+N`/`-N` sin commitear
 - [x] **Phase 9: Snapshots automáticos con IA opcional** — Opt-in en Ajustes (default OFF) para que las auto-snapshots usen IA solo con cambios reales, sin romper el invariante de costo
 - [x] **Phase 10: Gestión de plugins — activar/desactivar built-ins** — Los plugins internos se activan/desactivan desde Ajustes igual que los externos, con estado persistido
-- [ ] **Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)** — Terceros corren aislados (iframe + puente postMessage), con permisos declarados aplicados y sin `unsafe-eval` en el CSP
+- ↪ **Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)** — *diferido a un hito dedicado durante el cierre de v1.2* (PLUG-02; ver REQUIREMENTS → Future Requirements)
 
 ## Phase Details
 
@@ -99,20 +99,9 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
   - [x] 10-03-PLAN.md — UAT: relanzar y verificar SC-1..SC-4 y default ON
 **UI hint**: yes
 
-### Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)
+### Phase 11: Aislamiento de plugins de terceros (Fase B, MVP) — DIFERIDO
 
-**Goal**: Los plugins de terceros no confiables corren aislados con permisos aplicados, y el host recupera un CSP sin `unsafe-eval`.
-**Depends on**: Phase 10; sigue el orden de migración de `docs/PLUGINS.md` (freeze API v1 → bridge async → iframe → permisos → quitar unsafe-eval)
-**Requirements**: PLUG-02
-**Success Criteria** (what must be TRUE):
-
-  1. Un plugin de terceros corre en un contexto aislado (iframe sandboxed) y no accede a `window.geode`, a Node ni a globals del renderer — solo recibe el `PluginContext` a través de un puente por `postMessage`.
-  2. Las capacidades sensibles (lectura/escritura de notas, red) solo funcionan si el plugin las declaró en `plugin.json`; una llamada sin permiso declarado se rechaza en el borde del host.
-  3. El CSP del renderer principal ya no incluye `'unsafe-eval'` y la app sigue funcionando (los plugins ya no se evalúan en el host).
-  4. Un plugin existente (built-in o de ejemplo) sigue funcionando a través del puente, incluyendo la API de editor migrada a async (`getSelection`/`insertAtCursor` como promesas).
-
-**Plans**: TBD
-**UI hint**: yes
+> **Movido a un hito dedicado** durante el cierre de v1.2 (2026-07-07). El aislamiento de plugins de terceros (PLUG-02 / Fase B MVP) es el ítem más grande y riesgoso del plan original (iframe + puente postMessage + permisos + migrar la API de editor a async + quitar `unsafe-eval` del CSP), así que arranca su propio ciclo de hito. Detalle de alcance y criterios en REQUIREMENTS.md → Future Requirements y en `docs/PLUGINS.md`.
 
 ## Progress
 
@@ -128,4 +117,3 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 11. Aislamiento de plugins de terceros (Fase B) | v1.2 | 0/? | Not started | - |

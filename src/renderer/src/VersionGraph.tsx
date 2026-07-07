@@ -293,7 +293,7 @@ export function VersionGraph({
           {branches.length > 1 && (
             <button
               className={`tag-filter-btn${hiddenBranches.length ? ' on' : ''}`}
-              title="Mostrar/ocultar y podar ramas"
+              title="Mostrar, ocultar, podar o borrar ramas"
               onClick={() => { setBranchMenuOpen((o) => !o); setFilterMenuOpen(false) }}
             >
               <GitBranch size={13} /> Ramas{hiddenBranches.length ? ` (${hiddenBranches.length} ocultas)` : ''}

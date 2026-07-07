@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Power-user y plataforma
-status: milestone-complete-pending
-stopped_at: Completed 10-03-PLAN.md (Phase 10 closed — UAT approved, verification passed 4/4)
-last_updated: "2026-07-07T13:27:52.504Z"
-last_activity: 2026-07-07 -- Phase 10 (PLUG-01) closed
+status: Awaiting next milestone
+stopped_at: Completed 10-03-PLAN.md (Phase 10 closed)
+last_updated: "2026-07-07T19:51:07.903Z"
+last_activity: 2026-07-07 — Milestone v1.2 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 ## Current Position
 
-Phase: — (v1.2 re-scoped a 3 fases; todas cerradas)
-Plan: — of —
-Status: Milestone v1.2 COMPLETO a 3/3 fases (8/9/10). PLUG-02 (Fase 11, sandbox Fase B) diferido a hito dedicado.
-Last activity: 2026-07-07 -- v1.2 re-scoped al cierre; corriendo lifecycle del hito
+Phase: Milestone v1.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-07 — Milestone v1.2 completed and archived
 
 ## Performance Metrics
 
@@ -99,4 +99,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Cerrar hito: /gsd-complete-milestone v1.2 · luego nuevo hito para PLUG-02 (Fase B)
+- Start the next milestone with /gsd-new-milestone

@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Capa 0 / Modo Avanzado** — Phases 1-5 (shipped 2026-07-05)
 - ✅ **v1.1 Explorador y gestión de archivos** — Phases 6-7 (shipped 2026-07-06)
-- 🚧 **v1.2 Power-user y plataforma** — Phases 8-10 (in progress)
+- ✅ **v1.2 Power-user y plataforma** — Phases 8-10 (shipped 2026-07-07)
 
 ## Phases
 
@@ -31,77 +31,18 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 
 </details>
 
-### 🚧 v1.2 Power-user y plataforma (Phases 8-10)
+<details>
+<summary>✅ v1.2 Power-user y plataforma (Phases 8-10) — SHIPPED 2026-07-07</summary>
 
-- [x] **Phase 8: Versionado avanzado — borrar rama + contador de cambios** — En Modo Avanzado se borra una rama sin mergear (con protección de `main` y aviso) y la status bar muestra `+N`/`-N` sin commitear
-- [x] **Phase 9: Snapshots automáticos con IA opcional** — Opt-in en Ajustes (default OFF) para que las auto-snapshots usen IA solo con cambios reales, sin romper el invariante de costo
-- [x] **Phase 10: Gestión de plugins — activar/desactivar built-ins** — Los plugins internos se activan/desactivan desde Ajustes igual que los externos, con estado persistido
-- ↪ **Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)** — *diferido a un hito dedicado durante el cierre de v1.2* (PLUG-02; ver REQUIREMENTS → Future Requirements)
+Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md).
 
-## Phase Details
+- [x] Phase 8: Versionado avanzado — borrar rama + contador +N/-N (3/3 plans) — completed 2026-07-06
+- [x] Phase 9: Snapshots automáticos con IA opcional (3/3 plans) — completed 2026-07-07
+- [x] Phase 10: Gestión de plugins — activar/desactivar built-ins (3/3 plans) — completed 2026-07-07
 
-### Phase 8: Versionado avanzado — borrar rama + contador de cambios
+**Diferido:** PLUG-02 (aislamiento de plugins de terceros — Fase B MVP) se movió a un hito dedicado al cierre de v1.2.
 
-**Goal**: Los usuarios de Modo Avanzado ganan dos superficies de control del versionado: borrar una rama sin mergear de forma segura, y ver cuánto han cambiado sin guardar.
-**Depends on**: Phase 7 (v1.1 shipped); reutiliza Modo Avanzado (Phase 5) y las ops de rama de `git.ts`
-**Requirements**: VER-01, CHG-01
-**Success Criteria** (what must be TRUE):
-
-  1. En Modo Avanzado, el usuario puede borrar una rama que no ha mergeado desde una superficie visible (grafo o branch switcher), con un diálogo de confirmación en español (Lucide, sin jerga cruda).
-  2. La rama base/protegida (`main`) nunca se puede borrar: el intento queda bloqueado con un mensaje claro.
-  3. Si la rama a borrar contiene trabajo sin mergear, el usuario recibe un aviso explícito antes de perderlo — nada se elimina en silencio (valor central: nada se pierde).
-  4. La status bar muestra el recuento de líneas sin commitear del vault como `+N`/`-N` (agregado en verde, quitado en rojo), actualizándose al editar y al guardar.
-  5. El contador aparece solo cuando hay cambios pendientes y desaparece cuando el vault está limpio; en modo default no filtra jerga git.
-
-**Plans**: 3 plans
-
-  - [x] 08-01-PLAN.md — VER-01: diálogo estilizado de borrado de rama (Cancelar autofocus, Enter no borra, aviso de pérdida)
-  - [x] 08-02-PLAN.md — CHG-01: contador +N/-N en la status bar (git.pendingLineStat + IPC + UI)
-  - [ ] 08-03-PLAN.md — UAT humano (VER-01 + CHG-01) tras relanzar la app
-
-**UI hint**: yes
-
-### Phase 9: Snapshots automáticos con IA opcional
-
-**Goal**: El usuario puede optar por que las snapshots automáticas lleven título/descripción por IA, sin reintroducir costo por tiempo transcurrido.
-**Depends on**: Phase 8; modifica el motor de auto-snapshots (Phase 4) y reusa el servicio de IA (Phase 3)
-**Requirements**: AISNAP-01
-**Success Criteria** (what must be TRUE):
-
-  1. En Ajustes existe una opción, por defecto APAGADA, para que las snapshots automáticas usen IA en título/descripción.
-  2. Con la opción apagada, las snapshots automáticas conservan exactamente el marcador sin IA actual (comportamiento v1.0 intacto).
-  3. Con la opción activada, la IA solo se invoca cuando una snapshot automática realmente tiene cambios (gate emergente "solo con cambios": árbol limpio = no-op) — nunca por tiempo transcurrido ni con el vault sin cambios.
-  4. Una snapshot automática con IA activa aparece en la línea de tiempo con título/descripción legibles, igual que un guardado manual con IA.
-
-**Plans**: 3 plans
-
-  - [x] 09-01-PLAN.md — AISNAP-01 backend: flag snapshots.aiTitles (default OFF) + IPC/preload + snapshotIfChanged(reason, allowAi) con IA en cadencia (timeout + fallback al marcador) y guardrail sin IA en ciclo de vida
-  - [x] 09-02-PLAN.md — Toggle "Nombrar con IA" en Ajustes → Guardado automático (default OFF, copy de costo/condición)
-  - [x] 09-03-PLAN.md — UAT humano (SC-1..SC-4 + fallback) tras relanzar la app
-
-**UI hint**: yes
-
-### Phase 10: Gestión de plugins — activar/desactivar built-ins
-
-**Goal**: Los plugins internos se gestionan desde Ajustes igual que los externos, con su estado persistido.
-**Depends on**: Phase 9; extiende `plugins.ts` / `host.ts` / sección Plugins de `SettingsModal.tsx`
-**Requirements**: PLUG-01
-**Success Criteria** (what must be TRUE):
-
-  1. En Ajustes, los plugins internos (insert-date, reading-time, outline) aparecen en la lista con un control de activar/desactivar, igual que los externos.
-  2. Desactivar un plugin interno lo quita de comandos, paneles, status bar y extensiones de editor (tras aplicar el cambio; puede requerir reinicio como los externos hoy).
-  3. El estado activado/desactivado de cada built-in se persiste entre sesiones en `settings.plugins.enabled`.
-  4. Reactivar un built-in previamente desactivado restaura sus comandos/paneles/extensiones.
-
-**Plans**: 3 plans
-  - [x] 10-01-PLAN.md — IPC de solo lectura `plugins.getEnabled` (canal + preload + handler)
-  - [x] 10-02-PLAN.md — Gating de built-ins en App.tsx (default ON) + grupo "Integrados" con toggles en Ajustes + `GeodePlugin.description`
-  - [x] 10-03-PLAN.md — UAT: relanzar y verificar SC-1..SC-4 y default ON
-**UI hint**: yes
-
-### Phase 11: Aislamiento de plugins de terceros (Fase B, MVP) — DIFERIDO
-
-> **Movido a un hito dedicado** durante el cierre de v1.2 (2026-07-07). El aislamiento de plugins de terceros (PLUG-02 / Fase B MVP) es el ítem más grande y riesgoso del plan original (iframe + puente postMessage + permisos + migrar la API de editor a async + quitar `unsafe-eval` del CSP), así que arranca su propio ciclo de hito. Detalle de alcance y criterios en REQUIREMENTS.md → Future Requirements y en `docs/PLUGINS.md`.
+</details>
 
 ## Progress
 

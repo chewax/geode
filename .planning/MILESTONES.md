@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.2 Power-user y plataforma (Shipped: 2026-07-07)
+
+**Phases completed:** 3 phases (8, 9, 10), 9 plans · PLUG-02 (Fase B) diferido a hito dedicado
+
+**Key accomplishments:**
+
+- Reemplazo del window.confirm/window.alert del borrado de rama por ConfirmDeleteBranchDialog en español, con botón rojo + aviso de pérdida de versiones cuando la rama no está fusionada y seguridad de teclado (Enter nunca borra).
+- Contador `+N` verde / `−N` rojo en la status bar que suma las líneas agregadas/quitadas de TODOS los archivos pendientes del vault (content-hash vs HEAD, nunca statusMatrix), expuesto por un nuevo canal IPC y siempre visible.
+- El usuario de Modo Avanzado puede borrar/descartar una rama sin mergearla desde el menú "Ramas" del grafo (con diálogo estilizado, protección de `main`, aviso ante trabajo sin mergear y seguridad de teclado), y ve un contador +N/-N de líneas sin commitear siempre visible en la status bar — verificado §A–§B en un build relanzado con sign-off del usuario.
+- El usuario puede activar (opt-in en Ajustes → Guardado automático, por defecto APAGADO) que las snapshots automáticas lleven título/descripción por IA; con la opción activada la IA solo corre en el path de cadencia cuando realmente hay cambios .md, cae siempre al marcador v1.0 si falta key o la IA falla, y los snapshots de ciclo de vida nunca invocan IA — verificado §A–§B en un build relanzado con sign-off del usuario.
+- Los plugins internos (insert-date, reading-time, outline) se gestionan desde Ajustes → Plugins igual que los externos: aparecen en un grupo "Integrados" con toggle, su estado se persiste en `settings.plugins.enabled`, desactivar uno lo excluye de comandos/paneles/status/extensiones tras reiniciar, y reactivarlo lo restaura — con default ON y activación fail-open. Verificado §A–§C en un build relanzado con sign-off del usuario.
+
+---
+
 ## v1.1 Explorador y gestión de archivos (Shipped: 2026-07-06)
 
 **Phases completed:** 2 phases, 6 plans, 10 tasks

@@ -8,16 +8,11 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
-## Current Milestone: v1.2 Power-user y plataforma
+## Current State: v1.2 shipped (2026-07-07)
 
-**Goal:** Dar a los usuarios avanzados control sobre el versionado y abrir la plataforma de plugins de forma segura — sin cambiar la experiencia por defecto ni el valor central.
+Tres hitos enviados (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerró con 3 fases (8-10): borrar rama sin mergear + contador +N/-N (Modo Avanzado), IA opcional en auto-snapshots (opt-in), y activar/desactivar plugins internos. **Re-scope al cierre:** PLUG-02 (aislamiento de plugins de terceros, Fase B MVP) se difirió a un hito dedicado por tamaño/riesgo.
 
-**Target features:**
-- Deshacer/borrar una rama sin necesidad de mergearla (superficie de Modo Avanzado)
-- Recuento de líneas sin commitear (+N/-N, verde/rojo) en la status bar
-- IA opcional (opt-in, solo en idle) para título/descripción de snapshots automáticas — modifica el invariante v1.0 "auto-snapshots nunca IA", acotado para no disparar costo por tiempo
-- Blindar el sandbox de plugins (Fase B: aislamiento de terceros + modelo de permisos, ver docs/PLUGINS.md)
-- Desactivar plugins internos (built-in)
+**Próximo hito candidato:** *Aislamiento de plugins (Fase B)* — PLUG-02: iframe sandbox + puente postMessage + permisos `plugin.json` + API de editor async + quitar `unsafe-eval` del CSP (ver docs/PLUGINS.md). Otros candidatos del ToDo: edición Markdown enriquecida, dictado por voz.
 
 ## Requirements
 
@@ -68,18 +63,20 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - ✓ Tab de preview estilo VSCode (1 click = preview itálica reutilizable; doble click / edición / doble-click-tab la fija) — v1.1 (FILE-04)
 - ✓ Baja de bóveda: quitar de la lista sin tocar disco, u opción explícita de enviar a la papelera del SO (recuperable) — v1.1 (FILE-05)
 
-### Active — v1.2 (Power-user y plataforma)
+### Validated — v1.2 (Power-user y plataforma, shipped 2026-07-07)
 
 **Versionado avanzado (Modo Avanzado):**
-- [ ] Deshacer/borrar una rama sin mergearla (hoy no deja)
-- [ ] Recuento de líneas sin commitear (+N/-N, verde/rojo) en la status bar
+- ✓ Borrar/descartar una rama sin mergearla desde el menú "Ramas" del grafo (diálogo estilizado, `main` protegida, aviso de pérdida, Enter nunca borra) — v1.2 (VER-01)
+- ✓ Contador +N/-N de líneas sin commitear en la status bar (content-hash vs HEAD, todos los pendientes, oculto en preview) — v1.2 (CHG-01)
 
 **Snapshots + IA:**
-- [ ] IA opcional (opt-in, configurable, solo en idle) para título/descripción de snapshots automáticas
+- ✓ IA opcional (opt-in en Ajustes, default OFF) en auto-snapshots: solo en cadencia con cambios reales, fallback al marcador, nunca en ciclo de vida — v1.2 (AISNAP-01)
 
 **Plataforma de plugins:**
-- [ ] Blindar el sandbox de plugins (Fase B: aislamiento de terceros + permisos)
-- [ ] Desactivar plugins internos (built-in)
+- ✓ Activar/desactivar plugins internos (built-in) desde Ajustes (grupo "Integrados"), persistido, default ON, apply-on-restart, fail-open — v1.2 (PLUG-01)
+
+**Diferido a hito dedicado:**
+- ↪ Aislamiento de plugins de terceros (Fase B MVP) — PLUG-02: movido a su propio hito al cierre de v1.2 (tamaño/riesgo).
 
 <!-- Diferidos a hitos futuros: edición Markdown rica (toolbar/tablas/imágenes/links/Mermaid/ayuda); dictado por voz (STT); CAPA1-01 (try/keep/discard); CONF-01 (conflictos humanos). -->
 
@@ -100,7 +97,7 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - **Prior design conversation** established the load-bearing decisions for this milestone: (1) go-back in Capa 0 must stay linear → soft restore, a new primitive distinct from the existing checkout/detached-HEAD model (which is Advanced-only); (2) the timeline is repo-level, not per-note; (3) the sidebar becomes VSCode-like collapsible sections; (4) save asks for a human name + AI description; (5) auto-snapshots are configurable and only fire when there are changes.
 - **Codebase state:** three-tier Electron architecture (sandboxed renderer ↔ typed IPC/preload ↔ main-process services). Key files for this milestone: `src/renderer/src/App.tsx`, `TimelineScrubber.tsx`, `DiffView.tsx`, `VaultSwitcher.tsx`, `SettingsModal.tsx`, `CommitDialog.tsx`, `src/main/services/git.ts`, `src/shared/ipc.ts`. Recent untracked work on multi-pane splits (`EditorPane.tsx`, `paneTree.ts`).
 - **Business model:** open-core — client is open source, server-side services are closed. Free/BYOK vs Pro/Cloud vs Teams. Non-destructive editing is never gated (it's the traction hook).
-- **Current state (post-v1.1):** two milestones shipped. v1.0 (Capa 0 / Modo Avanzado — 5 phases) made the default UI git-free with an Advanced Mode toggle, repo-level timeline + soft linear restore, humanized save-status/diff. v1.1 (Explorador y gestión de archivos — 2 phases, 6 plans, 15 tasks) brought VSCode-parity file ops: Del/Supr delete + F2 rename + tree refresh, preview tabs, and vault removal (unlist / OS-trash). Verification model is typecheck+build green + human UAT per phase (repo still has zero automated tests — the top standing risk). Recurring win: adversarial gates (code-review, plan-checker, integration-checker) catch cross-phase breaks the happy path misses (e.g. preview-tab pin-on-load, rename not remapping the preview pointer). Next candidates: rich Markdown editing (toolbar/tables/images/links/Mermaid), power-user versioning, plugin hardening, voice dictation.
+- **Current state (post-v1.2):** three milestones shipped. v1.0 (Capa 0 / Modo Avanzado — 5 phases) made the default UI git-free with an Advanced Mode toggle, repo-level timeline + soft linear restore, humanized save-status/diff. v1.1 (Explorador y gestión de archivos — 2 phases, 6 plans, 15 tasks) brought VSCode-parity file ops: Del/Supr delete + F2 rename + tree refresh, preview tabs, and vault removal (unlist / OS-trash). v1.2 (Power-user y plataforma — 3 phases, 9 plans) added Advanced-Mode branch delete + an uncommitted +N/-N counter (VER-01/CHG-01), opt-in AI titles for auto-snapshots (changes-gated, fallback-safe — AISNAP-01), and enable/disable of built-in plugins (PLUG-01); PLUG-02 (third-party plugin isolation, Fase B MVP) was deferred to a dedicated milestone at close. Verification model is typecheck+build green + human UAT per phase (repo still has zero automated tests — the top standing risk). Recurring win: adversarial gates (code-review, plan-checker, integration-checker) catch cross-phase breaks the happy path misses (e.g. preview-tab pin-on-load, rename not remapping the preview pointer). Next candidates: rich Markdown editing (toolbar/tables/images/links/Mermaid), power-user versioning, plugin hardening, voice dictation.
 
 ## Constraints
 
@@ -108,7 +105,7 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - **Security**: Sandboxed renderer (contextIsolation=true, nodeIntegration=false); preload MUST be CommonJS (`.cjs`) — do not convert to ESM.
 - **Compatibility**: Racy-git landmine — commit/change detection must hash real content vs HEAD blobs, never revert to statusMatrix (loses same-size same-second edits).
 - **UX**: Icons are Lucide (monochrome currentColor), never emojis. Code comments and UI strings are in Spanish.
-- **Cost**: AI (OpenRouter) inference cost is user-visible; auto-snapshots must not invoke AI so cost scales with manual saves, not elapsed time.
+- **Cost**: AI (OpenRouter) inference cost is user-visible. Auto-snapshots don't invoke AI by default; the v1.2 opt-in (AISNAP-01) only calls AI on a cadence snapshot that actually has changes (clean tree = no-op), so cost still scales with real editing activity, not elapsed time.
 
 ## Key Decisions
 
@@ -125,6 +122,10 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 | Borrar/renombrar/refrescar hacen flush del journal antes de tocar disco/cambiar estado | Evita perder los últimos ms tipeados en operaciones de archivo | ✓ Good (v1.1 — FILE-01/02/03) |
 | Tab de preview reutilizable, se fija solo con intención (doble-click/edición) | Paridad VSCode; navegar sin ensuciar el set de tabs | ✓ Good (v1.1 — FILE-04) |
 | Reload programático de CodeMirror lleva una anotación para no disparar onChange | Distingue carga-de-nota de edición-real; sin ella la preview se fijaba sola y latían falsos "dirty" | ✓ Good (v1.1 — FILE-04, code-review CR-01) |
+| Borrar rama: mejorar la acción del grafo (único punto de entrada) en vez de agregar superficies nuevas | La capacidad ya existía (protege `main`, descarta cambiando a base); el problema era discoverability | ✓ Good (v1.2 — VER-01) |
+| IA en auto-snapshots = opt-in con gate emergente "solo con cambios" (sin detector de idle, sin tocar el timer) | Árbol limpio = no-op ⇒ el costo escala con edición real, no con tiempo; la misma snapshot de seguridad se nombra con IA | ✓ Good (v1.2 — AISNAP-01) |
+| Built-ins gestionados como externos pero default ON (`?? true`) + activación fail-open | Consistencia con externos; un error de IPC nunca deja al usuario sin funcionalidad core | ✓ Good (v1.2 — PLUG-01) |
+| Diferir PLUG-02 (Fase B) a un hito dedicado al cierre de v1.2 | Es el ítem más grande/riesgoso (iframe + bridge + permisos + API async + quitar unsafe-eval); merece su propio ciclo | ✓ Decisión de alcance (v1.2 close) |
 
 ## Evolution
 
@@ -144,4 +145,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-06 after v1.1 milestone*
+*Last updated: 2026-07-07 after v1.2 milestone*

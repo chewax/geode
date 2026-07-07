@@ -33,7 +33,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 
 ### 🚧 v1.2 Power-user y plataforma (Phases 8-11)
 
-- [ ] **Phase 8: Versionado avanzado — borrar rama + contador de cambios** — En Modo Avanzado se borra una rama sin mergear (con protección de `main` y aviso) y la status bar muestra `+N`/`-N` sin commitear
+- [x] **Phase 8: Versionado avanzado — borrar rama + contador de cambios** — En Modo Avanzado se borra una rama sin mergear (con protección de `main` y aviso) y la status bar muestra `+N`/`-N` sin commitear
 - [ ] **Phase 9: Snapshots automáticos con IA opcional** — Opt-in en Ajustes (default OFF) para que las auto-snapshots usen IA solo en idle y solo con cambios, sin romper el invariante de costo
 - [ ] **Phase 10: Gestión de plugins — activar/desactivar built-ins** — Los plugins internos se activan/desactivan desde Ajustes igual que los externos, con estado persistido
 - [ ] **Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)** — Terceros corren aislados (iframe + puente postMessage), con permisos declarados aplicados y sin `unsafe-eval` en el CSP
@@ -116,7 +116,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 | 5. Advanced Mode & Capa-0 Polish | v1.0 | 4/4 | Complete | 2026-07-05 |
 | 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 7. Tabs de preview y gestión de bóvedas | v1.1 | 3/3 | Complete | 2026-07-06 |
-| 8. Versionado avanzado — borrar rama + contador | v1.2 | 2/3 | In Progress|  |
+| 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 0/? | Not started | - |
 | 10. Gestión de plugins — built-ins | v1.2 | 0/? | Not started | - |
 | 11. Aislamiento de plugins de terceros (Fase B) | v1.2 | 0/? | Not started | - |

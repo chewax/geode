@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Power-user y plataforma
 status: 08-02 ejecutado — listo para 08-03 (UAT end-of-phase)
-stopped_at: Completed 08-02-PLAN.md
+stopped_at: Completed Phase 08 (versionado avanzado) — UAT approved, verification passed (9/9)
 last_updated: "2026-07-06T23:14:10.187Z"
-last_activity: 2026-07-06 — 08-02 completado (contador +N/-N en la status bar, CHG-01)
+last_activity: 2026-07-06 — Phase 08 cerrada (VER-01/CHG-01); code-review + UAT fixes aplicados
 progress:
   total_phases: 4
   completed_phases: 0

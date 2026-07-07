@@ -90,6 +90,7 @@ const api: GeodeApi = {
   },
   plugins: {
     list: () => ipcRenderer.invoke(IPC.pluginsList),
+    getEnabled: () => ipcRenderer.invoke(IPC.pluginsGetEnabled),
     openDir: () => ipcRenderer.invoke(IPC.pluginsOpenDir),
     setEnabled: (id, enabled) => ipcRenderer.invoke(IPC.pluginsSetEnabled, id, enabled),
     readSource: (id) => ipcRenderer.invoke(IPC.pluginsReadSource, id)

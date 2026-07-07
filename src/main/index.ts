@@ -625,6 +625,9 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.pluginsList, async () => listPlugins(await getPluginsEnabled()))
 
+  // Solo lectura: devuelve el mapa crudo `settings.plugins.enabled` sin mutar nada.
+  ipcMain.handle(IPC.pluginsGetEnabled, async () => getPluginsEnabled())
+
   ipcMain.handle(IPC.pluginsOpenDir, () => openPluginsDir())
 
   ipcMain.handle(IPC.pluginsSetEnabled, async (_e, id: string, enabled: boolean) => {

@@ -70,6 +70,7 @@ export const IPC = {
   advancedGet: 'geode:advanced-get',
   advancedSet: 'geode:advanced-set',
   pluginsList: 'geode:plugins-list',
+  pluginsGetEnabled: 'geode:plugins-get-enabled',
   pluginsOpenDir: 'geode:plugins-open-dir',
   pluginsSetEnabled: 'geode:plugins-set-enabled',
   pluginsReadSource: 'geode:plugins-read-source'
@@ -423,6 +424,12 @@ export interface InstalledPlugin {
 export interface PluginsApi {
   /** Plugins externos encontrados en la carpeta de plugins. */
   list(): Promise<InstalledPlugin[]>
+  /**
+   * Mapa crudo `settings.plugins.enabled` (id→activado), sin resolver defaults.
+   * Quien lo consume resuelve el default: `?? true` para built-ins (ON por
+   * defecto) y `?? false` para externos (opt-in). Solo lectura.
+   */
+  getEnabled(): Promise<Record<string, boolean>>
   /** Abre la carpeta de plugins en el explorador del SO. */
   openDir(): Promise<void>
   /** Activa/desactiva un plugin (persistente). Devuelve la lista actualizada. */

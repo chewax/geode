@@ -66,6 +66,7 @@ export const IPC = {
   aiUsage: 'geode:ai-usage',
   snapshotsGet: 'geode:snapshots-get',
   snapshotsSet: 'geode:snapshots-set',
+  snapshotsSetAiTitles: 'geode:snapshots-set-ai-titles',
   advancedGet: 'geode:advanced-get',
   advancedSet: 'geode:advanced-set',
   pluginsList: 'geode:plugins-list',
@@ -355,18 +356,22 @@ export interface AiApi {
   usage(): Promise<AiUsage | null>
 }
 
-// ── Snapshots automáticos (guardado por cadencia, sin IA) ───────────────────
+// ── Snapshots automáticos (guardado por cadencia; IA opcional en cadencia) ──
 
 export interface SnapshotsConfig {
   /** minutos entre snapshots; null = manual (sin timer). */
   cadenceMinutes: number | null
+  /** Opt-in de títulos por IA en la cadencia. Default false (marcador, sin IA). */
+  aiTitles: boolean
 }
 
 export interface SnapshotsApi {
-  /** Config actual; default 10 min si nunca se configuró. */
+  /** Config actual; default 10 min y aiTitles false si nunca se configuró. */
   get(): Promise<SnapshotsConfig>
   /** Fija la cadencia (null = manual) y reinicia el timer. */
   set(cadenceMinutes: number | null): Promise<SnapshotsConfig>
+  /** Activa/desactiva el opt-in de títulos por IA en la cadencia. No toca el timer. */
+  setAiTitles(enabled: boolean): Promise<SnapshotsConfig>
 }
 
 // ── Modo Avanzado (interruptor de las superficies git) ──────────────────────

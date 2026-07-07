@@ -81,7 +81,8 @@ const api: GeodeApi = {
   },
   snapshots: {
     get: () => ipcRenderer.invoke(IPC.snapshotsGet),
-    set: (cadenceMinutes) => ipcRenderer.invoke(IPC.snapshotsSet, cadenceMinutes)
+    set: (cadenceMinutes) => ipcRenderer.invoke(IPC.snapshotsSet, cadenceMinutes),
+    setAiTitles: (enabled) => ipcRenderer.invoke(IPC.snapshotsSetAiTitles, enabled)
   },
   advanced: {
     get: () => ipcRenderer.invoke(IPC.advancedGet),

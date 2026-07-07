@@ -54,6 +54,7 @@ import {
   getPluginsEnabled,
   setPluginEnabled,
   setSnapshotCadence,
+  setSnapshotAiTitles,
   setAdvanced
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
@@ -113,17 +114,65 @@ function snapshotMessage(): string {
 }
 
 /**
- * Toma un snapshot del vault activo SOLO si hay cambios, sin IA. Centraliza el
- * "si cambió, commiteá con mensaje marcador" reusado por el timer (y, en el Plan
- * 02, por el cambio de bóveda y el cierre). NUNCA lanza: corre también en la ruta
- * de salida de la app. `commit()` ya devuelve null en un árbol limpio (SNAP-02),
- * así que no hace falta un pre-check con changes() (sería una ventana TOCTOU).
+ * Genera el mensaje del snapshot con IA (título + descripción del diff .md), o
+ * null si no corresponde/falla. Devuelve null cuando falta key o modelo, cuando
+ * no hay cambios .md que resumir, o ante cualquier error/timeout. NUNCA lanza:
+ * su null hace caer al marcador `snapshotMessage()` sin perder el snapshot.
+ *
+ * Tope de 10s (mismo que `getOpenRouterUsage`) vía `Promise.race`: si la red se
+ * cuelga, el race resuelve null y el commit ocurre igual con el marcador. La
+ * llamada que pierde el race queda huérfana en segundo plano, pero es inofensiva:
+ * el commit se hace UNA sola vez con el mensaje ya resuelto (no se re-commitea si
+ * la IA responde tarde).
  */
-async function snapshotIfChanged(reason: string): Promise<string | null> {
+async function aiSnapshotMessage(root: string): Promise<string | null> {
+  try {
+    const key = await getAiKey()
+    const { ai } = await loadSettings()
+    if (!key || !ai?.model) return null // sin key/modelo: no hay IA posible
+
+    // El diff ya viene acotado a notas .md (content-hash vs HEAD, nunca statusMatrix).
+    const diff = await gitService.pendingDiff(root)
+    if (!diff) return null // sin cambios .md que resumir
+
+    const timeout = new Promise<null>((r) => setTimeout(() => r(null), 10_000))
+    const generado = await Promise.race([
+      new OpenRouterProvider(key, ai.model).generateNamedVersion(diff),
+      timeout
+    ])
+    if (!generado) return null // timeout o respuesta vacía
+
+    // Mismo formato que el guardado manual (CommitDialog): título + descripción.
+    const mensaje = [generado.title, generado.description].filter(Boolean).join('\n\n')
+    return mensaje || null
+  } catch (e) {
+    console.warn('[snapshot] IA falló, se usa el marcador:', e)
+    return null
+  }
+}
+
+/**
+ * Toma un snapshot del vault activo SOLO si hay cambios. Centraliza el "si cambió,
+ * commiteá" reusado por el timer (cadencia), el cambio/baja de bóveda y el cierre.
+ * NUNCA lanza: corre también en la ruta de salida de la app. `commit()` ya devuelve
+ * null en un árbol limpio (SNAP-02), así que no hace falta un pre-check con changes()
+ * (sería una ventana TOCTOU).
+ *
+ * `allowAi`: la IA SOLO se intenta en el path de cadencia (allowAi=true) y solo si
+ * el opt-in `snapshots.aiTitles` está ON; ahí el mensaje sale de `aiSnapshotMessage`
+ * y cae al marcador si falta key/modelo o la IA falla/timeout. Los paths de ciclo de
+ * vida (cierre, cambio/baja de bóveda) pasan allowAi=false: nunca red en la salida.
+ */
+async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<string | null> {
   const info = vault.getInfo()
   if (!info) return null // sin vault: no-op, sin lanzar
   try {
-    return await gitService.commit(info.root, snapshotMessage())
+    let mensaje = snapshotMessage()
+    if (allowAi && resolveAiTitles((await loadSettings()).snapshots?.aiTitles)) {
+      const aiMsg = await aiSnapshotMessage(info.root)
+      mensaje = aiMsg ?? snapshotMessage()
+    }
+    return await gitService.commit(info.root, mensaje)
   } catch (e) {
     console.warn('[snapshot] falló (' + reason + '):', e)
     return null
@@ -146,6 +195,16 @@ function resolveCadenceMinutes(raw: number | null | undefined): number | null {
 }
 
 /**
+ * Opt-in efectivo de títulos por IA desde la config: SOLO `true` habilita la IA
+ * (ausente, null o basura de un settings.json corrupto/editado a mano → false,
+ * default seguro OFF). Misma defensa en profundidad que `resolveCadenceMinutes`
+ * (T-09-02): nunca se enciende la IA por un valor no confiable.
+ */
+function resolveAiTitles(raw: boolean | undefined): boolean {
+  return raw === true
+}
+
+/**
  * (Re)inicia el timer de snapshots según la cadencia guardada. Se llama al abrir/
  * cambiar de bóveda y al cambiar la cadencia. El clear + set van juntos DESPUÉS del
  * await (no antes): si no, dos llamadas concurrentes —cambios rápidos de bóveda o
@@ -161,7 +220,7 @@ async function restartSnapshotTimer(): Promise<void> {
   }
   if (minutes == null) return // Manual (o cadencia inválida): sin timer
   snapshotTimer = setInterval(() => {
-    void snapshotIfChanged('cadencia')
+    void snapshotIfChanged('cadencia', true)
   }, minutes * 60_000)
 }
 
@@ -269,7 +328,7 @@ function registerIpcHandlers(): void {
       // Instantánea de seguridad de la bóveda actual antes de cambiar: corre ANTES
       // de setRoot para que snapshotIfChanged (que lee vault.getInfo()) commitee el
       // root viejo/activo, no el nuevo. El orden es load-bearing (SNAP-03).
-      await snapshotIfChanged('cambio-de-boveda')
+      await snapshotIfChanged('cambio-de-boveda', false)
       const info = await vault.setRoot(root)
       await gitService.ensureRepo(info.root)
       await rememberVault(info.root)
@@ -293,7 +352,7 @@ function registerIpcHandlers(): void {
       // Instantánea de seguridad de la bóveda activa antes de soltarla, para no
       // perder cambios sin commitear (mismo patrón que vaultSwitch).
       if (wasActive) {
-        await snapshotIfChanged('baja-de-boveda')
+        await snapshotIfChanged('baja-de-boveda', false)
       }
 
       if (opts.fromDisk) {
@@ -488,7 +547,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.snapshotsGet, async (): Promise<SnapshotsConfig> => {
     const { snapshots } = await loadSettings()
     // Mismo resolver que el timer: undefined→10 ON, null→manual, inválido→manual.
-    return { cadenceMinutes: resolveCadenceMinutes(snapshots?.cadenceMinutes) }
+    return {
+      cadenceMinutes: resolveCadenceMinutes(snapshots?.cadenceMinutes),
+      aiTitles: resolveAiTitles(snapshots?.aiTitles)
+    }
   })
 
   ipcMain.handle(
@@ -504,7 +566,18 @@ function registerIpcHandlers(): void {
       }
       await setSnapshotCadence(safe)
       await restartSnapshotTimer()
-      return { cadenceMinutes: safe }
+      return { cadenceMinutes: safe, aiTitles: resolveAiTitles((await loadSettings()).snapshots?.aiTitles) }
+    }
+  )
+
+  ipcMain.handle(
+    IPC.snapshotsSetAiTitles,
+    async (_e, enabled: boolean): Promise<SnapshotsConfig> => {
+      // Coerción booleana pura (T-09-01): nunca se persiste el valor crudo del
+      // renderer. El flag no afecta la cadencia, así que NO se reinicia el timer.
+      await setSnapshotAiTitles(!!enabled)
+      const { snapshots } = await loadSettings()
+      return { cadenceMinutes: resolveCadenceMinutes(snapshots?.cadenceMinutes), aiTitles: !!enabled }
     }
   )
 
@@ -668,7 +741,7 @@ app.on('before-quit', (event) => {
     // La app SIEMPRE debe poder cerrar: si el commit se colgara, salimos igual
     // tras un tope de 3 s en vez de dejar el proceso vivo sin ventana.
     const limite = new Promise<null>((r) => setTimeout(() => r(null), 3000))
-    await Promise.race([snapshotIfChanged('cierre'), limite])
+    await Promise.race([snapshotIfChanged('cierre', false), limite])
     app.quit() // re-dispara before-quit; la guarda lo deja pasar
   })()
 })

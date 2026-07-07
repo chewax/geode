@@ -39,6 +39,8 @@ export interface Settings {
   snapshots?: {
     /** minutos entre snapshots automáticos; null = manual (sin timer). */
     cadenceMinutes?: number | null
+    /** Opt-in: nombrar los snapshots de cadencia con IA. Ausente/false = OFF (default seguro). */
+    aiTitles?: boolean
   }
   advanced?: {
     /** Modo Avanzado: expone las superficies git. Ausente = off (experiencia sin git). */
@@ -184,6 +186,16 @@ export async function setPluginEnabled(id: string, enabled: boolean): Promise<vo
 export async function setSnapshotCadence(cadenceMinutes: number | null): Promise<void> {
   const settings = await loadSettings()
   settings.snapshots = { ...settings.snapshots, cadenceMinutes }
+  await saveSettings(settings)
+}
+
+/**
+ * Activa/desactiva el opt-in de títulos por IA en los snapshots de cadencia,
+ * preservando la cadencia. Ausente/false = OFF (default seguro, sin IA).
+ */
+export async function setSnapshotAiTitles(enabled: boolean): Promise<void> {
+  const settings = await loadSettings()
+  settings.snapshots = { ...settings.snapshots, aiTitles: enabled }
   await saveSettings(settings)
 }
 

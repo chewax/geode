@@ -14,7 +14,7 @@ Control avanzado del versionado + apertura segura de la plataforma de plugins. L
 
 ### Snapshots automáticos con IA opcional
 
-- [ ] **AISNAP-01**: El usuario puede activar (opt-in, configurable en Ajustes; por defecto APAGADO) que las snapshots automáticas usen IA para título/descripción. Cuando está activo, la IA solo se invoca al generar una snapshot automática que realmente tiene cambios y tras un período de inactividad (idle) — nunca por tiempo transcurrido y nunca si no hay cambios. Con la opción apagada, el comportamiento actual (marcador sin IA) se mantiene intacto.
+- [x] **AISNAP-01**: El usuario puede activar (opt-in, configurable en Ajustes; por defecto APAGADO) que las snapshots automáticas usen IA para título/descripción. Cuando está activo, la IA solo se invoca al generar una snapshot automática que realmente tiene cambios — nunca por tiempo transcurrido y nunca si no hay cambios (gate emergente "solo con cambios": árbol limpio = no-op; sin detector de idle ni cambios al timer). Con la opción apagada, el comportamiento actual (marcador sin IA) se mantiene intacto.
 
 ### Plataforma de plugins
 
@@ -47,7 +47,7 @@ Excluido explícitamente de v1.2 para evitar scope creep.
 |-------------|-------|--------|
 | VER-01 | Phase 8 | Complete |
 | CHG-01 | Phase 8 | Complete |
-| AISNAP-01 | Phase 9 | Pending |
+| AISNAP-01 | Phase 9 | Complete |
 | PLUG-01 | Phase 10 | Pending |
 | PLUG-02 | Phase 11 | Pending |
 

@@ -34,7 +34,7 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 ### 🚧 v1.2 Power-user y plataforma (Phases 8-11)
 
 - [x] **Phase 8: Versionado avanzado — borrar rama + contador de cambios** — En Modo Avanzado se borra una rama sin mergear (con protección de `main` y aviso) y la status bar muestra `+N`/`-N` sin commitear
-- [ ] **Phase 9: Snapshots automáticos con IA opcional** — Opt-in en Ajustes (default OFF) para que las auto-snapshots usen IA solo en idle y solo con cambios, sin romper el invariante de costo
+- [x] **Phase 9: Snapshots automáticos con IA opcional** — Opt-in en Ajustes (default OFF) para que las auto-snapshots usen IA solo con cambios reales, sin romper el invariante de costo
 - [ ] **Phase 10: Gestión de plugins — activar/desactivar built-ins** — Los plugins internos se activan/desactivan desde Ajustes igual que los externos, con estado persistido
 - [ ] **Phase 11: Aislamiento de plugins de terceros (Fase B, MVP)** — Terceros corren aislados (iframe + puente postMessage), con permisos declarados aplicados y sin `unsafe-eval` en el CSP
 
@@ -70,14 +70,14 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 
   1. En Ajustes existe una opción, por defecto APAGADA, para que las snapshots automáticas usen IA en título/descripción.
   2. Con la opción apagada, las snapshots automáticas conservan exactamente el marcador sin IA actual (comportamiento v1.0 intacto).
-  3. Con la opción activada, la IA solo se invoca cuando una snapshot automática realmente tiene cambios y tras un período de inactividad (idle) — nunca por tiempo transcurrido ni con el vault sin cambios.
+  3. Con la opción activada, la IA solo se invoca cuando una snapshot automática realmente tiene cambios (gate emergente "solo con cambios": árbol limpio = no-op) — nunca por tiempo transcurrido ni con el vault sin cambios.
   4. Una snapshot automática con IA activa aparece en la línea de tiempo con título/descripción legibles, igual que un guardado manual con IA.
 
 **Plans**: 3 plans
 
-  - [ ] 09-01-PLAN.md — AISNAP-01 backend: flag snapshots.aiTitles (default OFF) + IPC/preload + snapshotIfChanged(reason, allowAi) con IA en cadencia (timeout + fallback al marcador) y guardrail sin IA en ciclo de vida
-  - [ ] 09-02-PLAN.md — Toggle "Nombrar con IA" en Ajustes → Guardado automático (default OFF, copy de costo/condición)
-  - [ ] 09-03-PLAN.md — UAT humano (SC-1..SC-4 + fallback) tras relanzar la app
+  - [x] 09-01-PLAN.md — AISNAP-01 backend: flag snapshots.aiTitles (default OFF) + IPC/preload + snapshotIfChanged(reason, allowAi) con IA en cadencia (timeout + fallback al marcador) y guardrail sin IA en ciclo de vida
+  - [x] 09-02-PLAN.md — Toggle "Nombrar con IA" en Ajustes → Guardado automático (default OFF, copy de costo/condición)
+  - [x] 09-03-PLAN.md — UAT humano (SC-1..SC-4 + fallback) tras relanzar la app
 
 **UI hint**: yes
 
@@ -123,6 +123,6 @@ Full detail archived at [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.m
 | 6. Operaciones del árbol lateral | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 7. Tabs de preview y gestión de bóvedas | v1.1 | 3/3 | Complete | 2026-07-06 |
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
-| 9. Snapshots automáticos con IA opcional | v1.2 | 0/3 | Planned | - |
+| 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 0/? | Not started | - |
 | 11. Aislamiento de plugins de terceros (Fase B) | v1.2 | 0/? | Not started | - |

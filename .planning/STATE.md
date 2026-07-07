@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Power-user y plataforma
-status: 08-02 ejecutado — listo para 08-03 (UAT end-of-phase)
-stopped_at: Completed Phase 08 (versionado avanzado) — UAT approved, verification passed (9/9)
-last_updated: "2026-07-06T23:14:10.187Z"
-last_activity: 2026-07-06 — Phase 08 cerrada (VER-01/CHG-01); code-review + UAT fixes aplicados
+status: executing
+stopped_at: Completed 09-03-PLAN.md (Phase 9 closed — UAT approved, verification passed 4/4)
+last_updated: "2026-07-07T13:27:52.504Z"
+last_activity: 2026-07-07 -- Phase 9 (AISNAP-01) closed
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 2
-  percent: 0
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
+  percent: 75
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 8 — Versionado avanzado (borrar rama VER-01 + contador +N/-N CHG-01)
+**Current focus:** Phase 10 — Gestión de plugins (activar/desactivar built-ins, PLUG-01)
 
 ## Current Position
 
-Phase: 8 — Versionado avanzado (en progreso)
-Plan: 2/3 completado (08-01 VER-01, 08-02 CHG-01)
-Status: 08-02 ejecutado — listo para 08-03 (UAT end-of-phase)
-Last activity: 2026-07-06 — 08-02 completado (contador +N/-N en la status bar, CHG-01)
+Phase: 10 — NOT STARTED (Phase 9 closed)
+Plan: — of —
+Status: Milestone v1.2 at 3/4 phases; next is Phase 10 (PLUG-01)
+Last activity: 2026-07-07 -- Phase 9 (AISNAP-01) closed: UAT approved, verification passed 4/4
 
 ## Performance Metrics
 
@@ -62,7 +62,7 @@ Recent decisions affecting current work:
 
 - v1.2 se estructura en 4 fases, numeradas 8-11 (continúan de v1.1 que cerró en Phase 7). Cobertura 5/5 requisitos, uno por fase salvo Phase 8 que agrupa las dos superficies cohesivas de Modo Avanzado (VER-01 + CHG-01).
 - Phase 8: borrar rama (VER-01) + contador +N/-N (CHG-01) — ambas viven en Modo Avanzado / status bar; reutilizan las ops de rama de git.ts y pendingChanges/diffs.
-- Phase 9 (AISNAP-01): la IA en auto-snapshots es opt-in, default OFF, solo-idle + solo-con-cambios. NO reintroducir costo por tiempo transcurrido (invariante v1.0). Con la opción apagada, el marcador sin IA queda idéntico.
+- Phase 9 (AISNAP-01) CERRADA: IA en auto-snapshots opt-in, default OFF, gate emergente "solo con cambios" (árbol limpio = no-op; SIN detector de idle ni cambios al timer — decisión del usuario). IA solo en el path de cadencia; ciclo de vida (cierre/cambio de bóveda) sin IA. Fallback siempre al marcador si falta key o la IA falla. Con la opción apagada, el marcador sin IA queda idéntico.
 - Phase 10 (PLUG-01) y Phase 11 (PLUG-02) van separadas a propósito: PLUG-01 (desactivar built-ins) es chico; PLUG-02 (aislamiento Fase B: iframe + puente postMessage + permisos + quitar unsafe-eval + API editor async) es grande y merece fase dedicada. Sigue el orden de migración de docs/PLUGINS.md.
 - Verificación por fase: typecheck+build en verde + UAT humano end-of-phase (human_verify_mode=end-of-phase), consistente con v1.0/v1.1. El repo sigue con cero tests automatizados.
 
@@ -74,7 +74,7 @@ None yet.
 
 - Cero cobertura de tests automatizados; cada fase se apoya en typecheck+build + UAT humano.
 - VER-01: borrar rama debe proteger `main` y avisar antes de perder trabajo sin mergear (valor central: nada se pierde). Hoy la app bloquea el borrado de ramas → hay que habilitarlo con salvaguardas.
-- AISNAP-01: no romper el invariante de costo; la IA solo al generar snapshot con cambios + tras idle, nunca por tiempo. Con opción OFF, comportamiento de Phase 4 intacto.
+- (RESUELTO en Phase 9) AISNAP-01: invariante de costo respetado — IA solo con cambios reales en cadencia (árbol limpio = no-op), nunca por tiempo; sin detector de idle. Con opción OFF, comportamiento de Phase 4 intacto.
 - PLUG-02 (grande): cruzar el límite del sandbox obliga a volver async la API de editor (editorInsertAtCursor/getSelection). Riesgo de romper plugins built-in existentes → verificar que outline/insert-date/reading-time siguen funcionando tras el puente. Quitar unsafe-eval del CSP sin romper la app.
 - Convención IPC: los canales de plugins usan prefijo `plugins:` (no `geode:`) — mantenerlo. El resto de canales nuevos van con prefijo `geode:`.
 - Restricciones duras: solo íconos Lucide (sin emojis/glyphs), strings y comentarios en español, TS strict con tipos de retorno explícitos, preload permanece CommonJS.
@@ -94,9 +94,9 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-07-06T23:14:10.181Z
-Stopped at: Completed 08-02-PLAN.md
+Stopped at: Completed 09-03-PLAN.md (Phase 9 closed)
 Resume file: None
 
 ## Operator Next Steps
 
-- Plan the first phase with /gsd-plan-phase 8
+- Plan the next phase with /gsd-plan-phase 10

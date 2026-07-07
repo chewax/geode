@@ -74,6 +74,15 @@ let snapshotTimer: NodeJS.Timeout | null = null
 /** Guarda de re-entrada del cierre: evita el loop infinito en before-quit. */
 let quitting = false
 
+/**
+ * Guarda de re-entrada de la cadencia con IA: solo un snapshot de cadencia con IA
+ * corre a la vez. Sin esto, una tick (~10s de ventana de IA) puede solaparse con
+ * otra tick y disparar una segunda llamada de IA (COST, visible al usuario) cuyo
+ * título se descartaría, más un commit concurrente redundante sobre el mismo repo.
+ * NO afecta a los paths de ciclo de vida (allowAi=false): esos corren siempre.
+ */
+let cadenceSnapshotInFlight = false
+
 async function githubConfig(): Promise<GithubConfig> {
   const { github } = await loadSettings()
   return {
@@ -119,11 +128,11 @@ function snapshotMessage(): string {
  * no hay cambios .md que resumir, o ante cualquier error/timeout. NUNCA lanza:
  * su null hace caer al marcador `snapshotMessage()` sin perder el snapshot.
  *
- * Tope de 10s (mismo que `getOpenRouterUsage`) vía `Promise.race`: si la red se
- * cuelga, el race resuelve null y el commit ocurre igual con el marcador. La
- * llamada que pierde el race queda huérfana en segundo plano, pero es inofensiva:
- * el commit se hace UNA sola vez con el mensaje ya resuelto (no se re-commitea si
- * la IA responde tarde).
+ * Tope de 10s (mismo patrón que `getOpenRouterUsage`) vía AbortController: si la
+ * red se cuelga, el timeout aborta el fetch y el commit ocurre igual con el
+ * marcador. El timer se limpia SIEMPRE en `finally`, así no queda un handle armado
+ * manteniendo vivo el event loop tras ganar la carrera la IA. Un abort/timeout
+ * hace lanzar al fetch, lo captura el catch de abajo y devuelve null (marcador).
  */
 async function aiSnapshotMessage(root: string): Promise<string | null> {
   try {
@@ -135,16 +144,19 @@ async function aiSnapshotMessage(root: string): Promise<string | null> {
     const diff = await gitService.pendingDiff(root)
     if (!diff) return null // sin cambios .md que resumir
 
-    const timeout = new Promise<null>((r) => setTimeout(() => r(null), 10_000))
-    const generado = await Promise.race([
-      new OpenRouterProvider(key, ai.model).generateNamedVersion(diff),
-      timeout
-    ])
-    if (!generado) return null // timeout o respuesta vacía
-
-    // Mismo formato que el guardado manual (CommitDialog): título + descripción.
-    const mensaje = [generado.title, generado.description].filter(Boolean).join('\n\n')
-    return mensaje || null
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10_000)
+    try {
+      const generado = await new OpenRouterProvider(key, ai.model).generateNamedVersion(
+        diff,
+        ctrl.signal
+      )
+      // Mismo formato que el guardado manual (CommitDialog): título + descripción.
+      const mensaje = [generado.title, generado.description].filter(Boolean).join('\n\n')
+      return mensaje || null
+    } finally {
+      clearTimeout(timer)
+    }
   } catch (e) {
     console.warn('[snapshot] IA falló, se usa el marcador:', e)
     return null
@@ -166,9 +178,20 @@ async function aiSnapshotMessage(root: string): Promise<string | null> {
 async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<string | null> {
   const info = vault.getInfo()
   if (!info) return null // sin vault: no-op, sin lanzar
+
+  // `useAi` decide el path de IA. El `&&` corta el short-circuit antes de loadSettings:
+  // los paths de ciclo de vida (allowAi=false) nunca tocan disco ni red.
+  const useAi = allowAi && resolveAiTitles((await loadSettings()).snapshots?.aiTitles)
+
+  // Guarda de re-entrada SOLO para la cadencia con IA: si ya hay una en curso, esta
+  // tick no-opea (return null) en vez de arrancar una segunda llamada de IA/commit.
+  // Los paths de ciclo de vida (useAi=false) NUNCA se bloquean: caen directo al marcador.
+  if (useAi && cadenceSnapshotInFlight) return null
+  if (useAi) cadenceSnapshotInFlight = true
+
   try {
     let mensaje = snapshotMessage()
-    if (allowAi && resolveAiTitles((await loadSettings()).snapshots?.aiTitles)) {
+    if (useAi) {
       const aiMsg = await aiSnapshotMessage(info.root)
       mensaje = aiMsg ?? snapshotMessage()
     }
@@ -176,6 +199,9 @@ async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<stri
   } catch (e) {
     console.warn('[snapshot] falló (' + reason + '):', e)
     return null
+  } finally {
+    // Se libera siempre: un fallo no puede dejar la guarda trabada permanentemente.
+    if (useAi) cadenceSnapshotInFlight = false
   }
 }
 

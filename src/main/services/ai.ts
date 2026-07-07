@@ -136,15 +136,18 @@ export class OpenRouterProvider implements AiMessageProvider {
   /**
    * Genera título + descripción discriminados a partir del diff pendiente (solo
    * notas .md). El título va en la primera línea y la descripción en el cuerpo.
+   * `signal` opcional: permite abortar el fetch desde afuera (p. ej. el tope de
+   * 10s de los auto-snapshots), para no dejar la request colgada tras el timeout.
    */
-  async generateNamedVersion(diff: string): Promise<NamedVersion> {
+  async generateNamedVersion(diff: string, signal?: AbortSignal): Promise<NamedVersion> {
     const raw = await this.chat(
       [
         { role: 'system', content: NAMED_VERSION_PROMPT },
         { role: 'user', content: diff }
       ],
       500,
-      0.2
+      0.2,
+      signal
     )
     return parseNamedVersion(raw)
   }
@@ -172,7 +175,8 @@ export class OpenRouterProvider implements AiMessageProvider {
   private async chat(
     messages: { role: string; content: string }[],
     maxTokens: number,
-    temperature: number
+    temperature: number,
+    signal?: AbortSignal
   ): Promise<string> {
     const res = await fetch(`${OPENROUTER}/chat/completions`, {
       method: 'POST',
@@ -182,7 +186,8 @@ export class OpenRouterProvider implements AiMessageProvider {
         'X-Title': 'Geode',
         'HTTP-Referer': 'https://github.com/chewax/geode'
       },
-      body: JSON.stringify({ model: this.model, max_tokens: maxTokens, temperature, messages })
+      body: JSON.stringify({ model: this.model, max_tokens: maxTokens, temperature, messages }),
+      signal
     })
     if (!res.ok) {
       throw new Error(`OpenRouter /chat devolvió ${res.status}: ${await res.text()}`)

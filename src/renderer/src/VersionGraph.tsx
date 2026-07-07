@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, GitCompare, Trash2, Eye, EyeOff } from 'lucide-react'
+import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, GitCompare, Trash2, Eye, EyeOff, ChevronDown } from 'lucide-react'
 import type { GitBranchRef, GitCommitNode, GitGraph } from '@shared/ipc'
 
 interface VersionGraphProps {
@@ -292,11 +292,14 @@ export function VersionGraph({
           )}
           {branches.length > 1 && (
             <button
-              className={`tag-filter-btn${hiddenBranches.length ? ' on' : ''}`}
+              className={`tag-filter-btn${hiddenBranches.length ? ' on' : ''}${branchMenuOpen ? ' open' : ''}`}
               title="Mostrar, ocultar, podar o borrar ramas"
+              aria-haspopup="menu"
+              aria-expanded={branchMenuOpen}
               onClick={() => { setBranchMenuOpen((o) => !o); setFilterMenuOpen(false) }}
             >
               <GitBranch size={13} /> Ramas{hiddenBranches.length ? ` (${hiddenBranches.length} ocultas)` : ''}
+              <ChevronDown size={12} className="menu-caret" />
             </button>
           )}
 

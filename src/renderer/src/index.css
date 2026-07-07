@@ -1787,6 +1787,17 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   border-radius: 999px;
 }
 
+/* Chevron que indica que el botón abre un menú desplegable; rota al abrirse. */
+.menu-caret {
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+
+.tag-filter-btn.open .menu-caret {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
 .tag-filter-btn:hover {
   color: var(--text);
   border-color: var(--accent);

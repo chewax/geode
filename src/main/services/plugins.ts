@@ -47,13 +47,27 @@ function compareSemver(a: string, b: string): number {
  * la API o de la app, o `null` si es compatible. `apiVersion` ausente ⇒ v1.
  */
 function compatibilityError(manifest: PluginManifest): string | null {
-  if (typeof manifest.apiVersion === 'number' && manifest.apiVersion > HOST_API_VERSION) {
-    return `Requiere API de plugins v${manifest.apiVersion}; esta versión de Geode soporta v${HOST_API_VERSION}`
+  // `plugin.json` es JSON externo no confiable: los tipos declarados no se
+  // garantizan en runtime. Validamos el TIPO explícitamente antes de comparar,
+  // para que un campo con tipo inválido (p. ej. `"apiVersion": "2"`) no saltee
+  // el gate en silencio ni haga throw un parse-error engañoso (WR-02).
+  const apiVersion = manifest.apiVersion as unknown
+  if (apiVersion !== undefined) {
+    if (typeof apiVersion !== 'number' || !Number.isInteger(apiVersion) || apiVersion < 1) {
+      return `apiVersion inválido: se espera un entero ≥ 1 (recibido ${JSON.stringify(apiVersion)})`
+    }
+    if (apiVersion > HOST_API_VERSION) {
+      return `Requiere API de plugins v${apiVersion}; esta versión de Geode soporta v${HOST_API_VERSION}`
+    }
   }
-  if (manifest.minAppVersion) {
+  const minAppVersion = manifest.minAppVersion as unknown
+  if (minAppVersion !== undefined) {
+    if (typeof minAppVersion !== 'string') {
+      return `minAppVersion inválido: se espera una cadena "x.y.z" (recibido ${JSON.stringify(minAppVersion)})`
+    }
     const appVersion = app.getVersion()
-    if (compareSemver(manifest.minAppVersion, appVersion) > 0) {
-      return `Requiere Geode ≥ ${manifest.minAppVersion} (versión actual ${appVersion})`
+    if (compareSemver(minAppVersion, appVersion) > 0) {
+      return `Requiere Geode ≥ ${minAppVersion} (versión actual ${appVersion})`
     }
   }
   return null

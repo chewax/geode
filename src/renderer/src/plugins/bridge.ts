@@ -141,8 +141,18 @@ export function attachHostBridge(host: PluginHost, port: MessagePort): Disposabl
  * el plugin externo. Cada método delega en `call(...)`, que serializa un `call`
  * con id correlacionador y resuelve cuando llega su `result`/`error`. Un
  * `result`/`error` sin call pendiente (huérfano) se descarta sin colgar.
+ *
+ * Devuelve el `ctx` y un `dispose` que teardownea este endpoint: remueve el
+ * listener del port, rechaza toda llamada en vuelo con un Error claro
+ * ("puente cerrado") para que no cuelguen para siempre, limpia los mapas y
+ * cierra el port. `activateExternalViaBridge` lo dispara ANTES de cerrar el
+ * lado host, para que las llamadas pendientes rechacen limpio en vez de
+ * quedar huérfanas contra un peer ya cerrado.
  */
-export function buildAsyncContext(port: MessagePort): AsyncPluginContext {
+export function buildAsyncContext(port: MessagePort): {
+  ctx: AsyncPluginContext
+  dispose: () => void
+} {
   let nextId = 0
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   // Handlers de eventos registrados localmente, indexados por su `sub`.
@@ -191,13 +201,25 @@ export function buildAsyncContext(port: MessagePort): AsyncPluginContext {
   port.addEventListener('message', onMessage)
   port.start()
 
+  // Teardown de este endpoint (WR-01): rechaza las llamadas en vuelo con un
+  // Error claro para que sus promesas no cuelguen para siempre, suelta los
+  // mapas y el listener, y cierra el port.
+  const dispose = (): void => {
+    port.removeEventListener('message', onMessage)
+    pending.forEach((p) => p.reject(new Error('puente cerrado')))
+    pending.clear()
+    handlers.clear()
+    localCommands.clear()
+    port.close()
+  }
+
   // Las superficies de UI llevan Componentes/Extensions no serializables por el
   // MessagePort; se difieren a Fase 12 (UI-01). Acá el proxy lanza en español.
   const deferred = (feature: string): never => {
     throw new Error(`${feature}: no soportado en Fase 11 (llega en Fase 12 UI-01)`)
   }
 
-  return {
+  const ctx: AsyncPluginContext = {
     activeNote: () => call('activeNote') as Promise<{ path: string; content: string } | null>,
     vault: {
       readNote: (path) => call('vault.readNote', path) as Promise<string>,
@@ -251,6 +273,8 @@ export function buildAsyncContext(port: MessagePort): AsyncPluginContext {
     statusBar: { addItem: () => deferred('statusBar.addItem') },
     editorExtensions: { add: () => deferred('editorExtensions.add') }
   }
+
+  return { ctx, dispose }
 }
 
 /**
@@ -263,15 +287,24 @@ export function buildAsyncContext(port: MessagePort): AsyncPluginContext {
 export function activateExternalViaBridge(host: PluginHost, plugins: GeodePlugin[]): Disposable {
   const disposables: Disposable[] = []
   for (const plugin of plugins) {
+    const ch = new MessageChannel()
+    const hostSide = attachHostBridge(host, ch.port2)
+    const { ctx, dispose: pluginSide } = buildAsyncContext(ch.port1)
     try {
-      const ch = new MessageChannel()
-      disposables.push(attachHostBridge(host, ch.port2))
-      const ctx = buildAsyncContext(ch.port1)
       // El plugin espera la forma v1; el proxy async es estructuralmente
       // compatible salvo el retorno Promise del editor (contrato v2).
       const cleanup = plugin.activate(ctx as unknown as PluginContext)
+      // Orden de teardown: limpieza del plugin → lado plugin del puente → lado
+      // host. El lado plugin cierra ANTES que el host para que las llamadas RPC
+      // en vuelo rechacen limpio ("puente cerrado") en vez de colgarse contra
+      // un peer ya cerrado (WR-01).
       if (cleanup) disposables.push(cleanup)
+      disposables.push({ dispose: pluginSide }, hostSide)
     } catch (e) {
+      // Si activate falla, cerramos ambos lados del puente ya creado para no
+      // filtrar listeners/ports.
+      pluginSide()
+      hostSide.dispose()
       console.error(`[plugins] fallo al activar externo "${plugin.id}":`, e)
     }
   }

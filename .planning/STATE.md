@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Power-user y plataforma
-status: Awaiting next milestone
-stopped_at: Completed 10-03-PLAN.md (Phase 10 closed)
+milestone: v1.3
+milestone_name: Aislamiento de plugins (Fase B)
+status: planning
+stopped_at: v1.3 milestone defined (requirements + roadmap); Phase 11 not started
 last_updated: "2026-07-07T19:51:07.903Z"
-last_activity: 2026-07-07 — Milestone v1.2 completed and archived
+last_activity: 2026-07-07 — v1.3 Aislamiento de plugins (Fase B) defined
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** v1.2 RE-SCOPED a 3 fases (8/9/10) — PLUG-02/Fase 11 diferido a hito dedicado. Corriendo lifecycle: audit → complete → cleanup → tag v1.2
+**Current focus:** v1.3 Aislamiento de plugins (Fase B) — MVP (pasos 1-5 de docs/PLUGINS.md). Próximo: Fase 11 (freeze API v1 + puente async del PluginContext).
 
 ## Current Position
 
-Phase: Milestone v1.2 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-07 — Milestone v1.2 completed and archived
+Phase: 11 — NOT STARTED (v1.3, primera fase)
+Plan: — of —
+Status: v1.3 definido (7 requisitos, 3 fases 11-13). Próximo: /gsd-plan-phase 11
+Last activity: 2026-07-07 — v1.3 Aislamiento de plugins (Fase B) definido
 
 ## Performance Metrics
 

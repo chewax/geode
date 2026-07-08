@@ -8,11 +8,15 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
-## Current State: v1.2 shipped (2026-07-07)
+## Current Milestone: v1.3 Aislamiento de plugins (Fase B)
 
-Tres hitos enviados (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerró con 3 fases (8-10): borrar rama sin mergear + contador +N/-N (Modo Avanzado), IA opcional en auto-snapshots (opt-in), y activar/desactivar plugins internos. **Re-scope al cierre:** PLUG-02 (aislamiento de plugins de terceros, Fase B MVP) se difirió a un hito dedicado por tamaño/riesgo.
+Tres hitos enviados (v1.0, v1.1, v1.2). El hito activo **v1.3 "Aislamiento de plugins (Fase B)"** abre la plataforma a plugins de **terceros no confiables** de forma segura (lo que hace el producto "vendible"): los externos dejan de evaluarse en el renderer principal y pasan a un **iframe sandboxed** detrás de un **puente async por postMessage**, con **permisos declarados y aplicados**, y el renderer recupera un **CSP sin `unsafe-eval`**. Es el MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`); los built-ins siguen first-party en el host.
 
-**Próximo hito candidato:** *Aislamiento de plugins (Fase B)* — PLUG-02: iframe sandbox + puente postMessage + permisos `plugin.json` + API de editor async + quitar `unsafe-eval` del CSP (ver docs/PLUGINS.md). Otros candidatos del ToDo: edición Markdown enriquecida, dictado por voz.
+**Goal:** Terceros no confiables corren aislados con permisos aplicados, sin acceso a `window.geode`/Node/globals, y el host recupera CSP estricto — sin romper los built-ins ni la experiencia por defecto.
+
+**Alcance (fijado en discuss 2026-07-07):** MVP = pasos 1-5 (freeze API v1 + apiVersion, bridge async, iframe sandbox, permisos, quitar unsafe-eval). Solo terceros al sandbox; built-ins first-party. UI del plugin dentro del iframe. Permisos enum simple (network all-or-nothing). **Diferido:** hot-reload sin reiniciar + instalación desde zip/URL + firma/marketplace (Future).
+
+**Requisitos:** APIVER-01, BRIDGE-01, ISO-01, UI-01, CSP-01, PERM-01, PERM-02 (ver REQUIREMENTS.md).
 
 ## Requirements
 
@@ -145,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 after v1.2 milestone*
+*Last updated: 2026-07-07 — v1.3 Aislamiento de plugins (Fase B) started*

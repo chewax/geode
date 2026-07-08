@@ -73,6 +73,7 @@ import {
   PluginPanels,
   PluginStatusItems,
   activatePlugins,
+  activateExternalViaBridge,
   loadExternalPlugins,
   BUILTIN_PLUGINS
 } from './plugins'
@@ -979,7 +980,9 @@ export function App(): JSX.Element {
     void (async () => {
       const { plugins, errors } = await loadExternalPlugins()
       if (cancelled) return
-      offExternal = activatePlugins(host, plugins)
+      // Los EXTERNOS se activan por el puente async (API v2 sobre MessageChannel);
+      // los built-ins de arriba siguen con activatePlugins (API v1 in-host).
+      offExternal = activateExternalViaBridge(host, plugins)
       if (errors.length > 0) {
         setToast(`Plugins con error: ${errors.map((e) => e.id).join(', ')}`)
       }

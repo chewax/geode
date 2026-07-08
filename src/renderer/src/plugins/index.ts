@@ -11,6 +11,7 @@ export { CommandPalette } from './CommandPalette'
 export { PluginPanels } from './PluginPanels'
 export { PluginStatusItems } from './PluginStatusBar'
 export { loadExternalPlugins } from './loader'
+export { activateExternalViaBridge } from './bridge'
 export type { LoadResult } from './loader'
 export type { GeodePlugin, PluginContext, Command } from './types'
 

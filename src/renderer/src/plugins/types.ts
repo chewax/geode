@@ -99,6 +99,84 @@ export interface PluginContext extends Workspace {
   editorExtensions: { add(ext: Extension): Disposable }
 }
 
+/**
+ * ── Envelope RPC del puente (Fase 11 / BRIDGE-01) ────────────────────────────
+ *
+ * Protocolo de mensajes que viajan por el `MessagePort` entre el proxy async del
+ * plugin externo (lado plugin) y el handler host-side (lado host). Dirección:
+ *  - `call` / `result` / `error`: petición-respuesta plugin ↔ host (con `id`
+ *    correlacionador). El plugin manda `call`; el host contesta `result` o `error`.
+ *  - `event`: host → plugin. El host empuja el payload de un evento suscrito
+ *    (identificado por `sub`, el número de suscripción que fijó el plugin).
+ *  - `invoke`: host → plugin. El host pide correr el `run()` local de un comando
+ *    registrado por el plugin (identificado por `commandId`).
+ */
+export type BridgeMessage =
+  | { type: 'call'; id: number; method: string; args: unknown[] }
+  | { type: 'result'; id: number; result: unknown }
+  | { type: 'error'; id: number; message: string }
+  | { type: 'event'; name: GeodeEventName; payload: unknown; sub: number }
+  | { type: 'invoke'; commandId: string }
+
+/**
+ * ── API v2 async (SOLO para externos por el puente) ──────────────────────────
+ *
+ * `AsyncWorkspace`/`AsyncPluginContext` son el espejo ASÍNCRONO de la API v1
+ * (`Workspace`/`PluginContext`). Un plugin externo activado por el puente recibe
+ * esta forma: cada operación que antes era síncrona ahora cruza el `MessagePort`
+ * y devuelve `Promise` (el editor imperativo es el cambio visible del contrato).
+ *
+ * Los built-ins NO usan esto: siguen con la `PluginContext` v1 síncrona in-host.
+ * Estos tipos no alteran la v1; conviven aparte.
+ */
+export interface AsyncWorkspace {
+  /** Nota activa (ruta + contenido) o null; ahora async porque cruza el puente. */
+  activeNote(): Promise<{ path: string; content: string } | null>
+  vault: {
+    readNote(path: string): Promise<string>
+    tree(): Promise<TreeNode[]>
+  }
+  git: {
+    graph(): Promise<GitGraph>
+  }
+  editor: {
+    /** Inserta texto en el cursor (o reemplaza la selección). Async (v2). */
+    insertAtCursor(text: string): Promise<void>
+    /** Texto seleccionado actualmente ('' si no hay). Async (v2). */
+    getSelection(): Promise<string>
+    /** Selecciona y hace scroll a un rango del documento activo. Async (v2). */
+    revealRange(from: number, to: number): Promise<void>
+  }
+  events: {
+    /** La suscripción se hace por debajo (fire-and-forget); el Disposable es síncrono. */
+    on<E extends GeodeEventName>(event: E, handler: (payload: GeodeEvents[E]) => void): Disposable
+  }
+  /** Ejecuta un comando registrado por su id. Async (v2). */
+  runCommand(id: string): Promise<void>
+  /** Aviso breve (toast) al usuario. Async (v2). */
+  notify(message: string): Promise<void>
+}
+
+/**
+ * Contexto async que recibe un plugin EXTERNO en activate() cuando se activa por
+ * el puente (API v2). `commands.register` manda solo la parte serializable del
+ * comando; el `run()` local se dispara vía `invoke` del host.
+ *
+ * `panels`/`statusBar`/`editorExtensions` están DIFERIDOS a la Fase 12 (UI-01):
+ * cargan Componentes/Extensions no serializables por el `MessagePort`. Se tipan
+ * con la misma forma que `PluginContext` para asignabilidad estructural, pero el
+ * proxy los implementa lanzando un Error en español ("no soportado en Fase 11").
+ */
+export interface AsyncPluginContext extends AsyncWorkspace {
+  commands: { register(cmd: Command): Disposable }
+  /** No soportado en Fase 11 (Fase 12 UI-01): el proxy lanza Error al usarlo. */
+  panels: { register(panel: PanelDef): Disposable; toggle(id: string): void }
+  /** No soportado en Fase 11 (Fase 12 UI-01): el proxy lanza Error al usarlo. */
+  statusBar: { addItem(item: StatusItemDef): Disposable }
+  /** No soportado en Fase 11 (Fase 12 UI-01): el proxy lanza Error al usarlo. */
+  editorExtensions: { add(ext: Extension): Disposable }
+}
+
 /** Un plugin interno de Geode. */
 export interface GeodePlugin {
   id: string

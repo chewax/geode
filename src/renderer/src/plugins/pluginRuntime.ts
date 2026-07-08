@@ -1,5 +1,23 @@
 import type { GitGraph, TreeNode } from '@shared/ipc'
-import type { AsyncPluginContext, BridgeMessage, Command } from './types'
+import type {
+  AsyncPluginContext,
+  BridgeMessage,
+  Command,
+  ExternalPanelInput
+} from './types'
+
+/**
+ * Adaptador de UI que el BOOTSTRAP del iframe (iframe-runtime/index.ts) inyecta a
+ * `buildAsyncContext`. Este módulo es AUTOCONTENIDO (solo importa TIPOS): no puede
+ * importar react-dom. El montaje real del panel (createRoot) vive en el bootstrap,
+ * que sí empaqueta react-dom; acá solo se declara el contrato y se lo llama.
+ */
+export interface IframePanelUi {
+  /** Monta el Component del panel DENTRO del iframe (react-dom del bundle). */
+  mount(def: ExternalPanelInput): void
+  /** Desmonta el panel y libera su contenedor. */
+  unmount(id: string): void
+}
 
 /**
  * ── Lado PLUGIN del puente async (Fase 12 / ISO-01) ──────────────────────────
@@ -20,7 +38,10 @@ import type { AsyncPluginContext, BridgeMessage, Command } from './types'
  * ("puente cerrado") para que no cuelguen para siempre, limpia los mapas y
  * cierra el port.
  */
-export function buildAsyncContext(port: MessagePort): {
+export function buildAsyncContext(
+  port: MessagePort,
+  ui?: IframePanelUi
+): {
   ctx: AsyncPluginContext
   dispose: () => void
 } {
@@ -84,13 +105,6 @@ export function buildAsyncContext(port: MessagePort): {
     port.close()
   }
 
-  // Las superficies de UI llevan Componentes/Extensions no serializables por el
-  // MessagePort; se implementan en el Plan 02 (UI-01). Acá el proxy lanza en
-  // español.
-  const deferred = (feature: string): never => {
-    throw new Error(`${feature}: no soportado todavía (llega en el Plan 02, UI-01)`)
-  }
-
   const ctx: AsyncPluginContext = {
     activeNote: () => call('activeNote') as Promise<{ path: string; content: string } | null>,
     vault: {
@@ -139,11 +153,51 @@ export function buildAsyncContext(port: MessagePort): {
       }
     },
     panels: {
-      register: () => deferred('panels.register'),
-      toggle: () => deferred('panels.toggle')
+      register: (panel) => {
+        // La UI del panel se renderiza DENTRO del iframe (react-dom del bundle del
+        // runtime): el Component NO cruza el puente. Solo viaja lo serializable.
+        ui?.mount(panel)
+        void call('panels.register', { id: panel.id, title: panel.title, icon: panel.icon })
+        return {
+          dispose: () => {
+            ui?.unmount(panel.id)
+            void call('panels.dispose', panel.id)
+          }
+        }
+      },
+      toggle: (id) => {
+        void call('panels.toggle', id)
+      }
     },
-    statusBar: { addItem: () => deferred('statusBar.addItem') },
-    editorExtensions: { add: () => deferred('editorExtensions.add') }
+    statusBar: {
+      addItem: (item) => {
+        // Solo cruza el modelo serializable {id,text,tooltip,icon}; el host lo dibuja.
+        void call('statusBar.addItem', {
+          id: item.id,
+          text: item.text,
+          tooltip: item.tooltip,
+          icon: item.icon
+        })
+        return {
+          update: (patch) => {
+            void call('statusBar.update', item.id, patch)
+          },
+          dispose: () => {
+            void call('statusBar.dispose', item.id)
+          }
+        }
+      }
+    },
+    editorExtensions: {
+      // NO soportado para plugins de terceros: una Extension viva de CodeMirror no
+      // serializa por el MessagePort. Solo los built-ins first-party in-host aportan
+      // extensiones de editor.
+      add: (): never => {
+        throw new Error(
+          'editorExtensions.add: no soportado para plugins de terceros: las extensiones de editor solo las aportan los built-ins'
+        )
+      }
+    }
   }
 
   return { ctx, dispose }

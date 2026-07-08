@@ -35,6 +35,47 @@ export interface StatusItemDef {
   Component: FC
 }
 
+/**
+ * ── Modelos SERIALIZABLES para plugins EXTERNOS (Fase 12 / UI-01) ────────────
+ *
+ * Cruzan el `MessagePort` como DATOS puros (solo strings): NO llevan Componentes
+ * ni Extensions (no serializan). El host dibuja el header del panel (título +
+ * ícono Lucide por nombre + cerrar) y el status-item a partir de estos datos; el
+ * CUERPO del panel se renderiza DENTRO del iframe del plugin.
+ */
+
+/** Parte serializable de un panel externo. `icon` = NOMBRE de un ícono Lucide. */
+export interface ExternalPanelDef {
+  id: string
+  title: string
+  /** Nombre de un ícono Lucide (p. ej. 'Puzzle'); el host lo mapea a componente. */
+  icon?: string
+}
+
+/**
+ * Lo que el plugin externo pasa a `panels.register`: los datos serializables del
+ * panel + su Component React. El Component se monta DENTRO del iframe del plugin
+ * (react-dom del bundle del runtime) y NUNCA cruza el puente; solo `{id,title,icon}`
+ * viaja al host para dibujar el header.
+ */
+export interface ExternalPanelInput extends ExternalPanelDef {
+  Component: FC
+}
+
+/** Ítem de barra de estado de un plugin externo: 100% serializable. */
+export interface ExternalStatusItem {
+  id: string
+  text: string
+  tooltip?: string
+  /** Nombre de un ícono Lucide; el host lo mapea a componente. */
+  icon?: string
+}
+
+/** Handle de un status-item externo: se actualiza (manda statusBar.update) o se quita. */
+export interface ExternalStatusHandle extends Disposable {
+  update(patch: Partial<Omit<ExternalStatusItem, 'id'>>): void
+}
+
 /** Eventos de ciclo de vida (bus tipado). Payload por evento. */
 export interface GeodeEvents {
   'note:open': { path: string; content: string }
@@ -107,9 +148,14 @@ export interface PluginContext extends Workspace {
  *
  *  - `init`: host → iframe. ÚNICO mensaje que NO viaja por el `MessagePort`, sino
  *    por `contentWindow.postMessage(init, '*', [port1])`: lleva la fuente CommonJS
- *    del plugin y TRANSFIERE el `port1` del canal al iframe. El resto de los
- *    mensajes (`call`/`result`/`error`/`event`/`invoke`) viaja ya por ese
- *    `MessagePort` establecido.
+ *    del plugin, el `theme` ESTÁTICO ('dark') y TRANSFIERE el `port1` del canal al
+ *    iframe. El resto de los mensajes (`call`/`result`/`error`/`event`/`invoke`)
+ *    viaja ya por ese `MessagePort` establecido. El TEMA se pasa UNA sola vez acá
+ *    (Geode es dark fijo): NO hay suscripción de cambio de tema ni un op de tema.
+ *  - `panel` (op 'resize'): host → iframe, por `contentWindow.postMessage` (NO por
+ *    el port). Un `ResizeObserver` sobre el `plugin-panel-body` lo emite de forma
+ *    CONTINUA con el tamaño del rectángulo; el runtime del iframe aplica ese tamaño
+ *    al contenedor de montaje del panel. Es el ÚNICO mensaje de panel (solo resize).
  *  - `call` / `result` / `error`: petición-respuesta plugin ↔ host (con `id`
  *    correlacionador). El plugin manda `call`; el host contesta `result` o `error`.
  *  - `event`: host → plugin. El host empuja el payload de un evento suscrito
@@ -118,12 +164,13 @@ export interface PluginContext extends Workspace {
  *    registrado por el plugin (identificado por `commandId`).
  */
 export type BridgeMessage =
-  | { type: 'init'; pluginId: string; source: string }
+  | { type: 'init'; pluginId: string; source: string; theme?: 'dark' }
   | { type: 'call'; id: number; method: string; args: unknown[] }
   | { type: 'result'; id: number; result: unknown }
   | { type: 'error'; id: number; message: string }
   | { type: 'event'; name: GeodeEventName; payload: unknown; sub: number }
   | { type: 'invoke'; commandId: string }
+  | { type: 'panel'; id: string; op: 'resize'; width: number; height: number }
 
 /**
  * Entrada de un plugin externo a activar: su id + la fuente CommonJS cruda (aún
@@ -180,18 +227,20 @@ export interface AsyncWorkspace {
  * el puente (API v2). `commands.register` manda solo la parte serializable del
  * comando; el `run()` local se dispara vía `invoke` del host.
  *
- * `panels`/`statusBar`/`editorExtensions` están DIFERIDOS a la Fase 12 (UI-01):
- * cargan Componentes/Extensions no serializables por el `MessagePort`. Se tipan
- * con la misma forma que `PluginContext` para asignabilidad estructural, pero el
- * proxy los implementa lanzando un Error en español ("no soportado en Fase 11").
+ * `panels`/`statusBar` cruzan la UI como DATOS serializables (Fase 12 / UI-01): el
+ * panel monta su Component DENTRO del iframe y solo `{id,title,icon}` viaja al host;
+ * el status-item cruza como `{id,text,tooltip,icon}`. `editorExtensions` sigue NO
+ * soportado para externos: solo los built-ins first-party aportan extensiones de
+ * editor (una Extension viva no serializa por el `MessagePort`); el proxy lanza un
+ * Error en español.
  */
 export interface AsyncPluginContext extends AsyncWorkspace {
   commands: { register(cmd: Command): Disposable }
-  /** No soportado en Fase 11 (Fase 12 UI-01): el proxy lanza Error al usarlo. */
-  panels: { register(panel: PanelDef): Disposable; toggle(id: string): void }
-  /** No soportado en Fase 11 (Fase 12 UI-01): el proxy lanza Error al usarlo. */
-  statusBar: { addItem(item: StatusItemDef): Disposable }
-  /** No soportado en Fase 11 (Fase 12 UI-01): el proxy lanza Error al usarlo. */
+  /** El panel monta su Component en el iframe; solo `{id,title,icon}` cruza el puente. */
+  panels: { register(panel: ExternalPanelInput): Disposable; toggle(id: string): void }
+  /** El status-item cruza como datos `{id,text,tooltip,icon}` y se puede actualizar. */
+  statusBar: { addItem(item: ExternalStatusItem): ExternalStatusHandle }
+  /** NO soportado para externos: solo los built-ins aportan extensiones; lanza Error. */
   editorExtensions: { add(ext: Extension): Disposable }
 }
 

@@ -71,8 +71,10 @@ export function createPluginIframe(
     if (settled) return
     settled = true
     // Transferir el port al iframe junto al `init`. El array de transfer mueve el
-    // port (no lo comparte): tras esto el plugin habla por su propio endpoint.
-    iframe.contentWindow?.postMessage({ type: 'init', pluginId, source }, '*', [port])
+    // port (no lo comparte): tras esto el plugin habla por su propio endpoint. El
+    // `theme` ESTÁTICO ('dark') viaja acá UNA sola vez (Geode es dark fijo): no hay
+    // suscripción de cambio de tema.
+    iframe.contentWindow?.postMessage({ type: 'init', pluginId, source, theme: 'dark' }, '*', [port])
   }
   iframe.addEventListener('load', onLoad)
 

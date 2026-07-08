@@ -1,5 +1,12 @@
 import type { PluginHost } from './host'
-import type { BridgeMessage, Disposable, GeodeEventName, PluginEntry } from './types'
+import type {
+  BridgeMessage,
+  Disposable,
+  ExternalPanelDef,
+  ExternalStatusItem,
+  GeodeEventName,
+  PluginEntry
+} from './types'
 import { createPluginIframe } from './iframeHost'
 
 /**
@@ -27,11 +34,18 @@ import { createPluginIframe } from './iframeHost'
  * la lista responde `error` (nunca ejecuta nada arbitrario). Devuelve un
  * Disposable que limpia el listener y todas las suscripciones/comandos vivos.
  */
-export function attachHostBridge(host: PluginHost, port: MessagePort): Disposable {
+export function attachHostBridge(
+  host: PluginHost,
+  port: MessagePort,
+  getIframe: () => HTMLIFrameElement | null
+): Disposable {
   // Suscripciones a eventos abiertas por el plugin, indexadas por su `sub`.
   const subs = new Map<number, Disposable>()
   // Comandos registrados por el plugin, indexados por commandId, para limpiarlos.
   const cmds = new Map<string, Disposable>()
+  // Paneles y status-items externos registrados por el plugin, para limpiarlos.
+  const panels = new Map<string, Disposable>()
+  const statusItems = new Map<string, Disposable>()
 
   // Resuelve el método (string con puntos) contra la implementación real. Solo
   // los métodos de esta allowlist se ejecutan; cualquier otro lanza y se
@@ -93,6 +107,47 @@ export function attachHostBridge(host: PluginHost, port: MessagePort): Disposabl
         cmds.delete(commandId)
         return undefined
       }
+      case 'panels.register': {
+        // Solo llega la parte serializable {id,title,icon}; el Component del panel
+        // se quedó DENTRO del iframe. El host asocia el panel con SU iframe (el del
+        // plugin que hizo la llamada) para superponerlo en el panel-body.
+        const def = args[0] as ExternalPanelDef
+        const iframe = getIframe()
+        if (!iframe) return undefined // el iframe aún no existe (no debería pasar tras init)
+        const d = host.registerExternalPanel(def, iframe)
+        panels.set(def.id, d)
+        return undefined
+      }
+      case 'panels.toggle': {
+        host.togglePanel(args[0] as string)
+        return undefined
+      }
+      case 'panels.dispose': {
+        const id = args[0] as string
+        panels.get(id)?.dispose()
+        panels.delete(id)
+        return undefined
+      }
+      case 'statusBar.addItem': {
+        // El status-item cruza como datos serializables {id,text,tooltip,icon}; el
+        // host lo dibuja (texto + ícono Lucide por nombre), nunca un Component.
+        const item = args[0] as ExternalStatusItem
+        const d = host.addExternalStatusItem(item)
+        statusItems.set(item.id, d)
+        return undefined
+      }
+      case 'statusBar.update': {
+        const id = args[0] as string
+        const patch = args[1] as Partial<Omit<ExternalStatusItem, 'id'>>
+        host.updateExternalStatusItem(id, patch)
+        return undefined
+      }
+      case 'statusBar.dispose': {
+        const id = args[0] as string
+        statusItems.get(id)?.dispose()
+        statusItems.delete(id)
+        return undefined
+      }
       default:
         throw new Error(`método no soportado por el puente: "${method}"`)
     }
@@ -124,6 +179,10 @@ export function attachHostBridge(host: PluginHost, port: MessagePort): Disposabl
       subs.clear()
       cmds.forEach((d) => d.dispose())
       cmds.clear()
+      panels.forEach((d) => d.dispose())
+      panels.clear()
+      statusItems.forEach((d) => d.dispose())
+      statusItems.clear()
       port.close()
     }
   }
@@ -152,9 +211,14 @@ export function activateExternalViaBridge(
   const disposables: Disposable[] = []
   for (const entry of entries) {
     const ch = new MessageChannel()
-    const hostSide = attachHostBridge(host, ch.port2)
+    // El lado host necesita el iframe del plugin para asociar su panel externo.
+    // Se le pasa un getter perezoso: el iframe se crea justo abajo y, para cuando
+    // el plugin llame `panels.register` (tras el init/load), ya estará asignado.
+    let frameEl: HTMLIFrameElement | null = null
+    const hostSide = attachHostBridge(host, ch.port2, () => frameEl)
     try {
       const frame = createPluginIframe(entry.pluginId, entry.source, runtimeSource, ch.port1)
+      frameEl = frame.iframe
       // Teardown en orden Fase 11: lado plugin (iframe: remueve el <iframe> y
       // cierra el port) ANTES que el lado host. Así, si hubiera llamadas RPC en
       // vuelo, el peer del plugin desaparece primero y el host limpia después.

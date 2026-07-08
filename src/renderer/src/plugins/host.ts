@@ -2,6 +2,8 @@ import type { Extension } from '@codemirror/state'
 import type {
   Command,
   Disposable,
+  ExternalPanelDef,
+  ExternalStatusItem,
   GeodeEventName,
   GeodeEvents,
   PanelDef,
@@ -39,6 +41,12 @@ export class PluginHost {
   private statusItems = new Map<string, StatusItemDef>()
   private extensions = new Map<string, Extension>()
   private openPanels = new Set<string>()
+  // ── Registros PARALELOS para plugins EXTERNOS (Fase 12 / UI-01) ──────────────
+  // Un panel externo se dibuja DENTRO de su iframe: el host guarda su `def`
+  // serializable + el `HTMLIFrameElement` para reposicionarlo en el panel-body.
+  private externalPanels = new Map<string, { def: ExternalPanelDef; iframe: HTMLIFrameElement }>()
+  // Un status-item externo cruza como datos serializables; el host lo dibuja.
+  private externalStatusItems = new Map<string, ExternalStatusItem>()
   private eventBus = new Map<string, Set<(payload: unknown) => void>>()
   private activeNoteState: { path: string; content: string } | null = null
   private bridge: AppBridge | null = null
@@ -93,13 +101,54 @@ export class PluginHost {
     return [...this.panels.values()]
   }
   togglePanel(id: string): void {
-    if (!this.panels.has(id)) return
+    // Reconoce tanto los paneles in-host (built-ins) como los externos (iframe).
+    if (!this.panels.has(id) && !this.externalPanels.has(id)) return
     if (this.openPanels.has(id)) this.openPanels.delete(id)
     else this.openPanels.add(id)
     this.bump()
   }
   isPanelOpen(id: string): boolean {
     return this.openPanels.has(id)
+  }
+
+  // ── Paneles EXTERNOS (iframe) ────────────────────────────────────────────────
+  // El panel de un plugin externo se renderiza DENTRO de su iframe; el host solo
+  // guarda su parte serializable + el iframe para superponerlo en el panel-body y
+  // dibuja el header (título + ícono Lucide por nombre + cerrar).
+  registerExternalPanel(def: ExternalPanelDef, iframe: HTMLIFrameElement): Disposable {
+    this.externalPanels.set(def.id, { def, iframe })
+    this.bump()
+    return {
+      dispose: () => {
+        this.externalPanels.delete(def.id)
+        this.openPanels.delete(def.id)
+        this.bump()
+      }
+    }
+  }
+  listExternalPanels(): { def: ExternalPanelDef; iframe: HTMLIFrameElement }[] {
+    return [...this.externalPanels.values()]
+  }
+
+  // ── Ítems de status EXTERNOS (datos serializables) ───────────────────────────
+  addExternalStatusItem(item: ExternalStatusItem): Disposable {
+    this.externalStatusItems.set(item.id, item)
+    this.bump()
+    return {
+      dispose: () => {
+        this.externalStatusItems.delete(item.id)
+        this.bump()
+      }
+    }
+  }
+  updateExternalStatusItem(id: string, patch: Partial<Omit<ExternalStatusItem, 'id'>>): void {
+    const cur = this.externalStatusItems.get(id)
+    if (!cur) return
+    this.externalStatusItems.set(id, { ...cur, ...patch })
+    this.bump()
+  }
+  listExternalStatusItems(): ExternalStatusItem[] {
+    return [...this.externalStatusItems.values()]
   }
 
   // ── Ítems de barra de estado ─────────────────────────────────────────────────

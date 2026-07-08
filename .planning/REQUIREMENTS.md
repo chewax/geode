@@ -15,11 +15,11 @@ Abrir la plataforma de plugins a **terceros no confiables** de forma segura: los
 
 ### Versionado y contrato de la API
 
-- [ ] **APIVER-01**: El manifiesto declara `apiVersion` (y `minAppVersion`); el host **rechaza o avisa** si son incompatibles antes de cargar el plugin. La API v1 (`PluginContext`) queda **congelada** como contrato público (cambios → v2 con capa de compatibilidad).
+- [x] **APIVER-01**: El manifiesto declara `apiVersion` (y `minAppVersion`); el host **rechaza o avisa** si son incompatibles antes de cargar el plugin. La API v1 (`PluginContext`) queda **congelada** como contrato público (cambios → v2 con capa de compatibilidad).
 
 ### Puente async (transporte-agnóstico)
 
-- [ ] **BRIDGE-01**: Toda la API del plugin pasa por un **protocolo async request/response** (`postMessage` con id). El `PluginContext` que recibe el plugin es un **proxy** que serializa llamadas al host. Las APIs de editor hoy síncronas (`getSelection`, `insertAtCursor`) se exponen como **`Promise`** (API async v2 en el borde). Un plugin de ejemplo existente sigue funcionando a través del puente.
+- [x] **BRIDGE-01**: Toda la API del plugin pasa por un **protocolo async request/response** (`postMessage` con id). El `PluginContext` que recibe el plugin es un **proxy** que serializa llamadas al host. Las APIs de editor hoy síncronas (`getSelection`, `insertAtCursor`) se exponen como **`Promise`** (API async v2 en el borde). Un plugin de ejemplo existente sigue funcionando a través del puente.
 
 ### Aislamiento (sandbox)
 
@@ -61,8 +61,8 @@ Excluido explícitamente de v1.3 para evitar scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| APIVER-01 | Phase 11 | Pending |
-| BRIDGE-01 | Phase 11 | Pending |
+| APIVER-01 | Phase 11 | Complete |
+| BRIDGE-01 | Phase 11 | Complete |
 | ISO-01 | Phase 12 | Pending |
 | UI-01 | Phase 12 | Pending |
 | CSP-01 | Phase 12 | Pending |

@@ -49,7 +49,7 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`): los plugins de terceros no confiables dejan de evaluarse en el renderer principal y pasan a un iframe sandboxed detrás de un puente async por postMessage, con permisos declarados y aplicados, y el renderer recupera un CSP sin `unsafe-eval`. Los built-ins siguen first-party en el host; la experiencia por defecto no cambia.
 
-- [ ] **Phase 11: Freeze API v1 + puente async del PluginContext** — congelar API v1 + `apiVersion`/`minAppVersion`, convertir el `PluginContext` en un proxy async por postMessage contra el host actual (transporte in-host, sin iframe todavía)
+- [x] **Phase 11: Freeze API v1 + puente async del PluginContext** — congelar API v1 + `apiVersion`/`minAppVersion`, convertir el `PluginContext` en un proxy async por postMessage contra el host actual (transporte in-host, sin iframe todavía)
 - [ ] **Phase 12: Sandbox en iframe + UI del panel dentro del iframe + quitar unsafe-eval** — mover la ejecución de terceros a un iframe sandboxed, renderizar el panel dentro del iframe, y quitar `'unsafe-eval'` del CSP del renderer principal
 - [ ] **Phase 13: Permisos — declarar + consentir + aplicar** — enum de `permissions` en el manifiesto, consentimiento al activar (y re-consentir en cambios), enforcement en el borde del puente
 
@@ -66,9 +66,9 @@ MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`): los plugins de terceros no co
   4. Las APIs de editor antes síncronas (`getSelection`, `insertAtCursor`) se exponen como **`Promise`** en el borde del plugin; un plugin de ejemplo externo migrado al proxy async sigue funcionando (registra su comando/panel y opera sobre el editor a través del puente).
   5. Los built-ins (insert-date/reading-time/outline) siguen funcionando sin cambios (siguen first-party en el host, sin pasar por el puente); typecheck + build en verde.
 **Plans**: 3 plans
-- [ ] 11-01-PLAN.md — Congelar API v1 + `apiVersion` en el manifiesto + chequeo de compatibilidad (main listPlugins)
-- [ ] 11-02-PLAN.md — Puente async (MessageChannel + bridge host-side + proxy AsyncPluginContext) y bifurcar la carga de externos
-- [ ] 11-03-PLAN.md — Plugin de ejemplo async que valida el puente + UAT humano end-of-phase
+  - [x] 11-01-PLAN.md — Congelar API v1 + `apiVersion` en el manifiesto + chequeo de compatibilidad (main listPlugins)
+  - [x] 11-02-PLAN.md — Puente async (MessageChannel + bridge host-side + proxy AsyncPluginContext) y bifurcar la carga de externos
+  - [x] 11-03-PLAN.md — Plugin de ejemplo async que valida el puente + UAT humano end-of-phase
 
 ### Phase 12: Sandbox en iframe + UI del panel dentro del iframe + quitar unsafe-eval
 **Goal**: Un plugin de terceros corre aislado en un iframe sandboxed sin acceso a `window.geode`/Node/globals del host; su panel renderiza dentro del iframe; y el renderer principal recupera un CSP estricto sin `'unsafe-eval'`. Solo cambia el transporte del puente (in-host → iframe), no la API del plugin.
@@ -110,6 +110,6 @@ MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`): los plugins de terceros no co
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 11. Freeze API v1 + puente async del PluginContext | v1.3 | 0/3 | Not started | - |
+| 11. Freeze API v1 + puente async del PluginContext | v1.3 | 3/3 | Complete | 2026-07-08 |
 | 12. Sandbox en iframe + UI + quitar unsafe-eval | v1.3 | 0/? | Not started | - |
 | 13. Permisos — declarar + consentir + aplicar | v1.3 | 0/? | Not started | - |

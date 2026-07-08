@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Aislamiento de plugins (Fase B)
-status: planning
-stopped_at: v1.3 milestone defined (requirements + roadmap); Phase 11 not started
+status: executing
+stopped_at: Completed 11-03-PLAN.md (Phase 11 closed — UAT approved, verification passed 5/5)
 last_updated: "2026-07-07T19:51:07.903Z"
-last_activity: 2026-07-07 — v1.3 Aislamiento de plugins (Fase B) defined
+last_activity: 2026-07-08 — Phase 11 (APIVER-01/BRIDGE-01) closed
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** v1.3 Aislamiento de plugins (Fase B) — MVP (pasos 1-5 de docs/PLUGINS.md). Próximo: Fase 11 (freeze API v1 + puente async del PluginContext).
+**Current focus:** v1.3 Aislamiento de plugins (Fase B) — Fase 11 cerrada (puente async listo). Próximo: Fase 12 (iframe sandbox + UI dentro del iframe + quitar unsafe-eval).
 
 ## Current Position
 
-Phase: 11 — NOT STARTED (v1.3, primera fase)
+Phase: 12 — NOT STARTED (Fase 11 cerrada)
 Plan: — of —
-Status: v1.3 definido (7 requisitos, 3 fases 11-13). Próximo: /gsd-plan-phase 11
-Last activity: 2026-07-07 — v1.3 Aislamiento de plugins (Fase B) definido
+Status: v1.3 a 1/3 fases. Puente async validado (BRIDGE-01/APIVER-01). Próximo: /gsd-plan-phase 12 (iframe sandbox — solo mueve un endpoint del port al iframe)
+Last activity: 2026-07-08 — Phase 11 cerrada: UAT approved, verification passed 5/5
 
 ## Performance Metrics
 

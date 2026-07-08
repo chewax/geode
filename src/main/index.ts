@@ -465,7 +465,13 @@ function registerIpcHandlers(): void {
   // La ruta se resuelve con vault.absPath (validada por resolveInside): nunca se
   // pasa una ruta cruda del renderer al shell del SO.
   ipcMain.handle(IPC.vaultReveal, (_e, path: string) => {
-    shell.showItemInFolder(vault.absPath(path))
+    const abs = vault.absPath(path)
+    try {
+      shell.showItemInFolder(abs)
+    } catch (e) {
+      console.error('[vault] no se pudo revelar en el explorador:', abs, e)
+      throw e
+    }
   })
   ipcMain.handle(IPC.vaultDuplicate, (_e, path: string) => vault.duplicate(path))
 

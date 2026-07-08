@@ -28,6 +28,7 @@ import {
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
+import { suppressNextEditorAutoFocus } from './editor/focusControl'
 import { PaneView } from './PaneView'
 import { type PaneHandle, type TabDrag } from './EditorPane'
 import {
@@ -510,7 +511,11 @@ export function App(): JSX.Element {
     await refreshTree()
     setRevealPath(node.path) // auto-expande la carpeta destino
     setSelected({ path: node.path, isDir: false })
-    await openNote(node.path, { pinned: true }) // una nota nueva se abre para editar, no como preview
+    // La nota se abre para editar (no como preview), pero al crearla el foco debe
+    // quedarse en el input de nombre del árbol; por eso suprimimos el auto-foco del
+    // editor esta vez (si no, `view.focus()` del editor le roba el foco al input).
+    suppressNextEditorAutoFocus()
+    await openNote(node.path, { pinned: true })
     setRenameError(null)
     setRenameSeed(null)
     setEditingPath(node.path) // permitir nombrarla al toque
@@ -1239,7 +1244,6 @@ export function App(): JSX.Element {
               // "+" y el menú contextual crean en la raíz (estilo VSCode).
               <div
                 className="tree-scroll"
-                style={{ flex: 1 }}
                 onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}
                 onContextMenu={(e) => {
                   if (e.target !== e.currentTarget) return

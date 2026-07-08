@@ -696,6 +696,14 @@ body.resizing-col {
   padding: 4px 0; /* sin padding lateral: el resalte de fila llega hasta el borde */
 }
 
+/* Contenedor del árbol: llena el alto del cuerpo de sección para que un click (o
+   click derecho) en la zona vacía bajo la lista caiga sobre él mismo (currentTarget)
+   y deseleccione / abra el menú de raíz, estilo VSCode. Sin esto, el div solo mide
+   lo que la lista y no hay zona vacía clickeable. */
+.tree-scroll {
+  min-height: 100%;
+}
+
 /* La sangría de los hijos la da el padding-left por profundidad de cada fila
    (estilo VSCode), no un offset del contenedor: así el fondo va de lado a lado. */
 .tree-children {

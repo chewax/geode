@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { baseExtensions } from './extensions'
+import { consumeEditorAutoFocusSuppression } from './focusControl'
 
 /**
  * Marca las transacciones de recarga programática (cambio de nota, checkout,
@@ -160,7 +161,9 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         parent: hostRef.current
       })
       viewRef.current = view
-      view.focus()
+      // Al crear una nota se suprime este foco inicial para que el input de nombre
+      // del árbol lo conserve (ver focusControl).
+      if (!consumeEditorAutoFocusSuppression()) view.focus()
 
       return () => {
         view.destroy()
@@ -185,7 +188,8 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         selection: { anchor: 0 },
         annotations: programmaticReload.of(true)
       })
-      view.focus()
+      // Si la recarga viene de crear una nota, no robar el foco al input de nombre.
+      if (!consumeEditorAutoFocusSuppression()) view.focus()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reloadKey])
 

@@ -71,7 +71,42 @@ Cualquier otro `require(...)` falla con un error claro. Para plugins con UI,
 compilá tu TS/JSX a un único `main.js` CommonJS dejando esos módulos como
 externos.
 
-## Ejemplo
+## Ejemplos
 
-`hola-mundo/` — agrega un comando "Insertar saludo (plugin externo)" a la paleta.
-Copialo a tu carpeta de plugins, activalo y reiniciá para probarlo.
+- `hola-mundo/` — agrega un comando "Insertar saludo (plugin externo)" a la paleta.
+  Copialo a tu carpeta de plugins, activalo y reiniciá para probarlo.
+- `hola-mundo-async/` — ejemplo de la **API v2 async** (Fase B): un comando que
+  lee la selección/nota activa e inserta un resumen, y reacciona a `note:open`.
+
+## API v2 async (Fase B, para plugins externos)
+
+A partir de la Fase B, los plugins **externos** ya no reciben la API v1 síncrona:
+reciben un **PluginContext async** a través de un **puente** (`postMessage`). Los
+built-ins first-party siguen en la API v1 síncrona in-host; el contrato async es
+solo para externos (el paso previo a correr aislados en un sandbox).
+
+Qué cambia para el autor de un plugin externo:
+
+- Los métodos del editor y `activeNote()` devuelven **`Promise`** → usá `await`:
+
+  ```js
+  run: async () => {
+    const sel = await ctx.editor.getSelection()
+    const nota = await ctx.activeNote()
+    await ctx.editor.insertAtCursor('texto')
+    await ctx.notify('listo')
+  }
+  ```
+
+- `ctx.commands.register(...)` y `ctx.events.on(...)` siguen devolviendo un
+  `Disposable` (el `run()` del comando y los handlers de eventos viven de tu lado;
+  el host los invoca por el puente).
+- **Todavía no** por el puente (llegan con la UI aislada, más adelante):
+  `ctx.panels.*`, `ctx.statusBar.*`, `ctx.editorExtensions.*` — un plugin externo
+  que los use recibe un error claro. Usá comandos + editor + eventos por ahora.
+
+### `apiVersion` en el manifiesto
+
+Declará `"apiVersion": 1` en `plugin.json` para fijar el contrato. Si el host no
+soporta esa versión (o `minAppVersion` es más nuevo que la app), el plugin se
+**rechaza con un error visible** en Ajustes → Plugins y **no se evalúa**.

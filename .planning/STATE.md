@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Power-user y plataforma
-status: Awaiting next milestone
-stopped_at: Completed 10-03-PLAN.md (Phase 10 closed)
-last_updated: "2026-07-07T19:51:07.903Z"
-last_activity: 2026-07-07 — Milestone v1.2 completed and archived
+milestone: v1.3
+milestone_name: Onboarding guiado
+status: planning
+last_updated: "2026-07-08T22:29:31.386Z"
+last_activity: 2026-07-08
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 ## Current Position
 
-Phase: Milestone v1.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-08 — Completed quick task 260708-3om: fixes del árbol lateral (eliminar carpetas, crear en raíz, mostrar en explorador, duplicar, foco al crear)
+Status: Defining requirements
+Last activity: 2026-07-08 — Milestone v1.3 started
 
 ## Performance Metrics
 

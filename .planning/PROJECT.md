@@ -8,6 +8,19 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
+## Current Milestone: v1.3 Onboarding guiado
+
+**Goal:** Que un usuario que no sabe qué es GitHub llegue solo, guiado, desde "abrir la app por primera vez" hasta "escribí una nota, la guardé y la respaldé en la nube" — sin toparse nunca con jerga (vault/Git/clonar/repo/commit/push).
+
+**Target features:**
+- Bienvenida sin jerga; camino primario "Crear mi primer cuaderno".
+- Cuaderno local en 1 click (carpeta Geode por defecto `~/Documents/Geode/<nombre>`, sin selector de carpeta en el happy path; sin cuenta).
+- Asistente de respaldo en la nube no bloqueante: onboarding de cuenta GitHub guiado (hand-off a signup + checklist + reuso del device flow), crear repo privado + primer push automático sin exponer repo/commit/push.
+- Reescritura transversal de strings "GitHub/repo/clonar" → "respaldo en la nube / copia de seguridad" en la UI de cara al usuario.
+- Tour interactivo de primera vez (`TourOverlay` propio y liviano: spotlight + cartel, anclas `data-tour` en botones reales, disparo tras crear el primer cuaderno, re-lanzable desde Ayuda).
+
+**Key context (decisiones cerradas con el usuario):** (1) *local primero, nube después* — el respaldo nunca es peaje de entrada; empezar a escribir es 1 click sin cuenta. (2) Framear todo como "respaldo en la nube"; nombrar "GitHub" solo cuando es inevitable (la propia página de signup), enmarcado como "servicio gratuito y seguro". La creación de cuenta no se puede automatizar (captcha/verificación de email) → hand-off guiado con checklist es el máximo posible. Refuerza el core value (git invisible).
+
 ## Current State: v1.2 shipped (2026-07-07)
 
 Tres hitos enviados (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerró con 3 fases (8-10): borrar rama sin mergear + contador +N/-N (Modo Avanzado), IA opcional en auto-snapshots (opt-in), y activar/desactivar plugins internos. **Re-scope al cierre:** PLUG-02 (aislamiento de plugins de terceros, Fase B MVP) se difirió a un hito dedicado por tamaño/riesgo.
@@ -145,4 +158,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 after v1.2 milestone*
+*Last updated: 2026-07-08 — v1.3 Onboarding guiado started*

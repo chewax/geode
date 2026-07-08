@@ -28,6 +28,8 @@ export const IPC = {
   vaultCreateFolder: 'geode:vault-create-folder',
   vaultRename: 'geode:vault-rename',
   vaultDelete: 'geode:vault-delete',
+  vaultReveal: 'geode:vault-reveal',
+  vaultDuplicate: 'geode:vault-duplicate',
   vaultRemove: 'geode:vault-remove',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
@@ -150,6 +152,10 @@ export interface VaultApi {
   rename(from: string, to: string): Promise<void>
   /** Borra una nota o carpeta (recursivo). */
   delete(path: string): Promise<void>
+  /** Muestra la nota o carpeta en el explorador del SO (resaltada). */
+  revealInExplorer(path: string): Promise<void>
+  /** Duplica una nota o carpeta con nombre libre y devuelve el nodo nuevo. */
+  duplicate(path: string): Promise<TreeNode>
   /**
    * Da de baja una bóveda: la quita de knownVaults y, si fromDisk, envía su carpeta
    * a la papelera del SO (recuperable). Devuelve la bóveda activa resultante

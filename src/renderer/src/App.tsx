@@ -4,6 +4,8 @@ import type { LucideIcon } from 'lucide-react'
 import {
   FilePlus,
   FolderPlus,
+  FolderOpen,
+  Copy,
   Save,
   GitBranch,
   Pencil,
@@ -600,6 +602,15 @@ export function App(): JSX.Element {
   const deleteNode = useCallback((node: TreeNode) => {
     setPendingDelete(node)
   }, [])
+
+  // Duplica una nota o carpeta (nombre libre "copia"), refresca el árbol, revela
+  // y selecciona la copia. No abre editor (espeja newNoteIn sin el openNote).
+  const duplicateNode = useCallback(async (node: TreeNode) => {
+    const nuevo = await window.geode.vault.duplicate(node.path)
+    await refreshTree()
+    setRevealPath(nuevo.path)
+    setSelected({ path: nuevo.path, isDir: nuevo.isDir })
+  }, [refreshTree])
 
   // Ejecuta el borrado real tras la confirmación explícita del diálogo. El elemento
   // sigue siendo recuperable desde el historial git.
@@ -1583,6 +1594,13 @@ export function App(): JSX.Element {
                         <li className="ctx-sep" />
                       </>
                     )}
+                    <li onClick={() => { setMenu(null); void window.geode.vault.revealInExplorer(n.path) }}>
+                      <FolderOpen size={14} /> Mostrar en el explorador
+                    </li>
+                    <li onClick={() => { setMenu(null); void duplicateNode(n) }}>
+                      <Copy size={14} /> Duplicar
+                    </li>
+                    <li className="ctx-sep" />
                     <li onClick={() => { setRenameError(null); setRenameSeed(null); setEditingPath(n.path); setMenu(null) }}>
                       <Pencil size={14} /> Renombrar
                     </li>

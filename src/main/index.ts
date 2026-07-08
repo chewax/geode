@@ -462,6 +462,12 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.vaultCreateFolder, (_e, dir: string) => vault.createFolder(dir))
   ipcMain.handle(IPC.vaultRename, (_e, from: string, to: string) => vault.rename(from, to))
   ipcMain.handle(IPC.vaultDelete, (_e, path: string) => vault.deletePath(path))
+  // La ruta se resuelve con vault.absPath (validada por resolveInside): nunca se
+  // pasa una ruta cruda del renderer al shell del SO.
+  ipcMain.handle(IPC.vaultReveal, (_e, path: string) => {
+    shell.showItemInFolder(vault.absPath(path))
+  })
+  ipcMain.handle(IPC.vaultDuplicate, (_e, path: string) => vault.duplicate(path))
 
   ipcMain.handle(IPC.gitCommit, (_e, message?: string) =>
     gitService.commit(requireRoot(), message ?? autoCommitMessage())

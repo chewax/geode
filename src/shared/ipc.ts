@@ -392,6 +392,14 @@ export interface AdvancedApi {
 // ── Plugins externos (Fase A: locales confiables, cargados en runtime) ──────
 
 /**
+ * Versión de la API de plugins que la app soporta hoy. Un plugin cuyo
+ * `apiVersion` sea mayor que este número es incompatible y se rechaza al listar.
+ * Subir este número (bump) exige agregar una capa de compatibilidad para no
+ * romper en silencio los plugins escritos contra la versión anterior.
+ */
+export const HOST_API_VERSION = 1
+
+/**
  * Manifiesto de un plugin externo (`plugin.json` en su carpeta). El campo
  * `permissions` está RESERVADO para el sandbox (Fase B): hoy es solo informativo,
  * pero se declara desde ya para no romper el formato al hacerlo cumplir.
@@ -406,6 +414,8 @@ export interface PluginManifest {
   main: string
   /** Versión mínima de Geode requerida (semver). */
   minAppVersion?: string
+  /** Versión de la API de plugins que el plugin espera; ausente ⇒ v1. */
+  apiVersion?: number
   /** Permisos declarados. Reservado para el sandbox; hoy informativo. */
   permissions?: string[]
 }

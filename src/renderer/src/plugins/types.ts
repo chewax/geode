@@ -47,6 +47,16 @@ export interface GeodeEvents {
 export type GeodeEventName = keyof GeodeEvents
 
 /**
+ * ── Contrato API v1 congelado ───────────────────────────────────────────────
+ *
+ * `Workspace` y `PluginContext` (abajo) constituyen el contrato público **API v1**
+ * de los plugins. Está CONGELADO: cualquier cambio de forma (agregar/quitar/
+ * renombrar métodos o cambiar firmas) obliga a un bump a v2 con una capa de
+ * compatibilidad — nunca se rompe en silencio un plugin escrito contra v1.
+ *
+ * El `editor.*` síncrono de abajo es parte de v1 y se mantiene tal cual. La
+ * variante async (v2) se agrega aparte, sin tocar estas firmas.
+ *
  * API de solo lectura del workspace, disponible para los componentes de plugins
  * en runtime (vía useGeode()) y también incluida en el PluginContext de activate.
  */
@@ -77,7 +87,11 @@ export interface Workspace {
   notify(message: string): void
 }
 
-/** Contexto que recibe cada plugin en activate(): registrar + leer el workspace. */
+/**
+ * Contexto que recibe cada plugin en activate(): registrar + leer el workspace.
+ * Forma parte del contrato **API v1 congelado** (ver Workspace arriba): cambiar
+ * su forma exige un bump a v2 con capa de compatibilidad.
+ */
 export interface PluginContext extends Workspace {
   commands: { register(cmd: Command): Disposable }
   panels: { register(panel: PanelDef): Disposable; toggle(id: string): void }

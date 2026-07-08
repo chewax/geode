@@ -65,7 +65,10 @@ MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`): los plugins de terceros no co
   3. El `PluginContext` que recibe un plugin externo es un **proxy** que serializa cada llamada como un mensaje request/response con id; el host responde y el proxy resuelve la promesa correspondiente (mensajes huérfanos o con id desconocido se descartan sin colgar).
   4. Las APIs de editor antes síncronas (`getSelection`, `insertAtCursor`) se exponen como **`Promise`** en el borde del plugin; un plugin de ejemplo externo migrado al proxy async sigue funcionando (registra su comando/panel y opera sobre el editor a través del puente).
   5. Los built-ins (insert-date/reading-time/outline) siguen funcionando sin cambios (siguen first-party en el host, sin pasar por el puente); typecheck + build en verde.
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 11-01-PLAN.md — Congelar API v1 + `apiVersion` en el manifiesto + chequeo de compatibilidad (main listPlugins)
+- [ ] 11-02-PLAN.md — Puente async (MessageChannel + bridge host-side + proxy AsyncPluginContext) y bifurcar la carga de externos
+- [ ] 11-03-PLAN.md — Plugin de ejemplo async que valida el puente + UAT humano end-of-phase
 
 ### Phase 12: Sandbox en iframe + UI del panel dentro del iframe + quitar unsafe-eval
 **Goal**: Un plugin de terceros corre aislado en un iframe sandboxed sin acceso a `window.geode`/Node/globals del host; su panel renderiza dentro del iframe; y el renderer principal recupera un CSP estricto sin `'unsafe-eval'`. Solo cambia el transporte del puente (in-host → iframe), no la API del plugin.
@@ -107,6 +110,6 @@ MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`): los plugins de terceros no co
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 11. Freeze API v1 + puente async del PluginContext | v1.3 | 0/? | Not started | - |
+| 11. Freeze API v1 + puente async del PluginContext | v1.3 | 0/3 | Not started | - |
 | 12. Sandbox en iframe + UI + quitar unsafe-eval | v1.3 | 0/? | Not started | - |
 | 13. Permisos — declarar + consentir + aplicar | v1.3 | 0/? | Not started | - |

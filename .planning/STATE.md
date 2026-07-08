@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-08T22:29:31.386Z"
 last_activity: 2026-07-08
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +17,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-06)
+See: .planning/PROJECT.md (updated 2026-07-08)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** v1.2 RE-SCOPED a 3 fases (8/9/10) — PLUG-02/Fase 11 diferido a hito dedicado. Corriendo lifecycle: audit → complete → cleanup → tag v1.2
+**Current focus:** v1.3 Onboarding guiado — roadmap creado (Phases 11-13). Próximo: planificar Phase 11.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-08 — Milestone v1.3 started
+Phase: 11 of 13 (Bienvenida y creación local)
+Plan: — (ready to plan)
+Status: Ready to plan
+Last activity: 2026-07-08 — Roadmap v1.3 creado (3 fases, 13/13 requisitos mapeados)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -49,8 +51,6 @@ Last activity: 2026-07-08 — Milestone v1.3 started
 - Trend: —
 
 *Updated after each plan completion*
-| Phase 08 P01 | 12 min | 2 tasks | 4 files |
-| Phase 08 P02 | 12 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -59,11 +59,12 @@ Last activity: 2026-07-08 — Milestone v1.3 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- v1.2 se estructura en 4 fases, numeradas 8-11 (continúan de v1.1 que cerró en Phase 7). Cobertura 5/5 requisitos, uno por fase salvo Phase 8 que agrupa las dos superficies cohesivas de Modo Avanzado (VER-01 + CHG-01).
-- Phase 8: borrar rama (VER-01) + contador +N/-N (CHG-01) — ambas viven en Modo Avanzado / status bar; reutilizan las ops de rama de git.ts y pendingChanges/diffs.
-- Phase 9 (AISNAP-01) CERRADA: IA en auto-snapshots opt-in, default OFF, gate emergente "solo con cambios" (árbol limpio = no-op; SIN detector de idle ni cambios al timer — decisión del usuario). IA solo en el path de cadencia; ciclo de vida (cierre/cambio de bóveda) sin IA. Fallback siempre al marcador si falta key o la IA falla. Con la opción apagada, el marcador sin IA queda idéntico.
-- Phase 10 (PLUG-01) y Phase 11 (PLUG-02) van separadas a propósito: PLUG-01 (desactivar built-ins) es chico; PLUG-02 (aislamiento Fase B: iframe + puente postMessage + permisos + quitar unsafe-eval + API editor async) es grande y merece fase dedicada. Sigue el orden de migración de docs/PLUGINS.md.
-- Verificación por fase: typecheck+build en verde + UAT humano end-of-phase (human_verify_mode=end-of-phase), consistente con v1.0/v1.1. El repo sigue con cero tests automatizados.
+- v1.3 se estructura en 3 fases, numeradas 11-13 (continúan de v1.2 que cerró en Phase 10). Cobertura 13/13 requisitos: Phase 11 (5), Phase 12 (5), Phase 13 (3).
+- **Orden fijado por dependencia dura:** el paso "respaldar" del tour se ancla vía `data-tour` a un botón de respaldo que solo existe tras construir el asistente (Phase 12). Por eso Phase 13 (tour) va DESPUÉS de Phase 12 (respaldo), y ambos después de Phase 11 (creación local, que da la bóveda a la que se engancha el remoto y el escenario que el tour recorre).
+- Phase 11 (ONB-01..04 + COPY-01): bienvenida sin jerga + `VaultService.createLocal` + `geode:vault-create-local` (sin picker, sin cuenta, default `~/Documents/Geode/<nombre>` vía `app.getPath('documents')`), nota de bienvenida sembrada, persistencia de onboarding (`geode:onboarding-get/-set`). La reescritura de jerga (COPY-01) se ancla aquí como reframe fundacional y sigue transversal en cada fase.
+- Phase 12 (BACKUP-01..05): tarjeta no bloqueante, hand-off de cuenta + checklist resumible, `geode:vault-enable-backup` (reusa device flow + createRepo + setRemote + push), primer commit sembrado para que el push no sea vacío, auto-backup invisible honrando STAT-01, boundary de traducción de errores a español humano.
+- Phase 13 (TOUR-01..03): `TourOverlay` renderer-only (portal + getBoundingClientRect), anclas `data-tour` en botones siempre montados, ≤5 pasos disparados tras el primer cuaderno, progreso + Saltar + re-lanzar desde Ayuda, degradación grácil, nunca anclar Modo Avanzado.
+- Verificación por fase: typecheck+build en verde + UAT humano end-of-phase (human_verify_mode=end-of-phase), consistente con v1.0/v1.1/v1.2. El repo sigue con cero tests automatizados.
 
 ### Pending Todos
 
@@ -71,12 +72,14 @@ None yet.
 
 ### Blockers/Concerns
 
-- Cero cobertura de tests automatizados; cada fase se apoya en typecheck+build + UAT humano.
-- VER-01: borrar rama debe proteger `main` y avisar antes de perder trabajo sin mergear (valor central: nada se pierde). Hoy la app bloquea el borrado de ramas → hay que habilitarlo con salvaguardas.
-- (RESUELTO en Phase 9) AISNAP-01: invariante de costo respetado — IA solo con cambios reales en cadencia (árbol limpio = no-op), nunca por tiempo; sin detector de idle. Con opción OFF, comportamiento de Phase 4 intacto.
-- PLUG-02 (grande): cruzar el límite del sandbox obliga a volver async la API de editor (editorInsertAtCursor/getSelection). Riesgo de romper plugins built-in existentes → verificar que outline/insert-date/reading-time siguen funcionando tras el puente. Quitar unsafe-eval del CSP sin romper la app.
-- Convención IPC: los canales de plugins usan prefijo `plugins:` (no `geode:`) — mantenerlo. El resto de canales nuevos van con prefijo `geode:`.
-- Restricciones duras: solo íconos Lucide (sin emojis/glyphs), strings y comentarios en español, TS strict con tipos de retorno explícitos, preload permanece CommonJS.
+- **Cero cobertura de tests automatizados**; cada fase se apoya en typecheck+build + UAT humano.
+- **STAT-01 (invariante de honestidad):** la copy de onboarding NO puede decir "a salvo/respaldado/en la nube" mientras el cuaderno siga siendo local-only; "Todo en la nube" solo con árbol limpio + pusheado. Riesgo alto en Phase 12.
+- **Creación de cuenta no automatizable** (captcha + verificación de email) → solo hand-off guiado + checklist; nada de webview embebido ni signup scripteado (Phase 12).
+- **Anclas del tour:** los botones de rama/merge/grafo/push están condicionalmente renderizados; solo Save y la paleta están siempre montados. El tour debe guardar cada resolución de ancla, caer a cartel centrado y nunca hacer spotlight sobre un rect null (Phase 13, PITFALLS #1).
+- **Errores crudos de GitHub/git** (422 nombre tomado, 401/404, non-fast-forward) hoy salen por `e.message` directo → hace falta un boundary de traducción a español cloud-framed en la capa de onboarding (Phase 12, BACKUP-05).
+- Convención IPC: canales nuevos con prefijo `geode:` (4 nuevos: `geode:vault-create-local`, `geode:vault-enable-backup`, `geode:onboarding-get`, `geode:onboarding-set`).
+- Restricciones duras: solo íconos Lucide (sin emojis), strings y comentarios en español, TS strict con tipos de retorno explícitos, preload permanece CommonJS.
+- Research flag: el UX del hand-off de cuenta (Phase 12) no tiene precedente limpio → merece un research-phase pass antes de planificar tasks (copy exacta + manejo de races: tab cerrada, "Ya tengo cuenta" prematuro).
 
 ### Quick Tasks Completed
 
@@ -90,18 +93,18 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
+| Plugins | aislamiento de plugins de terceros — Fase B MVP (PLUG-02) | Deferred | v1.2 close |
 | Capa 1 | try/keep/discard sin nombres técnicos (CAPA1-01) | Deferred | v1.0 close |
 | Sync | conflictos en lenguaje humano (CONF-01) | Deferred | v1.0 close |
-| Plugins | marketplace / instalación remota / firma / minAppVersion (PLUG-marketplace) | Deferred | v1.2 planning |
 | Editor | edición Markdown enriquecida (EDIT-xx) | Deferred | v1.2 planning |
 | Input | dictado por voz / STT (VOICE-xx) | Deferred | v1.2 planning |
 
 ## Session Continuity
 
-Last session: 2026-07-06T23:14:10.181Z
-Stopped at: Completed 10-03-PLAN.md (Phase 10 closed)
+Last session: 2026-07-08
+Stopped at: Roadmap v1.3 creado (Phases 11-13); REQUIREMENTS.md traceability actualizada (13/13)
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Planificar la Fase 11 con /gsd-plan-phase 11

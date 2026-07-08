@@ -63,25 +63,25 @@ Qué fases cubren qué requisitos. La completa el roadmapper.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ONB-01 | TBD | Pending |
-| ONB-02 | TBD | Pending |
-| ONB-03 | TBD | Pending |
-| ONB-04 | TBD | Pending |
-| BACKUP-01 | TBD | Pending |
-| BACKUP-02 | TBD | Pending |
-| BACKUP-03 | TBD | Pending |
-| BACKUP-04 | TBD | Pending |
-| BACKUP-05 | TBD | Pending |
-| TOUR-01 | TBD | Pending |
-| TOUR-02 | TBD | Pending |
-| TOUR-03 | TBD | Pending |
-| COPY-01 | TBD | Pending |
+| ONB-01 | Phase 11 | Pending |
+| ONB-02 | Phase 11 | Pending |
+| ONB-03 | Phase 11 | Pending |
+| ONB-04 | Phase 11 | Pending |
+| COPY-01 | Phase 11 | Pending |
+| BACKUP-01 | Phase 12 | Pending |
+| BACKUP-02 | Phase 12 | Pending |
+| BACKUP-03 | Phase 12 | Pending |
+| BACKUP-04 | Phase 12 | Pending |
+| BACKUP-05 | Phase 12 | Pending |
+| TOUR-01 | Phase 13 | Pending |
+| TOUR-02 | Phase 13 | Pending |
+| TOUR-03 | Phase 13 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total
-- Mapped to phases: 0 (roadmap pendiente)
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13 (Phase 11: 5 · Phase 12: 5 · Phase 13: 3) ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-08*
-*Last updated: 2026-07-08 after initial definition for v1.3*
+*Last updated: 2026-07-08 — roadmap mapping (phases 11-13) added*

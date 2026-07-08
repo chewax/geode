@@ -146,7 +146,8 @@ export function App(): JSX.Element {
     const saved = Number(localStorage.getItem('geode.sidebarWidth'))
     return Number.isFinite(saved) && saved >= 160 ? saved : 250
   })
-  const [menu, setMenu] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
+  // node: null = menú contextual de la zona vacía del árbol (acciones de raíz).
+  const [menu, setMenu] = useState<{ node: TreeNode | null; x: number; y: number } | null>(null)
   const [aiEdit, setAiEdit] = useState<EditorContext | null>(null)
   const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
   const [pushCount, setPushCount] = useState(0)
@@ -610,7 +611,9 @@ export function App(): JSX.Element {
     // (auto-refresco al enfocar). Si el nodo capturado ya no existe, no-op: borrar
     // su ruta obsoleta sería un fs.rm silencioso (force:true) sobre algo que ya no
     // está, dando falsa sensación de borrado. Cerramos el diálogo sin tocar disco.
-    if (!flattenPaths(tree).includes(node.path)) return
+    // El guard recorre notas Y carpetas (pathExistsInTree): así también valida el
+    // borrado de carpetas, que flattenPaths ignora por diseño (solo hojas/notas).
+    if (!pathExistsInTree(tree, node.path)) return
     await window.geode.vault.delete(node.path)
     setPanes((prev) => removePathEverywhere(prev, node.path))
     setSelected((s) =>
@@ -1220,24 +1223,39 @@ export function App(): JSX.Element {
         <aside className="sidebar" style={{ width: sidebarWidth }}>
           <SidebarSection id="notas" title="EXPLORADOR" flex actions={notesActions}>
             {tree.length > 0 ? (
-              <FileTree
-                nodes={sortedTree}
-                openPath={openPath}
-                selectedPath={selected?.path ?? null}
-                editingPath={editingPath}
-                revealPath={revealPath}
-                defaultExpanded={allExpanded}
-                collapseVersion={collapseVersion}
-                onOpen={(p, opts) => void openNote(p, opts)}
-                onSelect={(node) => setSelected({ path: node.path, isDir: node.isDir })}
-                onContext={(node, x, y) => setMenu({ node, x, y })}
-                onRename={(node, name) => void renameNode(node, name)}
-                onRenameCancel={() => { setEditingPath(null); setRenameError(null); setRenameSeed(null) }}
-                onDelete={(node) => void deleteNode(node)}
-                onStartRename={(node) => { setRenameError(null); setRenameSeed(null); setEditingPath(node.path) }}
-                renameError={renameError}
-                renameSeed={renameSeed}
-              />
+              // Contenedor que llena el alto: un click en su zona vacía (fuera de
+              // cualquier nodo) deselecciona, y con `selected` en null los botones
+              // "+" y el menú contextual crean en la raíz (estilo VSCode).
+              <div
+                className="tree-scroll"
+                style={{ flex: 1 }}
+                onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}
+                onContextMenu={(e) => {
+                  if (e.target !== e.currentTarget) return
+                  e.preventDefault()
+                  setSelected(null)
+                  setMenu({ node: null, x: e.clientX, y: e.clientY })
+                }}
+              >
+                <FileTree
+                  nodes={sortedTree}
+                  openPath={openPath}
+                  selectedPath={selected?.path ?? null}
+                  editingPath={editingPath}
+                  revealPath={revealPath}
+                  defaultExpanded={allExpanded}
+                  collapseVersion={collapseVersion}
+                  onOpen={(p, opts) => void openNote(p, opts)}
+                  onSelect={(node) => setSelected({ path: node.path, isDir: node.isDir })}
+                  onContext={(node, x, y) => setMenu({ node, x, y })}
+                  onRename={(node, name) => void renameNode(node, name)}
+                  onRenameCancel={() => { setEditingPath(null); setRenameError(null); setRenameSeed(null) }}
+                  onDelete={(node) => void deleteNode(node)}
+                  onStartRename={(node) => { setRenameError(null); setRenameSeed(null); setEditingPath(node.path) }}
+                  renameError={renameError}
+                  renameSeed={renameSeed}
+                />
+              </div>
             ) : (
               <div className="tree-empty">
                 <p className="tree-empty-title">Bóveda vacía</p>
@@ -1538,23 +1556,43 @@ export function App(): JSX.Element {
       {menu && (
         <div className="ctx-overlay" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
           <ul className="ctx-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
-            {menu.node.isDir && (
+            {menu.node === null ? (
+              // Menú de la zona vacía (raíz): solo crear nota o carpeta en la raíz.
               <>
-                <li onClick={() => { setMenu(null); void newNoteIn(menu.node.path) }}>
+                <li onClick={() => { setMenu(null); void newNoteIn('') }}>
                   <FilePlus size={14} /> Nueva nota
                 </li>
-                <li onClick={() => { setMenu(null); void newFolderIn(menu.node.path) }}>
+                <li onClick={() => { setMenu(null); void newFolderIn('') }}>
                   <FolderPlus size={14} /> Nueva carpeta
                 </li>
-                <li className="ctx-sep" />
               </>
+            ) : (
+              // Menú de un nodo concreto (nota o carpeta).
+              (() => {
+                const n = menu.node
+                return (
+                  <>
+                    {n.isDir && (
+                      <>
+                        <li onClick={() => { setMenu(null); void newNoteIn(n.path) }}>
+                          <FilePlus size={14} /> Nueva nota
+                        </li>
+                        <li onClick={() => { setMenu(null); void newFolderIn(n.path) }}>
+                          <FolderPlus size={14} /> Nueva carpeta
+                        </li>
+                        <li className="ctx-sep" />
+                      </>
+                    )}
+                    <li onClick={() => { setRenameError(null); setRenameSeed(null); setEditingPath(n.path); setMenu(null) }}>
+                      <Pencil size={14} /> Renombrar
+                    </li>
+                    <li className="ctx-danger" onClick={() => { setMenu(null); void deleteNode(n) }}>
+                      <Trash2 size={14} /> Eliminar
+                    </li>
+                  </>
+                )
+              })()
             )}
-            <li onClick={() => { setRenameError(null); setRenameSeed(null); setEditingPath(menu.node.path); setMenu(null) }}>
-              <Pencil size={14} /> Renombrar
-            </li>
-            <li className="ctx-danger" onClick={() => { const n = menu.node; setMenu(null); void deleteNode(n) }}>
-              <Trash2 size={14} /> Eliminar
-            </li>
           </ul>
         </div>
       )}
@@ -1607,6 +1645,17 @@ function flattenPaths(nodes: TreeNode[]): string[] {
     }
   }
   return out
+}
+
+/** true si `target` existe en el árbol como nota O como carpeta (recursivo).
+ *  A diferencia de flattenPaths (solo hojas/notas), incluye las carpetas, para
+ *  poder validar el borrado de una carpeta antes de tocar disco. */
+function pathExistsInTree(nodes: TreeNode[], target: string): boolean {
+  for (const n of nodes) {
+    if (n.path === target) return true
+    if (n.children && pathExistsInTree(n.children, target)) return true
+  }
+  return false
 }
 
 /** Descriptor del indicador de guardado: icono Lucide + texto humano (STAT-01). */

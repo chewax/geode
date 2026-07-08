@@ -209,6 +209,20 @@ function NameInput({
   const [value, setValue] = useState(initial)
   // Enter y blur pueden dispararse juntos; commit corre una sola vez.
   const done = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Reclamar el foco en el siguiente frame. `autoFocus` corre en el montaje, pero
+  // al crear una nota nueva el editor CodeMirror se monta después y le roba el
+  // foco al input recién montado. Enfocar por rAF (después de ese montaje) asegura
+  // que el input quede enfocado y con el texto seleccionado, tanto para nota como
+  // para carpeta.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   const commit = (): void => {
     if (done.current) return
@@ -231,6 +245,7 @@ function NameInput({
   return (
     <>
       <input
+        ref={inputRef}
         className="tree-rename"
         value={value}
         autoFocus

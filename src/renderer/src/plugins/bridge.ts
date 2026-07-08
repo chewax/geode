@@ -1,17 +1,9 @@
-import type { GitGraph, TreeNode } from '@shared/ipc'
 import type { PluginHost } from './host'
-import type {
-  AsyncPluginContext,
-  BridgeMessage,
-  Command,
-  Disposable,
-  GeodeEventName,
-  GeodePlugin,
-  PluginContext
-} from './types'
+import type { BridgeMessage, Disposable, GeodeEventName, PluginEntry } from './types'
+import { createPluginIframe } from './iframeHost'
 
 /**
- * ── Puente async del PluginContext para plugins EXTERNOS (Fase 11 / BRIDGE-01) ──
+ * ── Puente async del PluginContext para plugins EXTERNOS (Fase 11 → Fase 12) ──
  *
  * Un plugin externo ya no recibe la `PluginContext` v1 síncrona in-host: recibe
  * un proxy async (API v2) construido sobre un `MessageChannel` real. Cada llamada
@@ -23,9 +15,10 @@ import type {
  * Los built-ins NO pasan por acá: se activan con `buildPluginContext`/
  * `activatePlugins` sobre la API v1 síncrona, sin cambios.
  *
- * En Fase 11 ambos endpoints del canal viven en el renderer (unsafe-eval sigue,
- * el plugin se evalúa in-window). La Fase 12 solo moverá un endpoint al iframe
- * sandbox sin cambiar la API async del plugin.
+ * En Fase 11 ambos endpoints del canal vivían en el renderer (el plugin se
+ * evaluaba in-window). En Fase 12 el lado plugin (buildAsyncContext + el eval)
+ * MIGRA al iframe sandbox de origen opaco: el host solo conserva `attachHostBridge`
+ * y le transfiere `port1` al iframe; la API async del plugin no cambia.
  */
 
 /**
@@ -137,175 +130,46 @@ export function attachHostBridge(host: PluginHost, port: MessagePort): Disposabl
 }
 
 /**
- * Lado PLUGIN del puente: construye el `AsyncPluginContext` (API v2) que recibe
- * el plugin externo. Cada método delega en `call(...)`, que serializa un `call`
- * con id correlacionador y resuelve cuando llega su `result`/`error`. Un
- * `result`/`error` sin call pendiente (huérfano) se descarta sin colgar.
+ * Activa una lista de plugins EXTERNOS aislados en iframes sandbox. Por cada
+ * entrada arma un `MessageChannel` real (port1 = lado plugin, port2 = lado host),
+ * conecta el handler host-side sobre `port2` y crea un iframe de origen opaco que
+ * evalúa la fuente del plugin y recibe `port1` transferido. El host YA NO evalúa
+ * ni activa el plugin: eso ocurre dentro del iframe.
  *
- * Devuelve el `ctx` y un `dispose` que teardownea este endpoint: remueve el
- * listener del port, rechaza toda llamada en vuelo con un Error claro
- * ("puente cerrado") para que no cuelguen para siempre, limpia los mapas y
- * cierra el port. `activateExternalViaBridge` lo dispara ANTES de cerrar el
- * lado host, para que las llamadas pendientes rechacen limpio en vez de
- * quedar huérfanas contra un peer ya cerrado.
+ * @param runtimeSource texto del bundle IIFE del runtime del iframe (Task 2), que
+ *   el host leyó con `?url`+`fetch` same-origin y se inyecta inline en el srcdoc.
+ *
+ * Un plugin que falla al crear su iframe no tumba a los demás. Devuelve un
+ * Disposable que, por cada plugin, dispone PRIMERO el iframe (lado plugin: remueve
+ * el `<iframe>` y cierra el port) y LUEGO el lado host (allowlist/subs/cmds),
+ * respetando el orden de teardown de la Fase 11 (plugin-side → host-side).
  */
-export function buildAsyncContext(port: MessagePort): {
-  ctx: AsyncPluginContext
-  dispose: () => void
-} {
-  let nextId = 0
-  const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
-  // Handlers de eventos registrados localmente, indexados por su `sub`.
-  let nextSub = 0
-  const handlers = new Map<number, (payload: unknown) => void>()
-  // Comandos con su run()/isEnabled() reales, para dispararlos ante un `invoke`.
-  const localCommands = new Map<string, Command>()
-
-  const call = (method: string, ...args: unknown[]): Promise<unknown> => {
-    const id = nextId++
-    return new Promise<unknown>((resolve, reject) => {
-      pending.set(id, { resolve, reject })
-      port.postMessage({ type: 'call', id, method, args } satisfies BridgeMessage)
-    })
-  }
-
-  const onMessage = (ev: MessageEvent): void => {
-    const msg = ev.data as BridgeMessage | null
-    if (!msg) return
-    switch (msg.type) {
-      case 'result': {
-        const p = pending.get(msg.id)
-        if (!p) return // huérfano: se descarta sin throw (T-11-03)
-        pending.delete(msg.id)
-        p.resolve(msg.result)
-        return
-      }
-      case 'error': {
-        const p = pending.get(msg.id)
-        if (!p) return
-        pending.delete(msg.id)
-        p.reject(new Error(msg.message))
-        return
-      }
-      case 'event':
-        handlers.get(msg.sub)?.(msg.payload)
-        return
-      case 'invoke':
-        void localCommands.get(msg.commandId)?.run()
-        return
-      default:
-        return
-    }
-  }
-
-  port.addEventListener('message', onMessage)
-  port.start()
-
-  // Teardown de este endpoint (WR-01): rechaza las llamadas en vuelo con un
-  // Error claro para que sus promesas no cuelguen para siempre, suelta los
-  // mapas y el listener, y cierra el port.
-  const dispose = (): void => {
-    port.removeEventListener('message', onMessage)
-    pending.forEach((p) => p.reject(new Error('puente cerrado')))
-    pending.clear()
-    handlers.clear()
-    localCommands.clear()
-    port.close()
-  }
-
-  // Las superficies de UI llevan Componentes/Extensions no serializables por el
-  // MessagePort; se difieren a Fase 12 (UI-01). Acá el proxy lanza en español.
-  const deferred = (feature: string): never => {
-    throw new Error(`${feature}: no soportado en Fase 11 (llega en Fase 12 UI-01)`)
-  }
-
-  const ctx: AsyncPluginContext = {
-    activeNote: () => call('activeNote') as Promise<{ path: string; content: string } | null>,
-    vault: {
-      readNote: (path) => call('vault.readNote', path) as Promise<string>,
-      tree: () => call('vault.tree') as Promise<TreeNode[]>
-    },
-    git: {
-      graph: () => call('git.graph') as Promise<GitGraph>
-    },
-    editor: {
-      insertAtCursor: (text) => call('editor.insertAtCursor', text) as Promise<void>,
-      getSelection: () => call('editor.getSelection') as Promise<string>,
-      revealRange: (from, to) => call('editor.revealRange', from, to) as Promise<void>
-    },
-    events: {
-      on: (event, handler) => {
-        const sub = nextSub++
-        handlers.set(sub, handler as (payload: unknown) => void)
-        void call('events.on', event, sub)
-        return {
-          dispose: () => {
-            handlers.delete(sub)
-            void call('events.off', sub)
-          }
-        }
-      }
-    },
-    runCommand: (id) => call('runCommand', id) as Promise<void>,
-    notify: (message) => call('notify', message) as Promise<void>,
-    commands: {
-      register: (cmd) => {
-        localCommands.set(cmd.id, cmd)
-        // Solo cruza el subset serializable; run/isEnabled se quedan acá (T-11-06).
-        void call('commands.register', {
-          id: cmd.id,
-          title: cmd.title,
-          category: cmd.category,
-          shortcut: cmd.shortcut
-        })
-        return {
-          dispose: () => {
-            localCommands.delete(cmd.id)
-            void call('commands.dispose', cmd.id)
-          }
-        }
-      }
-    },
-    panels: {
-      register: () => deferred('panels.register'),
-      toggle: () => deferred('panels.toggle')
-    },
-    statusBar: { addItem: () => deferred('statusBar.addItem') },
-    editorExtensions: { add: () => deferred('editorExtensions.add') }
-  }
-
-  return { ctx, dispose }
-}
-
-/**
- * Activa una lista de plugins EXTERNOS por el puente. Por cada plugin arma un
- * `MessageChannel` real (port1 = lado plugin, port2 = lado host), conecta el
- * handler host-side y le pasa al plugin el `AsyncPluginContext` async. Un plugin
- * que falla al activar no tumba a los demás. Devuelve un Disposable que libera
- * todos los puentes y limpiezas.
- */
-export function activateExternalViaBridge(host: PluginHost, plugins: GeodePlugin[]): Disposable {
+export function activateExternalViaBridge(
+  host: PluginHost,
+  entries: PluginEntry[],
+  runtimeSource: string
+): Disposable {
   const disposables: Disposable[] = []
-  for (const plugin of plugins) {
+  for (const entry of entries) {
     const ch = new MessageChannel()
     const hostSide = attachHostBridge(host, ch.port2)
-    const { ctx, dispose: pluginSide } = buildAsyncContext(ch.port1)
     try {
-      // El plugin espera la forma v1; el proxy async es estructuralmente
-      // compatible salvo el retorno Promise del editor (contrato v2).
-      const cleanup = plugin.activate(ctx as unknown as PluginContext)
-      // Orden de teardown: limpieza del plugin → lado plugin del puente → lado
-      // host. El lado plugin cierra ANTES que el host para que las llamadas RPC
-      // en vuelo rechacen limpio ("puente cerrado") en vez de colgarse contra
-      // un peer ya cerrado (WR-01).
-      if (cleanup) disposables.push(cleanup)
-      disposables.push({ dispose: pluginSide }, hostSide)
+      const frame = createPluginIframe(entry.pluginId, entry.source, runtimeSource, ch.port1)
+      // Teardown en orden Fase 11: lado plugin (iframe: remueve el <iframe> y
+      // cierra el port) ANTES que el lado host. Así, si hubiera llamadas RPC en
+      // vuelo, el peer del plugin desaparece primero y el host limpia después.
+      disposables.push({
+        dispose: () => {
+          frame.dispose()
+          hostSide.dispose()
+        }
+      })
     } catch (e) {
-      // Si activate falla, cerramos ambos lados del puente ya creado para no
-      // filtrar listeners/ports.
-      pluginSide()
+      // Si la creación del iframe falla, cerramos el lado host ya creado y el
+      // port sin transferir para no filtrar listeners/ports.
       hostSide.dispose()
-      console.error(`[plugins] fallo al activar externo "${plugin.id}":`, e)
+      ch.port1.close()
+      console.error(`[plugins] fallo al activar externo "${entry.pluginId}":`, e)
     }
   }
   return { dispose: () => disposables.forEach((d) => d.dispose()) }

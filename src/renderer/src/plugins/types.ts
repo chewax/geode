@@ -100,10 +100,16 @@ export interface PluginContext extends Workspace {
 }
 
 /**
- * ── Envelope RPC del puente (Fase 11 / BRIDGE-01) ────────────────────────────
+ * ── Envelope RPC del puente (Fase 11 / BRIDGE-01, Fase 12 / ISO-01) ───────────
  *
- * Protocolo de mensajes que viajan por el `MessagePort` entre el proxy async del
- * plugin externo (lado plugin) y el handler host-side (lado host). Dirección:
+ * Protocolo de mensajes que viajan entre el proxy async del plugin externo (lado
+ * plugin, DENTRO del iframe sandbox desde la Fase 12) y el handler host-side.
+ *
+ *  - `init`: host → iframe. ÚNICO mensaje que NO viaja por el `MessagePort`, sino
+ *    por `contentWindow.postMessage(init, '*', [port1])`: lleva la fuente CommonJS
+ *    del plugin y TRANSFIERE el `port1` del canal al iframe. El resto de los
+ *    mensajes (`call`/`result`/`error`/`event`/`invoke`) viaja ya por ese
+ *    `MessagePort` establecido.
  *  - `call` / `result` / `error`: petición-respuesta plugin ↔ host (con `id`
  *    correlacionador). El plugin manda `call`; el host contesta `result` o `error`.
  *  - `event`: host → plugin. El host empuja el payload de un evento suscrito
@@ -112,11 +118,23 @@ export interface PluginContext extends Workspace {
  *    registrado por el plugin (identificado por `commandId`).
  */
 export type BridgeMessage =
+  | { type: 'init'; pluginId: string; source: string }
   | { type: 'call'; id: number; method: string; args: unknown[] }
   | { type: 'result'; id: number; result: unknown }
   | { type: 'error'; id: number; message: string }
   | { type: 'event'; name: GeodeEventName; payload: unknown; sub: number }
   | { type: 'invoke'; commandId: string }
+
+/**
+ * Entrada de un plugin externo a activar: su id + la fuente CommonJS cruda (aún
+ * SIN evaluar; el eval ocurre ahora dentro del iframe sandbox, no en el host).
+ * `loadExternalPlugins` devuelve estas entradas y `activateExternalViaBridge` las
+ * pasa al iframe por el mensaje `init`.
+ */
+export interface PluginEntry {
+  pluginId: string
+  source: string
+}
 
 /**
  * ── API v2 async (SOLO para externos por el puente) ──────────────────────────

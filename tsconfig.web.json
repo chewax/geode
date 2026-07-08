@@ -20,6 +20,7 @@
   },
   "include": [
     "src/renderer/src/**/*",
+    "src/renderer/iframe-runtime/**/*",
     "src/shared/**/*",
     "src/domain/**/*",
     "src/preload/**/*.d.ts"

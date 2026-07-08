@@ -6,6 +6,10 @@ dist-electron
 *.log
 .DS_Store
 
+# Artefacto generado del runtime del iframe (Fase 12 / ISO-01): lo emite el paso
+# `build:iframe` (vite.iframe.config.ts) antes de la build principal; reconstruible.
+src/renderer/iframe-runtime/runtime.iife.js
+
 # Índice SQLite del vault: derivado y reconstruible, nunca versionado
 *.db
 *.db-shm

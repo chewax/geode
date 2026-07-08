@@ -24,6 +24,11 @@ import {
   Check
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
+// URL del bundle IIFE del runtime del iframe (Fase 12 / ISO-01). Se lee su texto
+// con fetch() same-origin (permitido por el CSP del host) y se inyecta inline en
+// el srcdoc de cada iframe de plugin externo; el fetch corre en el HOST, nunca en
+// el iframe (que conserva connect-src 'none').
+import iframeRuntimeUrl from '../iframe-runtime/runtime.iife.js?url'
 import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { PaneView } from './PaneView'
@@ -974,15 +979,23 @@ export function App(): JSX.Element {
       offPlugins = activatePlugins(host, enabledBuiltins)
     })()
 
-    // Plugins externos: la carga es async (lee la fuente por IPC y la evalúa),
-    // así que se activan aparte y se limpian en el unmount aunque lleguen tarde.
+    // Plugins externos: la carga es async (lee la fuente por IPC) y cada plugin
+    // corre AISLADO en su iframe sandbox de origen opaco. Se activan aparte y se
+    // limpian en el unmount aunque lleguen tarde.
     let offExternal: { dispose: () => void } | null = null
     void (async () => {
-      const { plugins, errors } = await loadExternalPlugins()
+      const { entries, errors } = await loadExternalPlugins()
       if (cancelled) return
-      // Los EXTERNOS se activan por el puente async (API v2 sobre MessageChannel);
-      // los built-ins de arriba siguen con activatePlugins (API v1 in-host).
-      offExternal = activateExternalViaBridge(host, plugins)
+      if (entries.length > 0) {
+        // Se lee el bundle del runtime del iframe UNA vez, con fetch() same-origin
+        // (permitido por el CSP del host). El texto se inyecta inline en el srcdoc
+        // de cada iframe; el iframe conserva connect-src 'none'.
+        const runtimeSource = await fetch(iframeRuntimeUrl).then((r) => r.text())
+        if (cancelled) return
+        // Los EXTERNOS se activan por el puente async (API v2) DENTRO de su iframe;
+        // los built-ins de arriba siguen con activatePlugins (API v1 in-host).
+        offExternal = activateExternalViaBridge(host, entries, runtimeSource)
+      }
       if (errors.length > 0) {
         setToast(`Plugins con error: ${errors.map((e) => e.id).join(', ')}`)
       }

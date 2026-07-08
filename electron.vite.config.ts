@@ -39,6 +39,13 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
+    // El runtime del iframe (Fase 12 / ISO-01) es un IIFE AUTOCONTENIDO pre-
+    // compilado aparte (paso `build:iframe`, vite.iframe.config.ts). Se marca como
+    // ASSET para que el host lo importe con `?url` y obtenga su URL emitida; luego
+    // hace `fetch()` same-origin de ese texto y lo inyecta inline en el srcdoc del
+    // iframe. Sin esto, Vite trataría el `.js` como módulo del grafo (no como
+    // asset) y `?url` no resolvería.
+    assetsInclude: ['**/iframe-runtime/runtime.iife.js'],
     build: {
       rollupOptions: {
         input: {

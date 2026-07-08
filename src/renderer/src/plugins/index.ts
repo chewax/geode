@@ -13,7 +13,7 @@ export { PluginStatusItems } from './PluginStatusBar'
 export { loadExternalPlugins } from './loader'
 export { activateExternalViaBridge } from './bridge'
 export type { LoadResult } from './loader'
-export type { GeodePlugin, PluginContext, Command } from './types'
+export type { GeodePlugin, PluginContext, Command, PluginEntry } from './types'
 
 /** Plugins internos que vienen con Geode (la "prueba de fuego" de la API v1). */
 export const BUILTIN_PLUGINS: GeodePlugin[] = [insertDatePlugin, readingTimePlugin, outlinePlugin]

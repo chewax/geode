@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 Phase: Milestone v1.2 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-07 — Milestone v1.2 completed and archived
+Last activity: 2026-07-08 — Completed quick task 260708-3om: fixes del árbol lateral (eliminar carpetas, crear en raíz, mostrar en explorador, duplicar, foco al crear)
 
 ## Performance Metrics
 
@@ -78,6 +78,12 @@ None yet.
 - PLUG-02 (grande): cruzar el límite del sandbox obliga a volver async la API de editor (editorInsertAtCursor/getSelection). Riesgo de romper plugins built-in existentes → verificar que outline/insert-date/reading-time siguen funcionando tras el puente. Quitar unsafe-eval del CSP sin romper la app.
 - Convención IPC: los canales de plugins usan prefijo `plugins:` (no `geode:`) — mantenerlo. El resto de canales nuevos van con prefijo `geode:`.
 - Restricciones duras: solo íconos Lucide (sin emojis/glyphs), strings y comentarios en español, TS strict con tipos de retorno explícitos, preload permanece CommonJS.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260708-3om | Fixes del árbol lateral: eliminar carpetas, crear en raíz, mostrar en explorador, duplicar, foco al crear | 2026-07-08 | e1c2ac3 | [260708-3om-arreglar-5-problemas-del-arbol-lateral-d](./quick/260708-3om-arreglar-5-problemas-del-arbol-lateral-d/) |
 
 ## Deferred Items
 

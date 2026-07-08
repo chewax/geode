@@ -34,40 +34,59 @@ function ExternalPanel({
     iframe.style.display = 'block'
     iframe.style.border = 'none'
     iframe.style.background = '#16161a'
-    iframe.style.zIndex = '5'
+    // z-index BAJO y acotado: el overlay opaco sólo debe tapar SU rectángulo de
+    // panel-body dentro del dock, nunca las capas transitorias del host (tooltips
+    // y autocompletado de CodeMirror, paleta, modales, toasts) que usan z-index
+    // >= 50. Si esto sube, el iframe capturaría clics destinados a esos popups.
+    iframe.style.zIndex = '1'
 
-    // Sincroniza posición + tamaño del iframe con el rectángulo del panel-body y
-    // le postea el resize al contentWindow. Es CONTINUO: se dispara por el
-    // ResizeObserver (cambios de dock) y por resize/scroll de la ventana.
+    // Reconcilia posición + tamaño del iframe con el rectángulo del panel-body.
+    // Sólo escribe estilos cuando el rectángulo CAMBIÓ y sólo postea el `resize`
+    // al contentWindow cuando cambió el TAMAÑO (evita spamear cada frame).
+    const last = { left: -1, top: -1, width: -1, height: -1 }
     const sync = (): void => {
       const r = body.getBoundingClientRect()
-      iframe.style.left = `${r.left}px`
-      iframe.style.top = `${r.top}px`
-      iframe.style.width = `${r.width}px`
-      iframe.style.height = `${r.height}px`
-      iframe.contentWindow?.postMessage(
-        {
-          type: 'panel',
-          id: def.id,
-          op: 'resize',
-          width: Math.round(r.width),
-          height: Math.round(r.height)
-        } satisfies BridgeMessage,
-        '*'
-      )
+      const left = Math.round(r.left)
+      const top = Math.round(r.top)
+      const width = Math.round(r.width)
+      const height = Math.round(r.height)
+      if (left === last.left && top === last.top && width === last.width && height === last.height) {
+        return
+      }
+      const sizeChanged = width !== last.width || height !== last.height
+      last.left = left
+      last.top = top
+      last.width = width
+      last.height = height
+      iframe.style.left = `${left}px`
+      iframe.style.top = `${top}px`
+      iframe.style.width = `${width}px`
+      iframe.style.height = `${height}px`
+      if (sizeChanged) {
+        iframe.contentWindow?.postMessage(
+          { type: 'panel', id: def.id, op: 'resize', width, height } satisfies BridgeMessage,
+          '*'
+        )
+      }
     }
 
-    const ro = new ResizeObserver(sync)
-    ro.observe(body)
-    window.addEventListener('resize', sync)
-    window.addEventListener('scroll', sync, true)
+    // Lazo de reconciliación por requestAnimationFrame mientras el panel está
+    // abierto. A diferencia de un ResizeObserver (que NO dispara cuando el
+    // panel-body se MUEVE sin cambiar de tamaño: apilar/cerrar otro panel del
+    // dock, reflow, scroll), el rAF cubre TODOS esos casos de deriva. `sync` es
+    // barato, así que sondear cada frame es aceptable y evita el drift del overlay.
+    let raf = 0
+    const loop = (): void => {
+      sync()
+      raf = window.requestAnimationFrame(loop)
+    }
     sync()
+    raf = window.requestAnimationFrame(loop)
 
     return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', sync)
-      window.removeEventListener('scroll', sync, true)
-      // Al cerrar/desmontar el panel se oculta el iframe (sigue vivo off-screen).
+      window.cancelAnimationFrame(raf)
+      // Al cerrar/desmontar el panel se OCULTA el iframe (display:none, no sólo se
+      // mueve) para que no intercepte clics en otras zonas; sigue vivo off-screen.
       iframe.style.display = 'none'
       iframe.style.position = ''
       iframe.style.left = ''

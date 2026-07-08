@@ -40,12 +40,17 @@ export interface PluginIframe {
  * @param source         fuente CommonJS cruda del plugin (se evalúa DENTRO del iframe).
  * @param runtimeSource  texto del bundle IIFE del runtime (se inyecta inline).
  * @param port           port1 del canal, que se TRANSFIERE al iframe.
+ * @param onInitTimeout  callback opcional que se invoca si el iframe no arranca
+ *   dentro de `INIT_TIMEOUT_MS`: para entonces el lado plugin YA se dispuso
+ *   (iframe removido + port cerrado); el caller lo usa para limpiar su lado del
+ *   canal y avisar al usuario.
  */
 export function createPluginIframe(
   pluginId: string,
   source: string,
   runtimeSource: string,
-  port: MessagePort
+  port: MessagePort,
+  onInitTimeout?: () => void
 ): PluginIframe {
   const iframe = document.createElement('iframe')
   // Se crea con sandbox="allow-scripts" y SIN el token same-origin, de modo que
@@ -58,12 +63,19 @@ export function createPluginIframe(
   // Oculto por defecto (el Plan 02 lo reposiciona dentro del panel del plugin).
   iframe.style.display = 'none'
 
+  // Escapa cualquier `</script>` (insensible a mayúsculas) que el bundle pudiera
+  // contener dentro de un string literal: si no, cerraría el `<script>` del
+  // srcdoc antes de tiempo y desactivaría en SILENCIO a TODOS los plugins
+  // externos. Romper la secuencia con una barra (`<\/script`) es inocuo para el
+  // JS y evita ese fallo total latente.
+  const safeRuntimeSource = runtimeSource.replace(/<\/script/gi, '<\\/script')
+
   // srcdoc: CSP del iframe (red bloqueada) + el runtime IIFE inline. El plugin se
   // evalúa dentro de este documento de origen opaco, no en el renderer host.
   iframe.srcdoc =
     `<!doctype html><html lang="es"><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${IFRAME_CSP}">` +
-    `</head><body><script>${runtimeSource}</script></body></html>`
+    `</head><body><script>${safeRuntimeSource}</script></body></html>`
 
   let settled = false
 
@@ -81,14 +93,12 @@ export function createPluginIframe(
   // Se monta off-screen (display:none) en el body del host.
   document.body.appendChild(iframe)
 
-  // Timeout de arranque: un plugin que no dispara `load` no debe colgar la app.
-  const timer = window.setTimeout(() => {
-    if (!settled) {
-      console.warn(`[plugins] el iframe del plugin "${pluginId}" no arrancó en ${INIT_TIMEOUT_MS}ms`)
-    }
-  }, INIT_TIMEOUT_MS)
+  let disposed = false
 
   const dispose = (): void => {
+    // Idempotente: el timeout puede disponer y luego el unmount volver a llamar.
+    if (disposed) return
+    disposed = true
     window.clearTimeout(timer)
     iframe.removeEventListener('load', onLoad)
     // Remover el <iframe> del DOM destruye el runtime del plugin y su endpoint.
@@ -97,6 +107,19 @@ export function createPluginIframe(
     // deja explícito que este endpoint queda liberado).
     port.close()
   }
+
+  // Timeout de arranque: un plugin cuyo iframe no dispara `load` (o cuyo runtime
+  // no parsea y nunca contesta) no debe colgar la app NI filtrar recursos. Al
+  // vencer se tira el lado plugin (remueve el <iframe> y cierra el port) y se
+  // avisa al host vía `onInitTimeout` para que limpie SU lado del canal y
+  // notifique al usuario. No afecta a los demás plugins.
+  const timer = window.setTimeout(() => {
+    if (settled) return
+    settled = true
+    console.warn(`[plugins] el iframe del plugin "${pluginId}" no arrancó en ${INIT_TIMEOUT_MS}ms`)
+    dispose()
+    onInitTimeout?.()
+  }, INIT_TIMEOUT_MS)
 
   return { iframe, dispose }
 }

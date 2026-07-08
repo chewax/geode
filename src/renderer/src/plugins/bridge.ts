@@ -217,7 +217,20 @@ export function activateExternalViaBridge(
     let frameEl: HTMLIFrameElement | null = null
     const hostSide = attachHostBridge(host, ch.port2, () => frameEl)
     try {
-      const frame = createPluginIframe(entry.pluginId, entry.source, runtimeSource, ch.port1)
+      const frame = createPluginIframe(
+        entry.pluginId,
+        entry.source,
+        runtimeSource,
+        ch.port1,
+        // Si el iframe no arranca dentro del timeout, el lado plugin ya se dispuso
+        // (removió el <iframe> y cerró su port). Acá cerramos el lado host para no
+        // filtrar el listener/port del canal y avisamos al usuario con un toast,
+        // sin tumbar a los demás plugins.
+        () => {
+          hostSide.dispose()
+          host.notify(`El plugin "${entry.pluginId}" no arrancó`)
+        }
+      )
       frameEl = frame.iframe
       // Teardown en orden Fase 11: lado plugin (iframe: remueve el <iframe> y
       // cierra el port) ANTES que el lado host. Así, si hubiera llamadas RPC en

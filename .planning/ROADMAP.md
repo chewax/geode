@@ -80,7 +80,11 @@ MVP de la Fase B (pasos 1-5 de `docs/PLUGINS.md`): los plugins de terceros no co
   3. Comandos y status-items del plugin externo se **proxyan por el puente** (aparecen en la paleta / barra de estado del host y su ejecución cruza el puente al iframe).
   4. El CSP del renderer principal (`index.html`) ya **no incluye `'unsafe-eval'`**; la app arranca, los built-ins funcionan y el plugin de ejemplo sandboxed sigue operando (nada se evalúa en el host).
   5. Un plugin externo que falla o entra en bucle **no rompe ni cuelga** la app principal (el fallo queda aislado en su iframe); la experiencia por defecto (sin plugins de terceros) es idéntica. Typecheck + build en verde.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 12-01-PLAN.md — Aislamiento por iframe: dividir el puente (pluginRuntime autocontenido) + bundle del runtime del iframe + srcdoc sandbox + transferir port + eval-en-iframe (ISO-01)
+  - [ ] 12-02-PLAN.md — UI dentro del iframe: panel-iframe en el dock + status-items serializables + iconos Lucide por nombre + ejemplo con panel/status-item (UI-01)
+  - [ ] 12-03-PLAN.md — Quitar unsafe-eval del CSP del renderer principal + doc de migracion (CSP-01)
+  - [ ] 12-04-PLAN.md — UAT humano end-of-phase: aislamiento, panel, status-item, CSP, resiliencia
 **UI hint**: yes
 
 ### Phase 13: Permisos — declarar + consentir + aplicar

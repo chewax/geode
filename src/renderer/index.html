@@ -4,14 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-      CSP: sin recursos remotos. 'unsafe-eval' habilita el loader de plugins
-      (Fase A, locales confiables): su código se evalúa en el renderer para
-      integrar paneles/comandos y compartir React/CodeMirror. En Fase B los
-      plugins pasan a un sandbox aislado y se vuelve a quitar 'unsafe-eval'.
+      CSP: sin recursos remotos. El renderer principal recupera su CSP estricto
+      (Fase B / CSP-01): 'script-src' es 'self' — el host YA NO evalúa código
+      arbitrario. Los plugins de terceros corren AISLADOS en un iframe de origen
+      opaco con su propio CSP (ver plugins/iframeHost.ts); los built-ins son
+      imports estáticos. 'frame-src 'self'' habilita la carga del iframe srcdoc
+      del sandbox como nested browsing context. 'default-src 'self'' garantiza
+      'connect-src 'self'' para el fetch same-origin del bundle del runtime.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src 'self';"
     />
     <title>Geode</title>
   </head>

@@ -27,8 +27,10 @@ con acceso total; la confianza es del usuario (no hay aislamiento todavía).
 - **API v1** (`src/renderer/src/plugins/types.ts`): `PluginContext` con
   `commands / panels / statusBar / editorExtensions` + workspace de solo lectura
   (`activeNote`, `vault.readNote/tree`, `git.graph`, `editor`, `events`).
-- **CSP relajado**: `script-src` incluye `'unsafe-eval'` (`index.html`) para
-  permitir la evaluación. **En Fase B se vuelve a quitar.**
+- **CSP relajado**: `script-src` incluía `'unsafe-eval'` (`index.html`) para
+  permitir la evaluación. **Ya quitado en Fase 12 (CSP-01):** el host recupera
+  `script-src 'self'` + `frame-src 'self'`; el eval de terceros vive solo en el
+  iframe del sandbox.
 
 ### Reservado para Fase B (ya declarado, sin efecto hoy)
 - `plugin.json → permissions: string[]` — hoy informativo; en B se hace cumplir.
@@ -132,16 +134,25 @@ en el DOM del host. Opciones a evaluar:
 1. **Congelar API v1** + `apiVersion` en el manifiesto (sin cambiar comportamiento).
 2. **Bridge async por postMessage** contra el host actual (todavía sin sandbox):
    convertir el `PluginContext` en proxy; volver async las APIs síncronas.
-3. **Meter el sandbox** (iframe) detrás de ese bridge. Los plugins ya hablan por
-   mensajes → cambia el transporte, no la API del plugin.
+3. **[HECHO — Fase 12]** **Meter el sandbox** (iframe) detrás de ese bridge. Los
+   plugins ya hablan por mensajes → cambia el transporte, no la API del plugin.
+   El plugin se evalúa DENTRO de un iframe de origen opaco
+   (`sandbox="allow-scripts"`, sin `allow-same-origin`) con CSP propia
+   (`default-src 'none'`; `script-src 'unsafe-inline' 'unsafe-eval'`;
+   `connect-src 'none'` — red default-deny hasta Fase 13).
 4. **Permisos**: declarar + prompt de consentimiento + enforcement en el bridge.
-5. **Quitar `'unsafe-eval'`** del CSP del renderer principal (los plugins ya no se
-   evalúan ahí).
+   *(Pendiente — Fase 13.)*
+5. **[HECHO — Fase 12 / CSP-01]** **Quitar `'unsafe-eval'`** del CSP del renderer
+   principal (los plugins ya no se evalúan ahí). El host queda con
+   `script-src 'self'` + `frame-src 'self'` (soporte del iframe srcdoc).
 6. **Hot reload** (activar/desactivar sin reiniciar) e **instalación desde zip/URL**.
 
 ## Decisiones abiertas
-- **UI bajo sandbox:** iframe con UI propia (a) vs UI declarativa (b). → definir en 3.
-- **Un iframe por plugin vs uno compartido** (aislamiento vs memoria).
+- **UI bajo sandbox:** ~~iframe con UI propia (a) vs UI declarativa (b)~~ →
+  **resuelto en Fase 12: opción (a)** — el panel del plugin vive dentro del
+  iframe; el host solo le reserva un rectángulo y le pasa tamaño/tema por mensaje.
+- **Un iframe por plugin vs uno compartido** → **resuelto: un iframe por plugin**
+  (máximo aislamiento).
 - **Granularidad de permisos** (¿`network` con allowlist de hosts?).
 - **Firma/confianza** para distribución (¿marketplace propio? ¿solo hash?).
 - **API async v2 vs mantener v1 síncrona con shim** en el borde.

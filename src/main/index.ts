@@ -481,8 +481,10 @@ function registerIpcHandlers(): void {
       const url = normalizeRemoteUrl(cloneUrl)
       await gitService.clone(dir, url, token)
       const info = await vault.setRoot(dir)
-      await gitService.setRemote(dir, url)
+      await gitService.setRemote(dir, url) // destino REAL de push: origin per-vault (CR-01)
       const settings = await loadSettings()
+      // Compat: `github.remote` está @deprecated (ver settings.ts); ya NO es la
+      // fuente del destino de push. Se sigue escribiendo sólo por retro-compat.
       settings.github = { ...settings.github, remote: url }
       await saveSettings(settings)
       await rememberVault(dir)
@@ -500,8 +502,10 @@ function registerIpcHandlers(): void {
       await gitService.ensureRepo(dir) // init repo local (rama main)
       const repo = await createRepo(token, name, isPrivate) // crea el repo en GitHub
       const info = await vault.setRoot(dir)
-      await gitService.setRemote(dir, repo.cloneUrl)
+      await gitService.setRemote(dir, repo.cloneUrl) // destino REAL de push: origin per-vault (CR-01)
       const settings = await loadSettings()
+      // Compat: `github.remote` está @deprecated (ver settings.ts); ya NO es la
+      // fuente del destino de push. Se sigue escribiendo sólo por retro-compat.
       settings.github = { ...settings.github, remote: repo.cloneUrl }
       await saveSettings(settings)
       await rememberVault(dir)
@@ -809,6 +813,9 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.githubSetRemote, async (_e, url: string) => {
     const remote = normalizeRemoteUrl(url) // SSH → HTTPS (isomorphic-git no hace SSH)
     const settings = await loadSettings()
+    // Compat: `github.remote` está @deprecated (ver settings.ts); ya NO es la
+    // fuente del destino de push. El destino REAL es el origin per-vault que se
+    // fija abajo con gitService.setRemote. Se sigue escribiendo por retro-compat.
     settings.github = { ...settings.github, remote }
     await saveSettings(settings)
     if (vault.getInfo()) await gitService.setRemote(requireRoot(), remote)

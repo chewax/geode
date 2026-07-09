@@ -46,6 +46,15 @@ export interface Settings {
     /** Modo Avanzado: expone las superficies git. Ausente = off (experiencia sin git). */
     enabled?: boolean
   }
+  backup?: {
+    /**
+     * Estado del onboarding de respaldo en la nube (BACKUP-01/02). Ausente =
+     * "no invitado todavía" (default seguro, sin migración). `invitado` = se
+     * mostró la tarjeta; `diferido` = el usuario la pospuso; `completado` = ya
+     * hay respaldo configurado.
+     */
+    onboarding?: 'invitado' | 'diferido' | 'completado'
+  }
 }
 
 function settingsPath(): string {
@@ -205,5 +214,23 @@ export async function setSnapshotAiTitles(enabled: boolean): Promise<void> {
 export async function setAdvanced(enabled: boolean): Promise<void> {
   const settings = await loadSettings()
   settings.advanced = { ...settings.advanced, enabled }
+  await saveSettings(settings)
+}
+
+// ── Onboarding de respaldo en la nube ─────────────────────────────────────────
+
+/** Estado del onboarding de respaldo; `null` = todavía no invitado (default seguro). */
+export async function getBackupOnboarding(): Promise<
+  'invitado' | 'diferido' | 'completado' | null
+> {
+  return (await loadSettings()).backup?.onboarding ?? null
+}
+
+/** Fija el estado del onboarding de respaldo (persistente) sin tocar el resto de ajustes. */
+export async function setBackupOnboarding(
+  state: 'invitado' | 'diferido' | 'completado'
+): Promise<void> {
+  const settings = await loadSettings()
+  settings.backup = { ...settings.backup, onboarding: state }
   await saveSettings(settings)
 }

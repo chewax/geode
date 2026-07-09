@@ -70,6 +70,12 @@ const api: GeodeApi = {
     disconnect: () => ipcRenderer.invoke(IPC.githubDisconnect),
     listRepos: () => ipcRenderer.invoke(IPC.githubListRepos)
   },
+  backup: {
+    enable: () => ipcRenderer.invoke(IPC.vaultEnableBackup),
+    getOnboarding: () => ipcRenderer.invoke(IPC.backupOnboardingGet),
+    setOnboarding: (state) => ipcRenderer.invoke(IPC.backupOnboardingSet, state),
+    openSignup: () => ipcRenderer.invoke(IPC.backupOpenSignup)
+  },
   ai: {
     getConfig: () => ipcRenderer.invoke(IPC.aiGetConfig),
     setKey: (key) => ipcRenderer.invoke(IPC.aiSetKey, key),

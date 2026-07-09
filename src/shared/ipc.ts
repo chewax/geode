@@ -76,7 +76,11 @@ export const IPC = {
   pluginsGetEnabled: 'geode:plugins-get-enabled',
   pluginsOpenDir: 'geode:plugins-open-dir',
   pluginsSetEnabled: 'geode:plugins-set-enabled',
-  pluginsReadSource: 'geode:plugins-read-source'
+  pluginsReadSource: 'geode:plugins-read-source',
+  vaultEnableBackup: 'geode:vault-enable-backup',
+  backupOnboardingGet: 'geode:backup-onboarding-get',
+  backupOnboardingSet: 'geode:backup-onboarding-set',
+  backupOpenSignup: 'geode:backup-open-signup'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -317,6 +321,27 @@ export interface GithubApi {
   listRepos(): Promise<GithubRepoInfo[]>
 }
 
+// ── Respaldo en la nube (onboarding + habilitar) ────────────────────────────
+
+/** Estado del onboarding de respaldo; `null` = todavía no invitado (default seguro). */
+export type BackupOnboardingState = 'invitado' | 'diferido' | 'completado'
+
+/** Snapshot del estado del onboarding de respaldo que cruza el puente IPC. */
+export interface BackupOnboarding {
+  state: BackupOnboardingState | null
+}
+
+export interface BackupApi {
+  /** Habilita el respaldo del vault actual (device flow + createRepo + push). */
+  enable(): Promise<GithubConfig>
+  /** Estado actual del onboarding de respaldo. */
+  getOnboarding(): Promise<BackupOnboarding>
+  /** Persiste el nuevo estado del onboarding y devuelve el snapshot resultante. */
+  setOnboarding(state: BackupOnboardingState): Promise<BackupOnboarding>
+  /** Abre la página de creación de cuenta en el navegador (hand-off guiado). */
+  openSignup(): Promise<void>
+}
+
 // ── IA (mensajes de commit) ─────────────────────────────────────────────────
 
 export interface AiModel {
@@ -468,6 +493,7 @@ export interface GeodeApi {
   git: GitApi
   ai: AiApi
   github: GithubApi
+  backup: BackupApi
   snapshots: SnapshotsApi
   advanced: AdvancedApi
   plugins: PluginsApi

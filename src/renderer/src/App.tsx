@@ -28,7 +28,7 @@ import {
   FolderCog
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
-import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
+import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { suppressNextEditorAutoFocus } from './editor/focusControl'
 import { PaneView } from './PaneView'
@@ -70,6 +70,8 @@ import { entryLabel, relativeDate } from './time/labels'
 import { NewVaultDialog } from './NewVaultDialog'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
+import { BackupCard } from './BackupCard'
+import { BackupWizard } from './BackupWizard'
 import { AiPromptModal } from './AiPromptModal'
 import {
   PluginHost,
@@ -162,6 +164,11 @@ export function App(): JSX.Element {
   const [githubCfg, setGithubCfg] = useState<GithubConfig | null>(null)
   const [pushCount, setPushCount] = useState(0)
   const [pushing, setPushing] = useState(false)
+  /** Estado del onboarding de respaldo (invitado/diferido/completado/null) para
+   *  disparar la tarjeta una sola vez tras el primer cuaderno, sin re-nag. */
+  const [backupOnboarding, setBackupOnboarding] = useState<BackupOnboarding['state']>(null)
+  /** Wizard de cuenta abierto (desde la tarjeta o el botón persistente). */
+  const [backupWizardOpen, setBackupWizardOpen] = useState(false)
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -481,6 +488,12 @@ export function App(): JSX.Element {
       if (!info) return
       await adoptVault(info) // adoptVault resetea a un panel VACÍO (no abre nota)
       await openNote('Bienvenida.md') // REQUERIDO: solo la creación fuerza la nota sembrada
+      // Tras el primer cuaderno: invitamos a respaldar UNA sola vez. Marcamos
+      // 'invitado' al mostrar la tarjeta para que no reaparezca sola si se difiere.
+      if (backupOnboarding === null) {
+        await window.geode.backup.setOnboarding('invitado')
+        setBackupOnboarding('invitado')
+      }
     } catch (e) {
       // El main ya elabora un mensaje humano en español para EACCES/EPERM (y lo
       // rethrow para el resto). Cuando reconocemos esa copia segura la mostramos tal
@@ -494,7 +507,7 @@ export function App(): JSX.Element {
     } finally {
       setCreating(false)
     }
-  }, [vaultName, adoptVault, openNote])
+  }, [vaultName, adoptVault, openNote, backupOnboarding])
 
   /** Cambia a una bóveda ya conocida (selector de bóveda). */
   const switchVault = useCallback(async (root: string) => {
@@ -932,6 +945,7 @@ export function App(): JSX.Element {
       setAiConfig(cfg)
       if (cfg.hasKey) void refreshAiUsage()
       await refreshGithub() // también sin bóveda: la pantalla de bienvenida lo usa
+      setBackupOnboarding((await window.geode.backup.getOnboarding()).state)
       void refreshAdvanced() // interruptor de las superficies git
       const info = await window.geode.vault.current()
       if (!info) return
@@ -1303,6 +1317,19 @@ export function App(): JSX.Element {
         />
       )}
 
+      {/* Tarjeta de invitación al respaldo: aparece UNA sola vez tras crear el
+          primer cuaderno (estado 'invitado'). 'Hacerlo después' → 'diferido'
+          (no re-nag). Se retoma sólo por el botón persistente de la status bar. */}
+      {backupOnboarding === 'invitado' && !backupWizardOpen && vault && (
+        <BackupCard
+          onBackup={() => setBackupWizardOpen(true)}
+          onLater={async () => {
+            await window.geode.backup.setOnboarding('diferido')
+            setBackupOnboarding('diferido')
+          }}
+        />
+      )}
+
       <div className="body">
         <ActivityBar onOpenSettings={() => setSettingsOpen(true)} />
 
@@ -1552,6 +1579,23 @@ export function App(): JSX.Element {
             void adoptVault(info)
           }}
           onClose={() => setNewVaultOpen(false)}
+        />
+      )}
+
+      {backupWizardOpen && (
+        <BackupWizard
+          githubConnected={!!githubCfg?.connected}
+          onClose={() => setBackupWizardOpen(false)}
+          onDone={async () => {
+            setBackupWizardOpen(false)
+            await window.geode.backup.setOnboarding('completado')
+            setBackupOnboarding('completado')
+            // Refrescamos para reflejar la conexión y el nuevo pushCount tras el
+            // push real que ya hizo enable() dentro del wizard.
+            await refreshGithub()
+            // Éxito honesto (STAT-01): sólo acá, tras el push real terminado.
+            setToast('Listo: tu cuaderno está a salvo en la nube.')
+          }}
         />
       )}
 

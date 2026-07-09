@@ -72,6 +72,9 @@ import { SettingsModal } from './SettingsModal'
 import { BackupCard } from './BackupCard'
 import { BackupWizard } from './BackupWizard'
 import { BackupButton } from './BackupButton'
+import { TourOverlay } from './TourOverlay'
+import { TOUR_STEPS } from './tour/steps'
+import { useTour } from './tour/useTour'
 import { AiPromptModal } from './AiPromptModal'
 import {
   PluginHost,
@@ -88,6 +91,9 @@ type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
 
 export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
+  /** Recorrido guiado de primera vez. `vault` listo = las anclas Capa 0 existen
+   *  en el DOM, requisito para la recuperación "reaparecer una vez" (Fase 13). */
+  const tour = useTour(!!vault)
   const [vaults, setVaults] = useState<VaultInfo[]>([])
   const [newVaultOpen, setNewVaultOpen] = useState(false)
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
@@ -508,6 +514,14 @@ export function App(): JSX.Element {
         await window.geode.backup.setOnboarding('invitado')
         setBackupOnboarding('invitado')
       }
+      // El tour corre PRIMERO, antes que la tarjeta de respaldo (RESEARCH
+      // Pitfall 3: "tour primero, tarjeta después" — nunca encimados). El gate
+      // !tour.active de la BackupCard la mantiene oculta mientras el tour vive.
+      // Solo se dispara si nunca se vio ('unseen'); startFirstRun persiste
+      // 'started' para poder "reaparecer una vez" si se interrumpe.
+      if (tour.tourState === 'unseen') {
+        await tour.startFirstRun()
+      }
     } catch (e) {
       // El main ya elabora un mensaje humano en español para EACCES/EPERM (y lo
       // rethrow para el resto). Cuando reconocemos esa copia segura la mostramos tal
@@ -521,7 +535,7 @@ export function App(): JSX.Element {
     } finally {
       setCreating(false)
     }
-  }, [vaultName, adoptVault, openNote, backupOnboarding])
+  }, [vaultName, adoptVault, openNote, backupOnboarding, tour])
 
   /** Cambia a una bóveda ya conocida (selector de bóveda). */
   const switchVault = useCallback(async (root: string) => {
@@ -1037,6 +1051,11 @@ export function App(): JSX.Element {
   }
   const commandApiRef = useRef(commandApi)
   commandApiRef.current = commandApi
+  // Ref al re-lanzamiento del tour: el efecto de registro de comandos corre una
+  // sola vez (deps []), así que el comando 'core.tour' debe leer el launch actual
+  // vía ref (mismo idioma que commandApiRef) y no una clausura obsoleta.
+  const tourRef = useRef(tour.launch)
+  tourRef.current = tour.launch
 
   // Montaje único: puente a la UI (editor imperativo + toast), activación de los
   // plugins internos y registro de los comandos del núcleo en la paleta.
@@ -1095,7 +1114,10 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
-      host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() })
+      host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
+      // Re-lanzar el recorrido guiado: Capa 0 (categoría 'Ayuda'), NUNCA en el
+      // bloque git avanzado. Re-verlo no resetea 'seen' (launch no persiste).
+      host.registerCommand({ id: 'core.tour', title: 'Ver el recorrido guiado', category: 'Ayuda', run: () => tourRef.current() })
     ]
     return () => {
       cancelled = true
@@ -1302,6 +1324,7 @@ export function App(): JSX.Element {
               className="tb-btn icon cta"
               title="Crear versión (Ctrl+S)"
               aria-label="Crear versión"
+              data-tour="guardar"
               onClick={() => void openCommitDialog()}
             >
               <Save size={15} />
@@ -1333,7 +1356,7 @@ export function App(): JSX.Element {
       {/* Tarjeta de invitación al respaldo: aparece UNA sola vez tras crear el
           primer cuaderno (estado 'invitado'). 'Hacerlo después' → 'diferido'
           (no re-nag). Se retoma sólo por el botón persistente de la status bar. */}
-      {backupOnboarding === 'invitado' && !backupWizardOpen && vault && (
+      {backupOnboarding === 'invitado' && !backupWizardOpen && vault && !tour.active && (
         <BackupCard
           onBackup={() => setBackupWizardOpen(true)}
           onLater={async () => {
@@ -1344,7 +1367,10 @@ export function App(): JSX.Element {
       )}
 
       <div className="body">
-        <ActivityBar onOpenSettings={() => setSettingsOpen(true)} />
+        <ActivityBar
+          onOpenSettings={() => setSettingsOpen(true)}
+          onShowTour={() => tour.launch()}
+        />
 
         <aside className="sidebar" style={{ width: sidebarWidth }}>
           <SidebarSection id="notas" title="EXPLORADOR" flex actions={notesActions}>
@@ -1390,19 +1416,24 @@ export function App(): JSX.Element {
           </SidebarSection>
 
           <SidebarSection id="timeline" title="LÍNEA DE TIEMPO">
-            {graph ? (
-              <Timeline
-                graph={graph}
-                previewOid={previewOid}
-                onSelect={selectPreview}
-                onStep={stepPreview}
-                onJumpToPresent={() => void exitPreview()}
-              />
-            ) : (
-              <div className="tree-empty">
-                <p>Cargando línea de tiempo…</p>
-              </div>
-            )}
+            {/* Ancla Capa 0 del paso "historial". Vive dentro de la sección para
+                que, si está colapsada, el TourOverlay pueda expandirla (busca el
+                toggle en el .sidebar-section más cercano) y re-medir. */}
+            <div data-tour="historial">
+              {graph ? (
+                <Timeline
+                  graph={graph}
+                  previewOid={previewOid}
+                  onSelect={selectPreview}
+                  onStep={stepPreview}
+                  onJumpToPresent={() => void exitPreview()}
+                />
+              ) : (
+                <div className="tree-empty">
+                  <p>Cargando línea de tiempo…</p>
+                </div>
+              )}
+            </div>
           </SidebarSection>
 
           <VaultSwitcher
@@ -1428,7 +1459,7 @@ export function App(): JSX.Element {
         />
 
         <main className={`main${previewOid != null ? ' past' : ''}`}>
-          <div className="pane-root">
+          <div className="pane-root" data-tour="escribir">
             <PaneView
               node={panes}
               activePaneId={activePaneId}
@@ -1742,6 +1773,18 @@ export function App(): JSX.Element {
       )}
 
       {paletteOpen && <CommandPalette host={host} onClose={() => setPaletteOpen(false)} />}
+      {/* Recorrido guiado: se monta por portal a document.body, así que el sitio
+          de montaje solo importa para el ciclo de vida de React. */}
+      {tour.active && (
+        <TourOverlay
+          steps={TOUR_STEPS}
+          stepIndex={tour.stepIndex}
+          onNext={tour.next}
+          onPrev={tour.prev}
+          onSkip={tour.skip}
+          onFinish={tour.finish}
+        />
+      )}
       {toast && <div className="toast">{toast}</div>}
     </div>
     </GeodeProvider>

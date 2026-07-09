@@ -149,46 +149,56 @@ export class VaultService {
   }
 
   /**
-   * Crea un cuaderno LOCAL nuevo bajo `baseDir` (p.ej. `~/Documents/Geode`),
-   * siembra `Bienvenida.md` y fija el cuaderno como activo (ONB-02/03/04). Este
-   * método hace SOLO el lado de filesystem; el `git init` + primer commit del seed
-   * son responsabilidad del handler.
+   * Crea un cuaderno LOCAL nuevo bajo `baseDir` (p.ej. `~/Documents/Geode`) y
+   * siembra `Bienvenida.md` (ONB-02/03/04). Este método hace SOLO el lado de
+   * filesystem: NO fija el cuaderno como activo — el handler llama a `setRoot`
+   * recién DESPUÉS de que `git init` + primer commit del seed hayan tenido éxito,
+   * igual que `vaultCreateWithRepo`/`vaultCloneFromGithub`. Así una falla parcial
+   * (disco lleno, `.git` bloqueado, etc.) no deja el main apuntando a una carpeta
+   * huérfana sin repo mientras el renderer cree que la creación falló.
    *
-   * La resolución de colisión con sufijo ` (2)`, ` (3)`… corre ANTES del `mkdir`:
-   * es la garantía dura del core value "nada se pisa" — nunca se escribe sobre una
-   * carpeta existente, aunque `mkdir({recursive})` no fallaría al hacerlo.
+   * La resolución de colisión con sufijo ` (2)`, ` (3)`… se hace creando la carpeta
+   * hoja de forma NO recursiva (`EEXIST` si ya existe): es la garantía dura del core
+   * value "nada se pisa" — el chequeo-y-creación es atómico, así una carrera con otro
+   * proceso reintenta el sufijo en vez de sembrar sobre una carpeta ajena.
    */
-  async createLocal(name: string, baseDir: string): Promise<VaultInfo> {
+  async createLocal(name: string, baseDir: string): Promise<{ root: string }> {
     const safe = sanitizeVaultName(name)
 
-    // Resolver la colisión sobre la ruta ABSOLUTA bajo baseDir (NO vía this.exists,
-    // que se ancla al vault ACTUAL vía resolveInside — base equivocada para una
-    // carpeta fresca). Sufijo con paréntesis y espacio exactos: " (2)", " (3)"…
+    // baseDir (p.ej. ~/Documents/Geode) puede no existir todavía: se crea recursivo.
+    // Solo la carpeta HOJA se crea de forma no recursiva para detectar colisiones.
+    await mkdir(baseDir, { recursive: true })
+
+    // Crear la carpeta hoja con `recursive: false`: `mkdir` lanza EEXIST si ya
+    // existe, lo que hace el chequeo-de-colisión atómico con la creación. Sufijo
+    // con paréntesis y espacio exactos: " (2)", " (3)"… Se ancla en baseDir (NO vía
+    // this.exists, que se ancla al vault ACTUAL — base equivocada para una fresca).
     let candidate = safe
     let n = 2
-    while (await this.pathExists(join(baseDir, candidate))) {
-      candidate = `${safe} (${n++})`
+    let dir: string
+    for (;;) {
+      const target = join(baseDir, candidate)
+      try {
+        await mkdir(target, { recursive: false })
+        dir = target
+        break
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException)?.code !== 'EEXIST') throw e
+        candidate = `${safe} (${n++})`
+      }
     }
-
-    // mkdir DESPUÉS de resolver el sufijo: recursive no falla sobre una carpeta
-    // existente y pisaría datos si se hiciera antes.
-    const dir = join(baseDir, candidate)
-    await mkdir(dir, { recursive: true })
 
     // Siembra atómica del seed (temp + fsync + rename): nunca una nota corrupta.
-    await atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)
-
-    return this.setRoot(dir)
-  }
-
-  /** true si la ruta absoluta existe. Usado para resolver colisiones de carpeta. */
-  private async pathExists(absPath: string): Promise<boolean> {
+    // Si la siembra falla (p.ej. disco lleno), se limpia la carpeta recién creada
+    // para no dejar un directorio vacío que fuerce el sufijo " (2)" en el reintento.
     try {
-      await stat(absPath)
-      return true
-    } catch {
-      return false
+      await atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)
+    } catch (e) {
+      await rm(dir, { recursive: true, force: true }).catch(() => {})
+      throw e
     }
+
+    return { root: dir }
   }
 
   /** Renombra/mueve una nota o carpeta. Ambas rutas quedan validadas dentro del vault. */

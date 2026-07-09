@@ -475,9 +475,13 @@ function registerIpcHandlers(): void {
         // versión. Con el seed ya en disco, este primer commit NUNCA es null.
         // El mensaje es texto fijo en español; NO se invoca IA (la creación y los
         // auto-snapshots no invocan IA — CLAUDE.md).
-        const info = await vault.createLocal(name, baseDir)
-        await gitService.ensureRepo(info.root) // git init (rama main), idempotente
-        await gitService.commit(info.root, 'Primera versión') // primer commit racy-safe del seed
+        const { root } = await vault.createLocal(name, baseDir)
+        await gitService.ensureRepo(root) // git init (rama main), idempotente
+        await gitService.commit(root, 'Primera versión') // primer commit racy-safe del seed
+        // setRoot recién ACÁ: el cuaderno se vuelve "activo" solo tras init+commit OK,
+        // igual que vaultCreateWithRepo/vaultCloneFromGithub. Así una falla parcial no
+        // deja el main apuntando a una carpeta huérfana sin repo (WR-01).
+        const info = await vault.setRoot(root)
         await rememberVault(info.root)
         await restartSnapshotTimer() // rebind el timer de snapshots al nuevo cuaderno
         return info

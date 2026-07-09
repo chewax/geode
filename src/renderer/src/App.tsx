@@ -91,6 +91,9 @@ export function App(): JSX.Element {
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
   // Bienvenida sin jerga: nombre del primer cuaderno (pre-rellenado y seleccionable).
   const [vaultName, setVaultName] = useState('Mi primer cuaderno')
+  // Estado del flujo de creación del primer cuaderno (idle / creando / error).
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [tree, setTree] = useState<TreeNode[]>([])
   // Explorador estilo Obsidian: orden A-Z/Z-A y colapsar/expandir todo.
@@ -467,11 +470,26 @@ export function App(): JSX.Element {
     }
   }, [])
 
-  // Crea el primer cuaderno local y entra en él. Cableado real en el flujo de creación.
-  // TODO(Task 2): createLocal → adoptVault → openNote('Bienvenida.md').
-  const createLocalVault = useCallback(async (_useCustomLocation = false): Promise<void> => {
-    // no-op (cableado en Task 2)
-  }, [])
+  // Crea el primer cuaderno local y entra en él con la nota de bienvenida abierta.
+  // `useCustomLocation` abre el picker "Elegir otra ubicación" (null si se cancela).
+  const createLocalVault = useCallback(async (useCustomLocation = false): Promise<void> => {
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const info = await window.geode.vault.createLocal(vaultName, useCustomLocation)
+      // Solo el escape de ubicación puede devolver null (picker cancelado) → no-op.
+      if (!info) return
+      await adoptVault(info) // adoptVault resetea a un panel VACÍO (no abre nota)
+      await openNote('Bienvenida.md') // REQUERIDO: solo la creación fuerza la nota sembrada
+    } catch {
+      // No exponemos el error crudo del main (evita filtrar rutas/stack); texto humano fijo.
+      setCreateError(
+        'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.'
+      )
+    } finally {
+      setCreating(false)
+    }
+  }, [vaultName, adoptVault, openNote])
 
   /** Cambia a una bóveda ya conocida (selector de bóveda). */
   const switchVault = useCallback(async (root: string) => {
@@ -1110,21 +1128,36 @@ export function App(): JSX.Element {
           aria-label="Nombre de tu primer cuaderno"
           value={vaultName}
           autoFocus
+          disabled={creating}
           onChange={(e) => setVaultName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void createLocalVault()
           }}
         />
-        <button className="primary" onClick={() => void createLocalVault()}>
-          <NotebookPen size={16} />
-          Crear mi primer cuaderno
+        <button className="primary" disabled={creating} onClick={() => void createLocalVault()}>
+          {creating ? (
+            <>
+              <RefreshCw size={16} className="spin" />
+              Creando tu cuaderno…
+            </>
+          ) : (
+            <>
+              <NotebookPen size={16} />
+              Crear mi primer cuaderno
+            </>
+          )}
         </button>
+        {createError && (
+          <p className="modal-error" style={{ maxWidth: 420, textAlign: 'center' }}>
+            {createError}
+          </p>
+        )}
         <div className="welcome-actions" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
-          <button className="link-btn" onClick={() => void createLocalVault(true)}>
+          <button className="link-btn" disabled={creating} onClick={() => void createLocalVault(true)}>
             <FolderCog size={14} />
             Elegir otra ubicación
           </button>
-          <button className="link-btn" onClick={() => void openVault()}>
+          <button className="link-btn" disabled={creating} onClick={() => void openVault()}>
             <FolderOpen size={14} />
             Abrir una carpeta existente
           </button>

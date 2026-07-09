@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Onboarding guiado
-status: planning
-last_updated: "2026-07-08T22:29:31.386Z"
-last_activity: 2026-07-08
+status: executing
+stopped_at: Roadmap v1.3 creado (Phases 11-13); REQUIREMENTS.md traceability actualizada (13/13)
+last_updated: "2026-07-09T02:03:22.443Z"
+last_activity: 2026-07-09 -- Phase 11 execution started
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-08)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** v1.3 Onboarding guiado — roadmap creado (Phases 11-13). Próximo: planificar Phase 11.
+**Current focus:** Phase 11 — Bienvenida y creación local
 
 ## Current Position
 
-Phase: 11 of 13 (Bienvenida y creación local)
-Plan: — (ready to plan)
-Status: Ready to plan
-Last activity: 2026-07-08 — Roadmap v1.3 creado (3 fases, 13/13 requisitos mapeados)
+Phase: 11 (Bienvenida y creación local) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-07-09 -- Phase 11 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -51,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 11 P01 | 5 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -65,6 +67,8 @@ Recent decisions affecting current work:
 - Phase 12 (BACKUP-01..05): tarjeta no bloqueante, hand-off de cuenta + checklist resumible, `geode:vault-enable-backup` (reusa device flow + createRepo + setRemote + push), primer commit sembrado para que el push no sea vacío, auto-backup invisible honrando STAT-01, boundary de traducción de errores a español humano.
 - Phase 13 (TOUR-01..03): `TourOverlay` renderer-only (portal + getBoundingClientRect), anclas `data-tour` en botones siempre montados, ≤5 pasos disparados tras el primer cuaderno, progreso + Saltar + re-lanzar desde Ayuda, degradación grácil, nunca anclar Modo Avanzado.
 - Verificación por fase: typecheck+build en verde + UAT humano end-of-phase (human_verify_mode=end-of-phase), consistente con v1.0/v1.1/v1.2. El repo sigue con cero tests automatizados.
+- [Phase ?]: Phase 11-01: createLocal hace solo el lado FS; ensureRepo/commit('Primera versión')/rememberVault/restartSnapshotTimer viven en el handler (orden load-bearing seed→commit)
+- [Phase ?]: Phase 11-01: colisión de carpeta con pathExists(absPath) vía stat (no this.exists); sufijo ' (2)' resuelto ANTES de mkdir para no pisar datos
 
 ### Pending Todos
 
@@ -101,7 +105,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-08
+Last session: 2026-07-09T02:02:16.747Z
 Stopped at: Roadmap v1.3 creado (Phases 11-13); REQUIREMENTS.md traceability actualizada (13/13)
 Resume file: None
 

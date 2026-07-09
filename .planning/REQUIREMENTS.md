@@ -10,9 +10,9 @@ Requisitos del milestone v1.3. Cada uno mapea a una fase del roadmap.
 ### Bienvenida y creación local (ONB)
 
 - [ ] **ONB-01**: El usuario ve una bienvenida sin jerga con un único CTA primario "Crear mi primer cuaderno"; abrir una carpeta existente queda como link secundario (sin "vault/Git/clonar/local-first" en la copy).
-- [ ] **ONB-02**: El usuario crea un cuaderno local en 1 click en una carpeta Geode por defecto (`~/Documents/Geode/<nombre>`), sin selector de carpeta y sin cuenta; "Elegir otra ubicación" existe como escape secundario fuera del happy path.
-- [ ] **ONB-03**: El cuaderno recién creado arranca con una nota de bienvenida sembrada en español (nunca un editor vacío), borrable, que además sirve de escenario para el tour.
-- [ ] **ONB-04**: El nombre del cuaderno se sanitiza como antes garantizaba el diálogo del SO (caracteres ilegales de Windows `< > : " / \ | ? *` + nombres reservados `CON`/`PRN`/`AUX`/`NUL`/`COM1`…) y las colisiones de carpeta se resuelven con sufijo, sin fallar ni pisar datos.
+- [x] **ONB-02**: El usuario crea un cuaderno local en 1 click en una carpeta Geode por defecto (`~/Documents/Geode/<nombre>`), sin selector de carpeta y sin cuenta; "Elegir otra ubicación" existe como escape secundario fuera del happy path.
+- [x] **ONB-03**: El cuaderno recién creado arranca con una nota de bienvenida sembrada en español (nunca un editor vacío), borrable, que además sirve de escenario para el tour.
+- [x] **ONB-04**: El nombre del cuaderno se sanitiza como antes garantizaba el diálogo del SO (caracteres ilegales de Windows `< > : " / \ | ? *` + nombres reservados `CON`/`PRN`/`AUX`/`NUL`/`COM1`…) y las colisiones de carpeta se resuelven con sufijo, sin fallar ni pisar datos.
 
 ### Respaldo en la nube (BACKUP)
 
@@ -64,9 +64,9 @@ Qué fases cubren qué requisitos. La completa el roadmapper.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ONB-01 | Phase 11 | Pending |
-| ONB-02 | Phase 11 | Pending |
-| ONB-03 | Phase 11 | Pending |
-| ONB-04 | Phase 11 | Pending |
+| ONB-02 | Phase 11 | Complete |
+| ONB-03 | Phase 11 | Complete |
+| ONB-04 | Phase 11 | Complete |
 | COPY-01 | Phase 11 | Pending |
 | BACKUP-01 | Phase 12 | Pending |
 | BACKUP-02 | Phase 12 | Pending |
@@ -78,6 +78,7 @@ Qué fases cubren qué requisitos. La completa el roadmapper.
 | TOUR-03 | Phase 13 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 13 total
 - Mapped to phases: 13 (Phase 11: 5 · Phase 12: 5 · Phase 13: 3) ✓
 - Unmapped: 0

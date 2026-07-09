@@ -58,43 +58,54 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 ## Phase Details
 
 ### Phase 11: Bienvenida y creación local
+
 **Goal**: Un usuario nuevo pasa de "abrir la app por primera vez" a "estar escribiendo en su primer cuaderno" en 1 click — sin cuenta, sin selector de carpeta y sin ver jerga.
 **Depends on**: Nothing (primera fase del hito; construye sobre la app existente)
 **Requirements**: ONB-01, ONB-02, ONB-03, ONB-04, COPY-01
 **Success Criteria** (what must be TRUE):
+
   1. Al abrir la app por primera vez, el usuario ve una bienvenida con un único botón claro "Crear mi primer cuaderno" y ningún término técnico; "abrir una carpeta existente" queda como link secundario.
   2. Con un solo click, el usuario tiene un cuaderno listo para escribir, guardado en su carpeta Geode por defecto (dentro de Documentos), sin haber elegido carpeta ni creado cuenta; "elegir otra ubicación" existe solo como escape secundario.
   3. El cuaderno recién creado abre mostrando una nota de bienvenida en español (nunca un editor en blanco), que el usuario puede borrar.
   4. El usuario puede nombrar el cuaderno con cualquier texto —incluso caracteres que Windows no permite o un nombre repetido— y siempre se crea bien, sin errores y sin pisar un cuaderno anterior.
   5. Los textos de cara al usuario en Capa 0 dicen "cuaderno" y "copia de seguridad / respaldo en la nube", nunca "bóveda / GitHub / repo / clonar".
+
 **Plans**: 2 plans
 Plans:
-- [ ] 11-01-PLAN.md — Backbone del main: sanitizeVaultName + VaultService.createLocal + canal geode:vault-create-local (git init + primer commit del seed)
+
+- [x] 11-01-PLAN.md — Backbone del main: sanitizeVaultName + VaultService.createLocal + canal geode:vault-create-local (git init + primer commit del seed)
 - [ ] 11-02-PLAN.md — Bienvenida sin jerga en App.tsx: input + CTA + links + flujo createLocal→adoptVault→openNote(Bienvenida.md)
+
 **UI hint**: yes
 
 ### Phase 12: Asistente de respaldo en la nube
+
 **Goal**: El usuario respalda su cuaderno en la nube guiado paso a paso —incluso creando una cuenta gratuita si no la tiene— sin toparse con jerga, y de ahí en más el respaldo es automático e invisible. Introduce el botón de respaldo que el tour usará como ancla.
 **Depends on**: Phase 11 (necesita un cuaderno local existente al que engancharle el respaldo)
 **Requirements**: BACKUP-01, BACKUP-02, BACKUP-03, BACKUP-04, BACKUP-05
 **Success Criteria** (what must be TRUE):
+
   1. Después de crear su primer cuaderno, el usuario ve una invitación no bloqueante (tarjeta, no modal) para respaldarlo en la nube, con "Hacerlo después" siempre disponible y un punto persistente para retomarlo más tarde.
   2. Un usuario sin cuenta es guiado a crear una gratis: la app abre la página de registro en el navegador y muestra una checklist que sobrevive el ida-y-vuelta; "GitHub" se nombra solo en ese paso, presentado como "servicio gratuito y seguro (gratis + privado)".
   3. Al conectar, el primer respaldo se sube solo —con una primera versión ya incluida para que nunca quede vacío— sin que el usuario vea nada de repo/subir/versiones.
   4. Tras conectar, cada vez que el usuario guarda, su cuaderno se respalda solo, y el indicador dice "Todo en la nube" únicamente cuando de verdad está todo subido (honra STAT-01: nunca "a salvo" antes de un respaldo real).
   5. Si algo falla en el camino de respaldo, el usuario ve un mensaje en lenguaje claro (p.ej. "Ya tenés un respaldo con ese nombre"), nunca el mensaje crudo de la API.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 13: Tour interactivo de primera vez
+
 **Goal**: Tras crear su primer cuaderno, un recorrido guiado y liviano le muestra al usuario los gestos esenciales (escribir → guardar → respaldar → ver historial) señalando botones reales, sin poder atascarlo, sin repetirse solo y sin exponer superficies de Modo Avanzado.
 **Depends on**: Phase 12 (el paso "respaldar" se ancla al botón de respaldo que introduce la Fase 12)
 **Requirements**: TOUR-01, TOUR-02, TOUR-03
 **Success Criteria** (what must be TRUE):
+
   1. Después de crear el primer cuaderno (no al arrancar la app), aparece un recorrido propio (spotlight + cartel) de ≤5 pasos que resalta botones reales y explica escribir → guardar → respaldar → ver historial.
   2. El recorrido muestra "Paso N de M", se puede saltar en cualquier momento y se puede volver a lanzar desde Ayuda.
   3. Una vez visto, el recorrido queda marcado como visto y no vuelve a aparecer solo en arranques posteriores.
   4. Si un botón del paso todavía no está en pantalla (p.ej. el de nube antes de conectar), el paso se adapta sin romperse (sin spotlight sobre la nada), y el recorrido nunca resalta funciones de Modo Avanzado (rama/merge/grafo).
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -115,6 +126,6 @@ Phases execute in numeric order: 11 → 12 → 13
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 11. Bienvenida y creación local | v1.3 | 0/2 | Planned | - |
+| 11. Bienvenida y creación local | v1.3 | 1/2 | In Progress|  |
 | 12. Asistente de respaldo en la nube | v1.3 | 0/TBD | Not started | - |
 | 13. Tour interactivo de primera vez | v1.3 | 0/TBD | Not started | - |

@@ -9,7 +9,7 @@ Requisitos del milestone v1.3. Cada uno mapea a una fase del roadmap.
 
 ### Bienvenida y creación local (ONB)
 
-- [ ] **ONB-01**: El usuario ve una bienvenida sin jerga con un único CTA primario "Crear mi primer cuaderno"; abrir una carpeta existente queda como link secundario (sin "vault/Git/clonar/local-first" en la copy).
+- [x] **ONB-01**: El usuario ve una bienvenida sin jerga con un único CTA primario "Crear mi primer cuaderno"; abrir una carpeta existente queda como link secundario (sin "vault/Git/clonar/local-first" en la copy).
 - [x] **ONB-02**: El usuario crea un cuaderno local en 1 click en una carpeta Geode por defecto (`~/Documents/Geode/<nombre>`), sin selector de carpeta y sin cuenta; "Elegir otra ubicación" existe como escape secundario fuera del happy path.
 - [x] **ONB-03**: El cuaderno recién creado arranca con una nota de bienvenida sembrada en español (nunca un editor vacío), borrable, que además sirve de escenario para el tour.
 - [x] **ONB-04**: El nombre del cuaderno se sanitiza como antes garantizaba el diálogo del SO (caracteres ilegales de Windows `< > : " / \ | ? *` + nombres reservados `CON`/`PRN`/`AUX`/`NUL`/`COM1`…) y las colisiones de carpeta se resuelven con sufijo, sin fallar ni pisar datos.
@@ -30,7 +30,7 @@ Requisitos del milestone v1.3. Cada uno mapea a una fase del roadmap.
 
 ### Reescritura de jerga (COPY)
 
-- [ ] **COPY-01**: Se reescriben los strings de cara al usuario en Capa 0 para reemplazar "GitHub/repo/clonar/bóveda" por "respaldo en la nube / copia de seguridad / cuaderno" (bienvenida, NewVaultDialog, sección de respaldo en Ajustes).
+- [x] **COPY-01**: Se reescriben los strings de cara al usuario en Capa 0 para reemplazar "GitHub/repo/clonar/bóveda" por "respaldo en la nube / copia de seguridad / cuaderno" (bienvenida, NewVaultDialog, sección de respaldo en Ajustes).
 
 ## v2 Requirements
 
@@ -63,11 +63,11 @@ Qué fases cubren qué requisitos. La completa el roadmapper.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ONB-01 | Phase 11 | Pending |
+| ONB-01 | Phase 11 | Complete |
 | ONB-02 | Phase 11 | Complete |
 | ONB-03 | Phase 11 | Complete |
 | ONB-04 | Phase 11 | Complete |
-| COPY-01 | Phase 11 | Pending |
+| COPY-01 | Phase 11 | Complete |
 | BACKUP-01 | Phase 12 | Pending |
 | BACKUP-02 | Phase 12 | Pending |
 | BACKUP-03 | Phase 12 | Pending |

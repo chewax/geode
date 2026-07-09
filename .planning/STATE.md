@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Onboarding guiado
-status: executing
-stopped_at: Roadmap v1.3 creado (Phases 11-13); REQUIREMENTS.md traceability actualizada (13/13)
-last_updated: "2026-07-09T02:03:22.443Z"
+status: verifying
+stopped_at: Completed 11-02-PLAN.md (Fase 11 lista para verificación end-of-phase)
+last_updated: "2026-07-09T02:16:05.290Z"
 last_activity: 2026-07-09 -- Phase 11 execution started
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 
 Phase: 11 (Bienvenida y creación local) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-09 -- Phase 11 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 11 P01 | 5 | 3 tasks | 5 files |
+| Phase 11 P02 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,7 @@ Recent decisions affecting current work:
 - Verificación por fase: typecheck+build en verde + UAT humano end-of-phase (human_verify_mode=end-of-phase), consistente con v1.0/v1.1/v1.2. El repo sigue con cero tests automatizados.
 - [Phase ?]: Phase 11-01: createLocal hace solo el lado FS; ensureRepo/commit('Primera versión')/rememberVault/restartSnapshotTimer viven en el handler (orden load-bearing seed→commit)
 - [Phase ?]: Phase 11-01: colisión de carpeta con pathExists(absPath) vía stat (no this.exists); sufijo ' (2)' resuelto ANTES de mkdir para no pisar datos
+- [Phase ?]: Phase 11-02: welcome sin jerga cableada; el flujo de creación encadena openNote('Bienvenida.md') tras adoptVault (que deja panel vacío); 'Elegir otra ubicación' = createLocal(name,true), null (picker cancelado) = no-op silencioso
 
 ### Pending Todos
 
@@ -105,8 +107,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-09T02:02:16.747Z
-Stopped at: Roadmap v1.3 creado (Phases 11-13); REQUIREMENTS.md traceability actualizada (13/13)
+Last session: 2026-07-09T02:15:43.373Z
+Stopped at: Completed 11-02-PLAN.md (Fase 11 lista para verificación end-of-phase)
 Resume file: None
 
 ## Operator Next Steps

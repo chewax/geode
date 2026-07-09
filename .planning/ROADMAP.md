@@ -51,7 +51,7 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 **Orden fijado por una dependencia dura:** el paso "respaldar" del tour se ancla (vía `data-tour`) a un botón de respaldo en la nube que solo existe una vez construido el asistente de respaldo. Por eso el tour (Fase 13) va después del asistente (Fase 12), y ambos después de la creación local (Fase 11).
 
-- [ ] **Phase 11: Bienvenida y creación local** — Bienvenida sin jerga + cuaderno local en 1 click, nota sembrada y reescritura de strings.
+- [x] **Phase 11: Bienvenida y creación local** — Bienvenida sin jerga + cuaderno local en 1 click, nota sembrada y reescritura de strings. (completed 2026-07-09)
 - [ ] **Phase 12: Asistente de respaldo en la nube** — Tarjeta no bloqueante que guía cuenta + primer push automático, con errores humanizados.
 - [ ] **Phase 13: Tour interactivo de primera vez** — TourOverlay propio de ≤5 pasos, disparado tras el primer cuaderno, re-lanzable y con degradación grácil.
 
@@ -74,7 +74,7 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 Plans:
 
 - [x] 11-01-PLAN.md — Backbone del main: sanitizeVaultName + VaultService.createLocal + canal geode:vault-create-local (git init + primer commit del seed)
-- [ ] 11-02-PLAN.md — Bienvenida sin jerga en App.tsx: input + CTA + links + flujo createLocal→adoptVault→openNote(Bienvenida.md)
+- [x] 11-02-PLAN.md — Bienvenida sin jerga en App.tsx: input + CTA + links + flujo createLocal→adoptVault→openNote(Bienvenida.md)
 
 **UI hint**: yes
 
@@ -126,6 +126,6 @@ Phases execute in numeric order: 11 → 12 → 13
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 11. Bienvenida y creación local | v1.3 | 1/2 | In Progress|  |
+| 11. Bienvenida y creación local | v1.3 | 2/2 | Complete   | 2026-07-09 |
 | 12. Asistente de respaldo en la nube | v1.3 | 0/TBD | Not started | - |
 | 13. Tour interactivo de primera vez | v1.3 | 0/TBD | Not started | - |

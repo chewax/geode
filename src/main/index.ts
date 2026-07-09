@@ -770,7 +770,14 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.githubGetConfig, () => githubConfig())
 
   ipcMain.handle(IPC.githubStartDeviceFlow, async () => {
-    pendingDeviceCode = await requestDeviceCode(GITHUB_CLIENT_ID)
+    // El wizard de respaldo consume este handler: TODO fallo (rate limit, caída de
+    // GitHub, OAuth revocado) pasa por mapBackupError (BACKUP-05) para que solo
+    // cruce el mensaje humano en español, nunca el texto crudo en inglés de la API.
+    try {
+      pendingDeviceCode = await requestDeviceCode(GITHUB_CLIENT_ID)
+    } catch (e) {
+      throw mapBackupError(e)
+    }
     void shell.openExternal(pendingDeviceCode.verificationUri)
     return {
       userCode: pendingDeviceCode.userCode,
@@ -780,10 +787,16 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.githubCompleteDeviceFlow, async () => {
     if (!pendingDeviceCode) throw new Error('No hay un device flow en curso')
-    const token = await pollForToken(GITHUB_CLIENT_ID, pendingDeviceCode)
-    pendingDeviceCode = null
-    const login = await getLogin(token)
-    await setGithubToken(token, login)
+    // Igual que el start: el crudo de la API (device flow / getLogin) nunca llega
+    // al wizard; se traduce a una de las copies humanas de mapBackupError (BACKUP-05).
+    try {
+      const token = await pollForToken(GITHUB_CLIENT_ID, pendingDeviceCode)
+      pendingDeviceCode = null
+      const login = await getLogin(token)
+      await setGithubToken(token, login)
+    } catch (e) {
+      throw mapBackupError(e)
+    }
     return githubConfig()
   })
 

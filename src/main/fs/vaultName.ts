@@ -35,7 +35,10 @@ export function sanitizeVaultName(raw: string): string {
   let name = (raw ?? '').replace(/[<>:"/\\|?*\x00-\x1f]/g, ' ') // eslint-disable-line no-control-regex
   name = name.replace(/\s+/g, ' ').trim() // colapsa espacios múltiples
   // Acota antes del strip final: truncar puede dejar un punto/espacio al borde.
-  name = name.slice(0, MAX_VAULT_NAME)
+  // Se corta por code point (Array.from) y NO por code unit UTF-16 (slice): así
+  // un carácter astral (emoji, CJK extendido) justo en el borde no queda partido
+  // a la mitad de su par surrogado, dejando un surrogado suelto en la carpeta.
+  name = Array.from(name).slice(0, MAX_VAULT_NAME).join('')
   name = name.replace(/[. ]+$/g, '').trim() // sin punto/espacio final
   const stem = name.split('.')[0] || name
   if (name === '' || WINDOWS_RESERVED.test(stem)) return 'Cuaderno'

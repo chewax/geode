@@ -914,12 +914,35 @@ function registerIpcHandlers(): void {
     // (reintento tras un push fallido), se reusa el suyo, nunca el de otra.
     let remote = await gitService.getRemote(root)
     if (!remote) {
-      try {
-        const slug = githubRepoSlug(info.name)
-        const repo = await createRepo(token, slug, true) // private=true
-        remote = repo.cloneUrl
-      } catch (e) {
-        throw mapBackupError(e)
+      // AUTO-SUFIJO EN COLISIÓN DE NOMBRE (mejora UAT Fase 12): el nombre del repo
+      // es AUTODERIVADO del nombre del cuaderno e INVISIBLE — el usuario nunca lo
+      // elige — así que una colisión (422 name-taken) NO debe fallar nunca. En vez
+      // de mostrar "ya tenés un respaldo con ese nombre", reintentamos con sufijo
+      // incremental (mi-cuaderno, mi-cuaderno-2, mi-cuaderno-3…) hasta que uno
+      // libre entre. Es consistente con el auto-sufijo de CARPETAS locales de la
+      // Fase 11, y además es MÁS SEGURO (CR-01): garantiza un repo NUEVO y distinto,
+      // nunca reusa uno ajeno ya existente (que arriesgaría un push cruzado).
+      const MAX_ATTEMPTS = 20 // cota dura: imposible loop infinito
+      const base = githubRepoSlug(info.name)
+      let attempt = 1
+      let slug = base
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        try {
+          const repo = await createRepo(token, slug, true) // private=true
+          remote = repo.cloneUrl
+          break
+        } catch (e) {
+          // Clasificamos con la MISMA lógica de siempre (no re-parseamos el crudo).
+          const mapped = mapBackupError(e)
+          // Solo el choque de nombre se reintenta; auth/offline/unknown lanzan YA
+          // (sin reintentos inútiles ante un fallo de red o de credenciales). Al
+          // agotar la cota también lanzamos: en el caso imposible de 20 nombres
+          // tomados, el usuario recibe igual un mensaje humano.
+          if (mapped.kind !== 'name-taken' || attempt >= MAX_ATTEMPTS) throw mapped
+          attempt += 1
+          slug = `${base}-${attempt}` // mi-cuaderno-2, mi-cuaderno-3, …
+        }
       }
       await gitService.setRemote(root, remote) // origin propio de ESTA bóveda
     }

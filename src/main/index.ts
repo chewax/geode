@@ -251,7 +251,13 @@ async function autoPushAfterCommit(root: string): Promise<void> {
     // settings por si otra operación lo modificó durante el await del push.
     await saveSettings(withPushedForVault(await loadSettings(), root, branch, oid))
   } catch (e) {
-    console.warn('[auto-push] falló, el cuaderno sigue local:', e)
+    // Solo la superficie segura al log: nunca el objeto de error crudo (podría
+    // arrastrar la URL con credencial embebida o headers de una futura versión de
+    // isomorphic-git — WR-02). Espejo del patrón de errores de usuario del proyecto.
+    console.warn(
+      '[auto-push] falló, el cuaderno sigue local:',
+      e instanceof Error ? e.message : String(e)
+    )
   }
 }
 

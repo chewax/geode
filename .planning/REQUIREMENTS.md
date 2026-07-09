@@ -25,7 +25,7 @@ Requisitos del milestone v1.3. Cada uno mapea a una fase del roadmap.
 ### Tour interactivo de primera vez (TOUR)
 
 - [ ] **TOUR-01**: Un `TourOverlay` propio (spotlight + cartel anclado a botones reales vía `data-tour`) recorre ≤5 pasos (escribir → guardar → respaldar → historial) y se dispara tras crear el primer cuaderno, no al arrancar la app.
-- [ ] **TOUR-02**: El tour muestra progreso ("Paso N de M"), tiene "Saltar", es re-lanzable desde Ayuda, persiste "tour visto" y nunca se auto-repite en arranques posteriores.
+- [x] **TOUR-02**: El tour muestra progreso ("Paso N de M"), tiene "Saltar", es re-lanzable desde Ayuda, persiste "tour visto" y nunca se auto-repite en arranques posteriores.
 - [ ] **TOUR-03**: Los pasos degradan con gracia cuando el ancla no está montada (evita `getBoundingClientRect` null del botón de nube antes de conectar) y nunca anclan superficies de Modo Avanzado (rama/merge/grafo).
 
 ### Reescritura de jerga (COPY)
@@ -74,7 +74,7 @@ Qué fases cubren qué requisitos. La completa el roadmapper.
 | BACKUP-04 | Phase 12 | Complete |
 | BACKUP-05 | Phase 12 | Complete |
 | TOUR-01 | Phase 13 | Pending |
-| TOUR-02 | Phase 13 | Pending |
+| TOUR-02 | Phase 13 | Complete |
 | TOUR-03 | Phase 13 | Pending |
 
 **Coverage:**

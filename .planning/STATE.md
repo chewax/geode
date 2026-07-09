@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Onboarding guiado
-status: verifying
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-07-09T04:53:56.741Z"
-last_activity: 2026-07-09 -- Completed 12-03 (enable + auto-push + onboarding handlers)
+status: executing
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-07-09T17:00:19.230Z"
+last_activity: 2026-07-09 -- Phase 13 execution started
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 8
   percent: 67
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-08)
 
 **Core value:** Non-destructive editing — nothing is ever lost and the git plumbing stays invisible to non-technical users.
-**Current focus:** Phase 12 — Asistente de respaldo en la nube
+**Current focus:** Phase 13 — Tour interactivo de primera vez
 
 ## Current Position
 
-Phase: 12 (Asistente de respaldo en la nube) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
-Last activity: 2026-07-09 -- Completed 12-03 (enable + auto-push + onboarding handlers)
+Phase: 13 (Tour interactivo de primera vez) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-07-09 -- Phase 13 execution started
 
 Progress: [███████░░░] 71%
 
@@ -59,6 +59,7 @@ Progress: [███████░░░] 71%
 | Phase 12 P03 | 8 | 3 tasks | 1 files |
 | Phase 12 P04 | 9 | 2 tasks | 4 files |
 | Phase 12 P05 | 4min | 2 tasks | 1 files |
+| Phase 13 P01 | 6 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 12-04: botón de respaldo persistente es <button> real con popover en spans/<b> (HTML válido) y data-tour='respaldo' en nodo no condicional (Pitfall 4); estado 'sin subir' honesto para pushCount>0 (STAT-01)
 - [Phase ?]: 12-05: el exito 'a salvo en la nube' se anuncia solo en onDone del wizard tras el push real (STAT-01)
 - [Phase ?]: 12-05: BackupButton persistente (data-tour) absorbe el UploadCloud y la pildora de estado; statusLabel intacto
+- [Phase ?]: Phase 13-01: backbone de persistencia del tour (tri-state 'unseen'|'started'|'seen', default 'unseen' NO null); IPC.tourSet coerciona al enum via whitelist (nunca persiste el crudo del renderer); espeja 1:1 el patron backup.onboarding en las 4 capas
 
 ### Pending Todos
 
@@ -117,8 +119,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-09T04:53:26.968Z
-Stopped at: Completed 12-03-PLAN.md
+Last session: 2026-07-09T17:00:19.223Z
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

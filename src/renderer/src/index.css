@@ -3089,20 +3089,27 @@ body.resizing-row { cursor: row-resize; user-select: none; }
    reusa el velo rgba(0,0,0,0.55) de .modal-overlay, los tokens de :root y la
    sombra 0 8px 24px rgba(0,0,0,0.45) de los popovers. z-index 300/301 supera
    todo el chrome (máximo actual: .ctx-menu 210, toasts 200, modales 100).
-   NO bloqueante (CONTEXT LOCKED "clic fuera no rompe"): el velo deja pasar los
-   clics (pointer-events: none); solo el cartel los captura. El tour únicamente
-   avanza por sus propios botones/Esc, así que clicar el control real iluminado
-   o fuera del cartel no rompe el recorrido. */
+   El velo ABSORBE clics (pointer-events: auto) para que no se interactúe con la
+   app detrás del tour: sin esto, clicar el control iluminado (guardar/respaldo)
+   abría CommitDialog/BackupWizard (z-index 100) OCULTO bajo el velo (z-index
+   300). Hacer clic en el velo NO cierra el tour (el div no tiene onClick:
+   absorbe e ignora); Esc/Saltar son las únicas salidas. El tour solo avanza por
+   sus propios botones, así que absorber el clic fuera del cartel no rompe el
+   recorrido (CONTEXT LOCKED "clic fuera no rompe"; sigue siendo NO modal: sin
+   focus-trap ni inert/aria-hidden sobre la app). */
 .tour-overlay {
   position: fixed;
   inset: 0;
   z-index: 300;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 /* Recorte del control real: un elemento sobre el rect del ancla (inflado 8px)
    con un box-shadow gigante que oscurece TODO lo de afuera, más un anillo de
-   acento. El control queda "iluminado" dentro del recorte. No captura clics. */
+   acento. El control queda "iluminado" dentro del recorte. Es solo cosmético
+   (pointer-events: none): el clic sobre el recorte lo absorbe el velo
+   .tour-overlay que está debajo, así que el control iluminado NO es
+   click-through (no se abren diálogos ocultos bajo el tour). */
 .tour-spotlight {
   position: fixed;
   z-index: 300;
@@ -3113,10 +3120,11 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   transition: all 0.12s ease;
 }
 
-/* Cartel coach-mark: misma superficie que popovers/modales. Reactiva la captura
-   de clics (el velo .tour-overlay es pointer-events: none) para que sus botones
-   sigan siendo interactivos. max-height + overflow-y evitan que un cuerpo largo
-   se desborde del viewport en ventanas muy bajas. */
+/* Cartel coach-mark: misma superficie que popovers/modales. Mantiene
+   pointer-events: auto (igual que el velo) para que sus botones
+   Saltar/Anterior/Siguiente/Listo sigan siendo interactivos. max-height +
+   overflow-y evitan que un cuerpo largo se desborde del viewport en ventanas
+   muy bajas. */
 .tour-card {
   position: fixed;
   z-index: 301;

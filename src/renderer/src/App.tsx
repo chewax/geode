@@ -1136,6 +1136,9 @@ export function App(): JSX.Element {
           disabled={creating}
           onChange={(e) => setVaultName(e.target.value)}
           onKeyDown={(e) => {
+            // Enter siempre apunta a la ubicación por defecto, nunca al picker de
+            // "otra ubicación" (createLocalVault(true)). Si se agrega un tercer
+            // disparador, mantener esta distinción para no mezclar destinos (IN-03).
             if (e.key === 'Enter') void createLocalVault()
           }}
         />

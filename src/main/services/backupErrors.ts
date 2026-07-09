@@ -47,6 +47,13 @@ const NETWORK_CODES = new Set(['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFU
  * NUNCA interpola `e.message`, `e.body` ni la credencial en el mensaje devuelto.
  */
 export function mapBackupError(e: unknown): BackupError {
+  // Pass-through: si ya es un BackupError, su `message` ya es copy humana LOCKED
+  // (p. ej. los mensajes específicos de `pollForToken`: "El código expiró",
+  // "Autorización cancelada", "Se agotó el tiempo"). No lo re-colapsamos al
+  // genérico — la boundary sólo debe traducir el crudo de la API, no pisar copy
+  // que ya es española y accionable (WR-01).
+  if (e instanceof BackupError) return e
+
   const err = e as {
     code?: string
     status?: number

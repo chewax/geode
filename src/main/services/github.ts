@@ -5,6 +5,7 @@
  */
 
 import type { GithubRepoInfo } from '@shared/ipc'
+import { BackupError } from './backupErrors'
 
 const DEVICE_CODE_URL = 'https://github.com/login/device/code'
 const TOKEN_URL = 'https://github.com/login/oauth/access_token'
@@ -78,15 +79,21 @@ export async function pollForToken(clientId: string, dc: DeviceCode): Promise<st
       case 'slow_down':
         wait += 5000
         break
+      // Casos con copy española ya específica: se lanzan como BackupError para
+      // que mapBackupError los deje pasar tal cual (WR-01) en vez de colapsarlos
+      // al genérico "volvé a intentarlo". `kind: 'unknown'` porque no son
+      // offline/auth/name-taken; lo que importa es preservar el `message`.
       case 'expired_token':
-        throw new Error('El código expiró; probá de nuevo')
+        throw new BackupError('unknown', 'El código expiró; probá de nuevo')
       case 'access_denied':
-        throw new Error('Autorización cancelada')
+        throw new BackupError('unknown', 'Autorización cancelada')
       default:
+        // Crudo de la API (posible texto en inglés): NO es BackupError, así que
+        // mapBackupError lo traduce al genérico — nada sin traducir llega al wizard.
         throw new Error(`GitHub: ${j.error_description ?? j.error ?? 'error desconocido'}`)
     }
   }
-  throw new Error('Se agotó el tiempo de autorización')
+  throw new BackupError('unknown', 'Se agotó el tiempo de autorización')
 }
 
 /** Login (username) del dueño del token, para mostrar la cuenta conectada. */

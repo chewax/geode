@@ -52,7 +52,7 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 **Orden fijado por una dependencia dura:** el paso "respaldar" del tour se ancla (vía `data-tour`) a un botón de respaldo en la nube que solo existe una vez construido el asistente de respaldo. Por eso el tour (Fase 13) va después del asistente (Fase 12), y ambos después de la creación local (Fase 11).
 
 - [x] **Phase 11: Bienvenida y creación local** — Bienvenida sin jerga + cuaderno local en 1 click, nota sembrada y reescritura de strings. (completed 2026-07-09)
-- [ ] **Phase 12: Asistente de respaldo en la nube** — Tarjeta no bloqueante que guía cuenta + primer push automático, con errores humanizados.
+- [x] **Phase 12: Asistente de respaldo en la nube** — Tarjeta no bloqueante que guía cuenta + primer push automático, con errores humanizados. (completed 2026-07-09)
 - [ ] **Phase 13: Tour interactivo de primera vez** — TourOverlay propio de ≤5 pasos, disparado tras el primer cuaderno, re-lanzable y con degradación grácil.
 
 ## Phase Details
@@ -98,7 +98,7 @@ Plans:
 - [x] 12-02-PLAN.md — COPY-01: reescritura de la sección de respaldo de Ajustes + NewVaultDialog (sin jerga, ⚠→Lucide) [Wave 1]
 - [x] 12-03-PLAN.md — Handlers del main: vaultEnableBackup (createRepo→setRemote→push idempotente + autoPush) + auto-push real tras cada commit + onboarding get/set + signup a URL fija [Wave 2]
 - [x] 12-04-PLAN.md — Componentes renderer: BackupWizard (dos caminos + checklist) + BackupCard (banner) + BackupButton (persistente, 4 estados, data-tour) [Wave 2]
-- [ ] 12-05-PLAN.md — Integración en App.tsx: montar tarjeta/wizard + BackupButton reemplaza UploadCloud/píldora, preservar statusLabel (STAT-01) [Wave 3]
+- [x] 12-05-PLAN.md — Integración en App.tsx: montar tarjeta/wizard + BackupButton reemplaza UploadCloud/píldora, preservar statusLabel (STAT-01) [Wave 3]
 
 **UI hint**: yes
 
@@ -135,5 +135,5 @@ Phases execute in numeric order: 11 → 12 → 13
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 11. Bienvenida y creación local | v1.3 | 2/2 | Complete   | 2026-07-09 |
-| 12. Asistente de respaldo en la nube | v1.3 | 4/5 | In Progress|  |
+| 12. Asistente de respaldo en la nube | v1.3 | 5/5 | Complete   | 2026-07-09 |
 | 13. Tour interactivo de primera vez | v1.3 | 0/TBD | Not started | - |

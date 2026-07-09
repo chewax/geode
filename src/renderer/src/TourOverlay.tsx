@@ -164,8 +164,8 @@ export function TourOverlay({
     const card = cardRef.current
     if (!card) return
     const { width, height } = card.getBoundingClientRect()
-    if (!rect || isHuge(rect)) {
-      // Degradado: cartel centrado en pantalla.
+    if (!rect || isHuge(rect) || step.placement === 'center') {
+      // Degradado / placement 'center': cartel centrado en pantalla, sin spotlight.
       setCardPos({
         top: window.innerHeight / 2 - height / 2,
         left: window.innerWidth / 2 - width / 2
@@ -185,7 +185,9 @@ export function TourOverlay({
   const total = steps.length
   const isFirst = stepIndex === 0
   const isLast = stepIndex === total - 1
-  const centered = !rect || isHuge(rect)
+  // Un paso con placement 'center' (o el degradado null/enorme) se muestra
+  // centrado y sin recorte, reutilizando la ruta de fallback (IN-02).
+  const centered = !rect || isHuge(rect) || step.placement === 'center'
 
   // Estilo del recorte del spotlight (solo si hay rect válido y no enorme).
   const spotlightStyle: CSSProperties | null = centered
@@ -211,6 +213,7 @@ export function TourOverlay({
         className="tour-card"
         style={cardStyle}
         role="dialog"
+        aria-modal="true"
         aria-label={step.title}
         ref={cardRef}
       >

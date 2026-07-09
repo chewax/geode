@@ -1,220 +1,158 @@
 ---
 phase: 13-tour-interactivo-de-primera-vez
-reviewed: 2026-07-09T17:32:18Z
+reviewed: 2026-07-09T19:10:00Z
 depth: standard
-files_reviewed: 10
+files_reviewed: 5
 files_reviewed_list:
-  - src/shared/ipc.ts
-  - src/main/services/settings.ts
-  - src/main/index.ts
-  - src/preload/index.ts
-  - src/renderer/src/tour/steps.ts
-  - src/renderer/src/TourOverlay.tsx
-  - src/renderer/src/tour/useTour.ts
   - src/renderer/src/App.tsx
-  - src/renderer/src/ActivityBar.tsx
+  - src/renderer/src/tour/useTour.ts
   - src/renderer/src/index.css
+  - src/renderer/src/TourOverlay.tsx
+  - src/renderer/src/BackupButton.tsx
 findings:
   critical: 0
-  warning: 3
-  info: 3
-  total: 6
+  warning: 1
+  info: 0
+  total: 1
 status: issues_found
 ---
 
-# Phase 13: Code Review Report
+# Phase 13: Code Review Report (re-review)
 
-**Reviewed:** 2026-07-09T17:32:18Z
+**Reviewed:** 2026-07-09T19:10:00Z
 **Depth:** standard
-**Files Reviewed:** 10
+**Files Reviewed:** 5 (scoped to the fix set for WR-01/02/03 + IN-01/02/03; full file list of the
+original review remains valid for anything not touched by this fix round)
 **Status:** issues_found
 
 ## Summary
 
-Reviewed the first-run guided tour (custom `TourOverlay` — the repo's first `createPortal`
-usage — plus the `useTour` tri-state hook and its IPC/settings plumbing). The lifecycle
-code is careful: every `addEventListener`/`ResizeObserver.observe` in `TourOverlay.tsx` is
-paired with cleanup, the anchor-measurement degrades gracefully to a centered card when the
-anchor is missing/zero-area/huge, and the tri-state machine (`unseen → started → seen`,
-"reappear once") was traced end-to-end and behaves correctly, including the
-new-vault-creation race between the mount/recovery effect and `startFirstRun` (verified
-harmless because the persisted end-state converges correctly regardless of ordering).
-`geode:tour-set` is defensively coerced server-side to the 3-value enum, matching the
-`geode:backup-onboarding-set` precedent — no arbitrary payload can be persisted. All four
-`data-tour` anchors (`escribir`, `guardar`, `respaldo`, `historial`) are wired on Capa-0
-controls only; none of the advanced-gated git buttons (branch/merge/graph) carry an anchor,
-and the `core.tour` re-launch command lives in the non-advanced command block. The
-"respaldo" step copy is correctly instructive/future-tense (STAT-01 compliant). `tsc --noEmit`
-is clean for both the node and web TypeScript projects.
+Re-reviewed the fixes applied for the six findings from the prior `13-REVIEW.md` pass. Ran
+`npm run typecheck` (node + web) and `npm run build` — both green, no errors.
 
-The issues found are all around the tour's "modal-like" claim not being fully enforced:
-the overlay visually looks like it should block/highlight interaction, but keyboard
-shortcuts and Tab-focus can still reach and activate the real UI underneath it, and the
-CSS doesn't actually deliver on the `.tour-spotlight` comment's implied click-through
-behavior either way. None of these cause data loss or crashes; they're flagged as Warnings.
+**Verified resolved, no regression:**
+
+- **WR-01 (keyboard shortcuts escape the tour):** `tourActiveRef` (`App.tsx:993-994`) mirrors
+  `tour.active` on every render and is read at the top of both global `keydown` handlers
+  (`App.tsx:999` for Ctrl/Cmd+S, `App.tsx:1157` for Ctrl/Cmd+P and Ctrl+\\), each with an
+  early `return` before any other logic. Confirmed there are only these two global `keydown`
+  listeners in `App.tsx` (grepped `addEventListener('keydown'`) — no other shortcut was
+  collaterally disabled. `useTour`'s own Esc handler (`useTour.ts:129-136`) is a separate
+  effect gated on `active` directly (not the ref) and is untouched by this fix, so Esc still
+  closes the tour. However, see **WR-01 (new)** below — the keyboard-only scope of this fix
+  leaves a mouse-click path to the identical underlying bug wide open.
+- **WR-02 (`.tour-overlay` blocked all clicks):** `index.css:3096-3101` now sets
+  `.tour-overlay { pointer-events: none }` and `index.css:3120-3131` sets
+  `.tour-card { pointer-events: auto }`. `.tour-spotlight` (`index.css:3106-3114`) keeps its
+  pre-existing `pointer-events: none`, so it doesn't re-block the cutout. Card buttons
+  (Saltar/Anterior/Siguiente/Listo) remain clickable (they live inside `.tour-card`), and the
+  veil no longer intercepts clicks elsewhere. No other overlay child needed an explicit
+  `pointer-events` override. This fix is correct as scoped — but see the new finding below for
+  a side effect of combining it with WR-01's keyboard-only gate.
+- **WR-03 (recovery effect could clobber `startFirstRun`'s write):** the guard
+  (`if (oneShotRef.current) return`) in `useTour.ts:114` now sits before `setTourState(snap.state)`,
+  matching the suggested fix exactly. Traced both interleavings of the two concurrent
+  `tour.get()` fetches (mount-time fetch with stale `vaultReady=false` vs. the
+  `vaultReady=true` re-fire during `createLocalVault`): regardless of which async response
+  lands first, at most one write to `tourState`/`oneShotRef` "wins" and the guard correctly
+  discards the stale one. Fresh-mount recovery (existing vault, `started` state at startup) is
+  unaffected — `oneShotRef.current` starts `false`, so the very first authoritative fetch
+  still runs the recovery branch normally. No regression.
+- **IN-01 (`aria-modal` missing):** `TourOverlay.tsx:216` now sets `aria-modal="true"` on the
+  `role="dialog"` element. No layout/behavior change.
+- **IN-02 (`'center'` placement unused):** left as-is (matches the review's own "leave as
+  documented future-proofing" option); `TOUR_STEPS` in `steps.ts` still has zero steps using
+  `placement: 'center'`, and `computeCardPos`/the `centered` derivation in `TourOverlay.tsx`
+  still handle it correctly via the `default`/fallback branch. No behavior risk, nothing to
+  verify beyond "still compiles and is still dead code by design."
+- **IN-03 (`.tour-card` missing `max-height`/`overflow-y`):** `index.css:3120-3125` now has
+  `max-height: calc(100vh - 32px); overflow-y: auto;`, matching the suggested fix. No
+  regression to placement/clamp logic in `TourOverlay.tsx` (`computeCardPos` measures the
+  card's real `getBoundingClientRect()` after this CSS applies, so the clamp still uses the
+  correct, now-capped, height).
+- Graceful degradation (null/huge rect → centered card), Capa-0-only `data-tour` anchors (none
+  on advanced-gated buttons — confirmed `guardar`, `historial`, `escribir`, `respaldo` are all
+  outside any `advanced &&` block), and listener/`ResizeObserver` cleanup in `TourOverlay.tsx`
+  are all unchanged and still correct.
+
+**One new issue found**, caused by the *interaction* of the WR-01 and WR-02 fixes (each correct
+in isolation) — see below.
 
 ## Warnings
 
-### WR-01: Global keyboard shortcuts and Tab-focus escape the tour, opening modals invisibly behind it
+### WR-01: WR-02's click pass-through reopens WR-01's "modal hidden behind the tour" bug via mouse, for the two exact buttons the tour highlights
 
-**File:** `src/renderer/src/App.tsx:990-999` (Ctrl/Cmd+S), `src/renderer/src/App.tsx:1147-1159` (Ctrl/Cmd+P, Ctrl+\\)
+**File:** `src/renderer/src/App.tsx:1332-1340` (`data-tour="guardar"` button →
+`openCommitDialog()`), `src/renderer/src/App.tsx:1704-1712` (unguarded `CommitDialog` render),
+`src/renderer/src/BackupButton.tsx:82-93` (`data-tour="respaldo"` button → `onOpenWizard()`),
+`src/renderer/src/App.tsx` (unguarded `BackupWizard` render, `backupWizardOpen`)
 
-**Issue:** The tour overlay is styled like a modal (`z-index: 300/301`, reuses the
-`.modal-overlay` dim pattern per the comment at `index.css:3087-3091`) and visually blocks
-the rest of the app. However:
+**Issue:** The original WR-01 fix only gated the *global keyboard* listeners
+(Ctrl+S/Ctrl+P/Ctrl+\\) on `tourActiveRef.current`. It did not — and per its own scope,
+couldn't — gate the `onClick` handlers of the real DOM buttons, because those clicks were
+previously unreachable: before the WR-02 fix, `.tour-overlay` had implicit
+`pointer-events: auto` and physically blocked every click, including on the spotlighted
+anchor.
 
-1. The global `keydown` listeners for "Guardar versión" (Ctrl/Cmd+S) and "Paleta de
-   comandos" (Ctrl/Cmd+P) / "Dividir editor" (Ctrl+\\) in `App.tsx` are registered
-   unconditionally and never check `tour.active`. Step 2 of the tour ("Marcá una versión")
-   literally advertises the `Ctrl+S` shortcut on the spotlighted button's tooltip
-   (`title="Crear versión (Ctrl+S)"`, `App.tsx:1325`), inviting the exact keypress that
-   opens `CommitDialog`.
-2. `CommitDialog` and `CommandPalette` render via `.modal-overlay` (`z-index: 100`,
-   see `CommitDialog.tsx:67`, `CommandPalette.tsx:57`), which is **below** the tour's
-   `z-index: 300`. Triggering either while the tour is active opens the dialog
-   invisibly, fully obscured by the tour's dimmed backdrop.
-3. Because the tour overlay only affects *pointer* hit-testing indirectly (see WR-02) and
-   does not `inert`/`aria-hidden` the rest of the DOM, the background dialog also remains
-   focusable/keyboard-operable while hidden.
+The WR-02 fix intentionally removes that blocking (`pointer-events: none` on `.tour-overlay`,
+per the locked "clic fuera no rompe" requirement) so users *can* click through the spotlight
+cutout onto the real, highlighted control. That is by design. But two of the four tour steps
+spotlight buttons whose `onClick` opens a real modal, and **neither the button nor the modal
+checks `tour.active`**:
 
-Net effect: a user who presses Ctrl+S (or Ctrl+P) while the tour is open gets no visible
-feedback, and the previously-invoked dialog "pops into view" unexpectedly the moment the
-tour is dismissed (Esc/Saltar/Listo) — a confusing, hard-to-diagnose UX bug directly
-caused by this phase's new highest-z-index layer.
+1. **Step 2 ("Marcá una versión")** spotlights the `data-tour="guardar"` button
+   (`App.tsx:1332-1340`), whose `onClick` calls `openCommitDialog()` unconditionally. If there
+   are pending changes, this sets `commitChanges`, and `CommitDialog` renders
+   (`App.tsx:1704-1712`) with no `tour.active` guard — unlike `BackupCard`, which explicitly
+   checks `!tour.active` (`App.tsx:1368`) for exactly this reason.
+2. **Step 3 ("Respaldá en la nube")** spotlights the `data-tour="respaldo"` button
+   (`BackupButton.tsx:88-93`). For a freshly created vault (`backedUp === false`, the common
+   first-run case this tour targets), `handleClick` unconditionally calls `onOpenWizard()`
+   (`BackupButton.tsx:82-85`), which sets `backupWizardOpen`. `BackupWizard` also renders
+   unguarded and uses `.modal-overlay` (z-index 100, confirmed via
+   `BackupWizard.tsx:90` → `className="modal-overlay"`).
 
-**Fix:** Gate the global shortcut handlers on `!tour.active`, e.g.:
-```ts
-useEffect(() => {
-  const onKey = (e: KeyboardEvent) => {
-    if (tour.active) return // el recorrido guiado absorbe el teclado global
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-      e.preventDefault()
-      void openCommitDialog()
-    }
-  }
-  window.addEventListener('keydown', onKey)
-  return () => window.removeEventListener('keydown', onKey)
-}, [openCommitDialog, tour.active])
+Both `CommitDialog` and `BackupWizard` render at `.modal-overlay`'s `z-index: 100`, well below
+the tour's `.tour-overlay`/`.tour-spotlight` (`z-index: 300`) and `.tour-card`
+(`z-index: 301`). Clicking either spotlighted button while the tour is active therefore opens
+a real modal that is instantly obscured by the tour's dark spotlight veil — exactly the
+"invisible dialog that pops into view once the tour closes" bug WR-01 described, except this
+path is reachable by mouse on the two controls the tour is actively drawing the user's
+attention to (a spotlight strongly implies "you can interact with this"), and it did **not**
+exist before the WR-02 fix (clicks were fully blocked then). In other words, fixing WR-02 as
+specified silently reopened a mouse variant of WR-01 that the original fix's scope (keyboard
+listeners only) never covered.
+
+**Fix:** Gate the click-triggered side effects the same way the keyboard handlers are gated,
+using the same `tour.active`/`tourActiveRef` idiom already established in this file, e.g.:
+```tsx
+// App.tsx — "guardar" button
+onClick={() => { if (!tour.active) void openCommitDialog() }}
+
+// App.tsx — CommitDialog render
+{commitChanges && !tour.active && (
+  <CommitDialog ... />
+)}
 ```
-Apply the same guard to the Ctrl+P/Ctrl+\\ handler. Consider also adding
-`inert` (or `aria-hidden="true"` + `tabIndex={-1}` sweep) to the app shell's root while
-`tour.active` is true, so Tab navigation can't reach/activate background controls either.
-
----
-
-### WR-02: `.tour-overlay` blocks all pointer interaction, contradicting the `.tour-spotlight` "no captura clics" comment
-
-**File:** `src/renderer/src/index.css:3092-3109`
-
-**Issue:** `.tour-spotlight` is documented as "No captura clics" (`index.css:3100`), implying
-the highlighted real control should remain clickable through the spotlight cutout. In
-practice it can't: `.tour-overlay` (`position: fixed; inset: 0; z-index: 300;`) has no
-`pointer-events` declaration, so it defaults to `pointer-events: auto` and, being a
-full-viewport sibling/parent layer above the real app, intercepts every click — including
-clicks landing inside the spotlighted rect — before they can reach the real anchor
-underneath. `.tour-spotlight`'s own `pointer-events: none` only affects hit-testing on the
-decorative rectangle itself; it does not make the parent `.tour-overlay` transparent to
-clicks.
-
-This may be an intentional "look, don't touch" design (consistent with reusing the
-`.modal-overlay` blocking pattern), in which case the comment is misleading and should be
-corrected. If pass-through interactivity was actually intended (as the comment suggests),
-the CSS doesn't deliver it.
-
-**Fix:** Either:
-- Confirm blocking is intentional and fix the comment to stop implying the anchor stays
-  clickable, e.g. `/* Decorativo: el bloqueo de clicks lo hace .tour-overlay, no este recorte */`, or
-- If pass-through was intended, add `pointer-events: none` to `.tour-overlay` and
-  `pointer-events: auto` back on `.tour-card` (the only element that needs to capture
-  clicks):
-```css
-.tour-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  pointer-events: none;
-}
-.tour-card {
-  pointer-events: auto;
-  /* ...existing... */
+```tsx
+// BackupButton.tsx — accept a `disabled`/`tourActive` prop (or gate at the call site in
+// App.tsx before passing onOpenWizard/onForcePush) so handleClick no-ops while the tour owns
+// the button it's spotlighting:
+const handleClick = (): void => {
+  if (tourActive) return
+  if (!backedUp || failed) onOpenWizard()
+  else if (!backingUp) onForcePush()
 }
 ```
+and gate the `BackupWizard` render the same way `BackupCard` already is (`&& !tour.active`).
+Alternatively, if clicking the spotlighted "guardar"/"respaldo" controls mid-tour is meant to
+be a valid escape hatch (skip the tour by just doing the real action), then `tour.skip()`
+should be invoked alongside the click so the tour closes cleanly instead of leaving a hidden
+modal stacked underneath it — either resolution is acceptable, but the current unguarded state
+is not.
 
 ---
 
-### WR-03: Recovery effect can transiently clobber `tourState` set by a concurrent `startFirstRun`
-
-**File:** `src/renderer/src/tour/useTour.ts:106-119`
-
-**Issue:** The mount/recovery effect re-runs on every `vaultReady` transition and
-unconditionally does `setTourState(snap.state)` from a freshly-fetched
-`window.geode.tour.get()` snapshot before checking the recovery condition. During
-first-vault creation (`App.tsx` `createLocalVault`), `vaultReady` flips `true` when
-`adoptVault` calls `setVault`, re-running this effect concurrently with the later
-`await tour.startFirstRun()` call further down the same async function. If the effect's
-`tour.get()` IPC round-trip resolves *after* `startFirstRun` has already persisted
-`'started'` and locally set `tourState`, the effect's `setTourState(snap.state)` would
-still be applied with the **stale** pre-fetch value (`'unseen'`), because the fetch itself
-was issued before `startFirstRun` ran, transiently reverting `tourState`/`tourStateRef`
-even though `active` stays `true` and the persisted setting is correctly `'started'`.
-
-In the traced flow this is currently harmless — `close()` treats anything `!== 'seen'` as
-"needs to persist seen", so the final persisted state converges correctly regardless of
-this in-memory hiccup — but it's a fragile pattern (two independent async writers to the
-same piece of state with no sequencing/"latest wins" guard) that would be easy to turn into
-a real bug with a future change (e.g. any code path that reads `tourState` mid-flight to
-decide something other than the terminal "seen" check).
-
-**Fix:** Make the ordering explicit instead of relying on incidental timing, e.g. track a
-monotonically increasing "fetch token" and ignore stale responses, or simply don't
-overwrite `tourState` from the recovery effect when `oneShotRef.current` is already `true`
-(it means a more authoritative write — either `startFirstRun` or the recovery branch
-itself — already happened this session):
-```ts
-useEffect(() => {
-  void (async () => {
-    const snap = await window.geode.tour.get()
-    if (oneShotRef.current) return // ya hubo una escritura más autoritativa esta sesión
-    setTourState(snap.state)
-    if (snap.state === 'started' && vaultReady) {
-      oneShotRef.current = true
-      launch()
-      await window.geode.tour.set('seen')
-      setTourState('seen')
-    }
-  })()
-}, [vaultReady, launch])
-```
-
-## Info
-
-### IN-01: `.tour-card`'s `role="dialog"` is missing `aria-modal="true"`
-
-**File:** `src/renderer/src/TourOverlay.tsx:213-216`
-**Issue:** Screen readers won't be told the rest of the page is inert while the coach-mark
-is open, which is also consistent with WR-01's lack of an actual interaction block.
-**Fix:** Add `aria-modal="true"` to the `role="dialog"` element (and pair with a real
-inert/focus-trap fix from WR-01 for it to be meaningful).
-
-### IN-02: `TourStep['placement']` declares an unused `'center'` variant
-
-**File:** `src/renderer/src/tour/steps.ts:23`, `src/renderer/src/TourOverlay.tsx:80-100`
-**Issue:** None of the 4 fixed `TOUR_STEPS` use `placement: 'center'`; it's handled only by
-`computeCardPos`'s `default` branch. Speculative/dead union member.
-**Fix:** Either drop `'center'` from the type until a step needs it, or leave as documented
-future-proofing — low priority, no behavior risk.
-
-### IN-03: `.tour-card` has no `max-height`/`overflow-y` guard
-
-**File:** `src/renderer/src/index.css:3112-3122`
-**Issue:** On a very short viewport (small window height), a long body string plus footer
-could theoretically overflow past the screen edge before `computeCardPos`'s clamp has a
-chance to account for content that grows taller than expected. Current copy is short and
-fixed, so risk is low today.
-**Fix:** Add `max-height: calc(100vh - 32px); overflow-y: auto;` defensively.
-
----
-
-_Reviewed: 2026-07-09T17:32:18Z_
+_Reviewed: 2026-07-09T19:10:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
+import type { CSSProperties, JSX, PointerEvent as ReactPointerEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   FilePlus,
@@ -23,7 +23,9 @@ import {
   Command as CommandIcon,
   Loader2,
   HardDrive,
-  Check
+  Check,
+  NotebookPen,
+  FolderCog
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, AppInfo, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
@@ -87,6 +89,8 @@ export function App(): JSX.Element {
   const [vaults, setVaults] = useState<VaultInfo[]>([])
   const [newVaultOpen, setNewVaultOpen] = useState(false)
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
+  // Bienvenida sin jerga: nombre del primer cuaderno (pre-rellenado y seleccionable).
+  const [vaultName, setVaultName] = useState('Mi primer cuaderno')
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [tree, setTree] = useState<TreeNode[]>([])
   // Explorador estilo Obsidian: orden A-Z/Z-A y colapsar/expandir todo.
@@ -453,6 +457,21 @@ export function App(): JSX.Element {
     const info = await window.geode.vault.open()
     if (info) await adoptVault(info)
   }, [adoptVault])
+
+  // El input de nombre selecciona su texto al montar, para poder sobrescribir de una.
+  const welcomeInputSelected = useRef(false)
+  const welcomeInputRef = useCallback((el: HTMLInputElement | null) => {
+    if (el && !welcomeInputSelected.current) {
+      welcomeInputSelected.current = true
+      el.select()
+    }
+  }, [])
+
+  // Crea el primer cuaderno local y entra en él. Cableado real en el flujo de creación.
+  // TODO(Task 2): createLocal → adoptVault → openNote('Bienvenida.md').
+  const createLocalVault = useCallback(async (_useCustomLocation = false): Promise<void> => {
+    // no-op (cableado en Task 2)
+  }, [])
 
   /** Cambia a una bóveda ya conocida (selector de bóveda). */
   const switchVault = useCallback(async (root: string) => {
@@ -1083,23 +1102,33 @@ export function App(): JSX.Element {
           <WindowControls />
         </div>
         <h1>Geode</h1>
-        <p className="tagline">Notas versionadas sobre Git — local-first.</p>
-        <div className="welcome-actions">
-          <button className="primary" onClick={() => void openVault()}>
-            Abrir carpeta como vault
+        <p className="tagline">Escribí sin miedo a perder nada.</p>
+        <input
+          ref={welcomeInputRef}
+          className="text-input"
+          style={{ width: 320, WebkitAppRegion: 'no-drag' } as CSSProperties}
+          aria-label="Nombre de tu primer cuaderno"
+          value={vaultName}
+          autoFocus
+          onChange={(e) => setVaultName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void createLocalVault()
+          }}
+        />
+        <button className="primary" onClick={() => void createLocalVault()}>
+          <NotebookPen size={16} />
+          Crear mi primer cuaderno
+        </button>
+        <div className="welcome-actions" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+          <button className="link-btn" onClick={() => void createLocalVault(true)}>
+            <FolderCog size={14} />
+            Elegir otra ubicación
           </button>
-          <button onClick={() => setNewVaultOpen(true)}>Clonar o crear en GitHub</button>
+          <button className="link-btn" onClick={() => void openVault()}>
+            <FolderOpen size={14} />
+            Abrir una carpeta existente
+          </button>
         </div>
-        {newVaultOpen && (
-          <NewVaultDialog
-            githubConnected={!!githubCfg?.connected}
-            onReady={(info) => {
-              setNewVaultOpen(false)
-              void adoptVault(info)
-            }}
-            onClose={() => setNewVaultOpen(false)}
-          />
-        )}
       </div>
     )
   }

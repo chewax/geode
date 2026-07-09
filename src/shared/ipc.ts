@@ -80,7 +80,9 @@ export const IPC = {
   vaultEnableBackup: 'geode:vault-enable-backup',
   backupOnboardingGet: 'geode:backup-onboarding-get',
   backupOnboardingSet: 'geode:backup-onboarding-set',
-  backupOpenSignup: 'geode:backup-open-signup'
+  backupOpenSignup: 'geode:backup-open-signup',
+  tourGet: 'geode:tour-get',
+  tourSet: 'geode:tour-set'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -342,6 +344,28 @@ export interface BackupApi {
   openSignup(): Promise<void>
 }
 
+// ── Tour interactivo de primera vez ─────────────────────────────────────────
+
+/**
+ * Estado del tour de bienvenida (tri-state). A diferencia de BackupOnboarding,
+ * NUNCA es null: el default es `'unseen'`. `'started'` = el tour se abrió pero
+ * se cerró a mitad (interrumpido) → puede reaparecer una vez; `'seen'` = ya se
+ * completó/saltó y no se auto-repite.
+ */
+export type TourState = 'unseen' | 'started' | 'seen'
+
+/** Snapshot del estado del tour que cruza el puente IPC (siempre presente). */
+export interface TourSnapshot {
+  state: TourState
+}
+
+export interface TourApi {
+  /** Estado actual del tour (default `'unseen'`). */
+  get(): Promise<TourSnapshot>
+  /** Persiste el nuevo estado del tour y devuelve el snapshot resultante. */
+  set(state: TourState): Promise<TourSnapshot>
+}
+
 // ── IA (mensajes de commit) ─────────────────────────────────────────────────
 
 export interface AiModel {
@@ -494,6 +518,7 @@ export interface GeodeApi {
   ai: AiApi
   github: GithubApi
   backup: BackupApi
+  tour: TourApi
   snapshots: SnapshotsApi
   advanced: AdvancedApi
   plugins: PluginsApi

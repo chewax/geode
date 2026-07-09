@@ -201,6 +201,19 @@ export class VaultService {
     return { root: dir }
   }
 
+  /**
+   * Descarta (borra recursivo) una carpeta de cuaderno recién creada por
+   * `createLocal` cuando un paso posterior —`git init`/primer commit— falla ANTES
+   * de fijarla como activa. Evita dejar cuadernos huérfanos sin repo en disco que,
+   * por la resolución de colisión atómica de `createLocal`, forzarían el sufijo
+   * " (2)" en cada reintento (WR-04). A diferencia de `deletePath`, opera sobre la
+   * ruta ABSOLUTA devuelta por `createLocal` (la carpeta todavía no es el vault
+   * activo, así que no hay `resolveInside` posible).
+   */
+  async discard(root: string): Promise<void> {
+    await rm(root, { recursive: true, force: true })
+  }
+
   /** Renombra/mueve una nota o carpeta. Ambas rutas quedan validadas dentro del vault. */
   async rename(fromRel: string, toRel: string): Promise<void> {
     const from = this.resolveInside(fromRel)

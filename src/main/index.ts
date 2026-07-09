@@ -476,8 +476,19 @@ function registerIpcHandlers(): void {
         // El mensaje es texto fijo en español; NO se invoca IA (la creación y los
         // auto-snapshots no invocan IA — CLAUDE.md).
         const { root } = await vault.createLocal(name, baseDir)
-        await gitService.ensureRepo(root) // git init (rama main), idempotente
-        await gitService.commit(root, 'Primera versión') // primer commit racy-safe del seed
+        // ensureRepo/commit viven FUERA del try/catch de createLocal (que solo cubre
+        // mkdir→seed), así que su falla no limpiaba la carpeta ya sembrada: quedaba un
+        // cuaderno huérfano sin repo que forzaba el sufijo " (2)" en cada reintento
+        // (WR-04). Se cubre esa ventana acá: si init/commit falla, se borra la carpeta
+        // recién creada y se relanza el error original (la limpieza se traga con
+        // `.catch` para no enmascararlo, y el catch externo mantiene el mensaje humano).
+        try {
+          await gitService.ensureRepo(root) // git init (rama main), idempotente
+          await gitService.commit(root, 'Primera versión') // primer commit racy-safe del seed
+        } catch (e) {
+          await vault.discard(root).catch(() => {})
+          throw e
+        }
         // setRoot recién ACÁ: el cuaderno se vuelve "activo" solo tras init+commit OK,
         // igual que vaultCreateWithRepo/vaultCloneFromGithub. Así una falla parcial no
         // deja el main apuntando a una carpeta huérfana sin repo (WR-01).

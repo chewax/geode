@@ -149,7 +149,13 @@ export async function createRepo(
     headers: { ...ghHeaders(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, private: isPrivate, auto_init: false })
   })
-  if (!res.ok) throw new Error(`GitHub crear repo: ${res.status} ${await res.text()}`)
+  if (!res.ok) {
+    // Adjuntamos status y body al Error para que `mapBackupError` (backupErrors.ts)
+    // clasifique por status HTTP y no por regex frágil del texto. El body queda
+    // solo en el main (logging/clasificación); nunca cruza al renderer.
+    const body = await res.text()
+    throw Object.assign(new Error(`crear repo: ${res.status}`), { status: res.status, body })
+  }
   const r = (await res.json()) as {
     name: string
     full_name: string

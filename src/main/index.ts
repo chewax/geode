@@ -12,7 +12,9 @@ import {
   type NamedVersion,
   type SnapshotsConfig,
   type AdvancedConfig,
-  type VaultInfo
+  type VaultInfo,
+  type BackupOnboarding,
+  type BackupOnboardingState
 } from '@shared/ipc'
 
 // Ícono de la app (ventana + barra de tareas). Usamos el PNG porque nativeImage
@@ -58,6 +60,7 @@ import {
   setSnapshotCadence,
   setSnapshotAiTitles,
   setAdvanced,
+  getBackupOnboarding,
   setBackupOnboarding
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
@@ -879,6 +882,30 @@ function registerIpcHandlers(): void {
     await setBackupOnboarding('completado')
 
     return githubConfig()
+  })
+
+  ipcMain.handle(
+    IPC.backupOnboardingGet,
+    async (): Promise<BackupOnboarding> => ({ state: await getBackupOnboarding() })
+  )
+
+  ipcMain.handle(
+    IPC.backupOnboardingSet,
+    async (_e, state: BackupOnboardingState): Promise<BackupOnboarding> => {
+      // Coerción defensiva (T-12-08): solo persistimos uno de los 3 estados
+      // válidos; nunca el valor crudo del renderer. Si llega basura, no mutamos y
+      // devolvemos el estado actual.
+      const valid: BackupOnboardingState[] = ['invitado', 'diferido', 'completado']
+      if (!valid.includes(state)) return { state: await getBackupOnboarding() }
+      await setBackupOnboarding(state)
+      return { state }
+    }
+  )
+
+  ipcMain.handle(IPC.backupOpenSignup, async (): Promise<void> => {
+    // URL FIJA hardcodeada (T-12-06): el handler NO recibe ninguna URL del
+    // renderer, así que no hay superficie de arbitrary-URL launch / open-redirect.
+    void shell.openExternal('https://github.com/signup')
   })
 }
 

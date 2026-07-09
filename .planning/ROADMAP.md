@@ -67,7 +67,10 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
   3. El cuaderno recién creado abre mostrando una nota de bienvenida en español (nunca un editor en blanco), que el usuario puede borrar.
   4. El usuario puede nombrar el cuaderno con cualquier texto —incluso caracteres que Windows no permite o un nombre repetido— y siempre se crea bien, sin errores y sin pisar un cuaderno anterior.
   5. Los textos de cara al usuario en Capa 0 dicen "cuaderno" y "copia de seguridad / respaldo en la nube", nunca "bóveda / GitHub / repo / clonar".
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 11-01-PLAN.md — Backbone del main: sanitizeVaultName + VaultService.createLocal + canal geode:vault-create-local (git init + primer commit del seed)
+- [ ] 11-02-PLAN.md — Bienvenida sin jerga en App.tsx: input + CTA + links + flujo createLocal→adoptVault→openNote(Bienvenida.md)
 **UI hint**: yes
 
 ### Phase 12: Asistente de respaldo en la nube
@@ -112,6 +115,6 @@ Phases execute in numeric order: 11 → 12 → 13
 | 8. Versionado avanzado — borrar rama + contador | v1.2 | 3/3 | Complete | 2026-07-06 |
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
-| 11. Bienvenida y creación local | v1.3 | 0/TBD | Not started | - |
+| 11. Bienvenida y creación local | v1.3 | 0/2 | Planned | - |
 | 12. Asistente de respaldo en la nube | v1.3 | 0/TBD | Not started | - |
 | 13. Tour interactivo de primera vez | v1.3 | 0/TBD | Not started | - |

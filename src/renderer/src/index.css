@@ -3048,6 +3048,32 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   border-color: color-mix(in srgb, var(--head) 85%, #fff);
 }
 
+/* ── Respaldo en la nube (Fase 12) ─────────────────────────────────────────── */
+/* Tarjeta de invitación al respaldo: reusa el banner pero en acento púrpura. El
+   teal --head queda reservado al time-travel (evita confusión). Sólo cambia el
+   tinte; el layout, spacing y alto (36px) se heredan de .time-banner. */
+.time-banner.backup {
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.time-banner.backup .time-banner-info {
+  color: var(--accent);
+}
+
+/* Botón de respaldo persistente: <button> real (accesible, aria-label por
+   estado) que reusa la píldora .status-item sin la caja del botón base. */
+.status-item.backup-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.status-item.backup-btn:hover {
+  border-color: transparent;
+}
+
 /* Tinte del editor durante el preview: velo teal sutil + acento superior teal. */
 .main.past .epane-body {
   background: color-mix(in srgb, var(--head) 7%, transparent);

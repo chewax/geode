@@ -2,6 +2,7 @@ import { app, safeStorage } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWrite } from '../fs/atomic'
+import type { TourState } from '@shared/ipc'
 
 /**
  * Ajustes de la app (no del vault). Viven en userData, fuera de todo repo.
@@ -68,6 +69,14 @@ export interface Settings {
      * hay respaldo configurado.
      */
     onboarding?: 'invitado' | 'diferido' | 'completado'
+  }
+  tour?: {
+    /**
+     * Estado del tour de bienvenida (TOUR-02). Ausente = `'unseen'` (default
+     * seguro, sin migración). `'started'` = el tour se interrumpió a mitad;
+     * `'seen'` = ya se completó/saltó y no se auto-repite.
+     */
+    state?: 'unseen' | 'started' | 'seen'
   }
 }
 
@@ -275,5 +284,19 @@ export async function setBackupOnboarding(
 ): Promise<void> {
   const settings = await loadSettings()
   settings.backup = { ...settings.backup, onboarding: state }
+  await saveSettings(settings)
+}
+
+// ── Tour interactivo de primera vez ───────────────────────────────────────────
+
+/** Estado del tour; default `'unseen'` (NO null, a diferencia del backup). */
+export async function getTourState(): Promise<TourState> {
+  return (await loadSettings()).tour?.state ?? 'unseen'
+}
+
+/** Fija el estado del tour (persistente) preservando el resto de ajustes. */
+export async function setTourState(state: TourState): Promise<void> {
+  const settings = await loadSettings()
+  settings.tour = { ...settings.tour, state }
   await saveSettings(settings)
 }

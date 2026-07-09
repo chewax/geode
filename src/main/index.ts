@@ -14,7 +14,9 @@ import {
   type AdvancedConfig,
   type VaultInfo,
   type BackupOnboarding,
-  type BackupOnboardingState
+  type BackupOnboardingState,
+  type TourSnapshot,
+  type TourState
 } from '@shared/ipc'
 
 // Ícono de la app (ventana + barra de tareas). Usamos el PNG porque nativeImage
@@ -62,6 +64,8 @@ import {
   setAdvanced,
   getBackupOnboarding,
   setBackupOnboarding,
+  getTourState,
+  setTourState,
   pushedForVault,
   withPushedForVault
 } from './services/settings'
@@ -956,6 +960,24 @@ function registerIpcHandlers(): void {
       const valid: BackupOnboardingState[] = ['invitado', 'diferido', 'completado']
       if (!valid.includes(state)) return { state: await getBackupOnboarding() }
       await setBackupOnboarding(state)
+      return { state }
+    }
+  )
+
+  ipcMain.handle(
+    IPC.tourGet,
+    async (): Promise<TourSnapshot> => ({ state: await getTourState() })
+  )
+
+  ipcMain.handle(
+    IPC.tourSet,
+    async (_e, state: TourState): Promise<TourSnapshot> => {
+      // Coerción defensiva (T-13-01): solo persistimos uno de los 3 estados
+      // válidos; nunca el valor crudo del renderer. Si llega basura, no mutamos
+      // y devolvemos el estado actual.
+      const valid: TourState[] = ['unseen', 'started', 'seen']
+      if (!valid.includes(state)) return { state: await getTourState() }
+      await setTourState(state)
       return { state }
     }
   )

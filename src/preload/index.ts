@@ -76,6 +76,10 @@ const api: GeodeApi = {
     setOnboarding: (state) => ipcRenderer.invoke(IPC.backupOnboardingSet, state),
     openSignup: () => ipcRenderer.invoke(IPC.backupOpenSignup)
   },
+  tour: {
+    get: () => ipcRenderer.invoke(IPC.tourGet),
+    set: (state) => ipcRenderer.invoke(IPC.tourSet, state)
+  },
   ai: {
     getConfig: () => ipcRenderer.invoke(IPC.aiGetConfig),
     setKey: (key) => ipcRenderer.invoke(IPC.aiSetKey, key),

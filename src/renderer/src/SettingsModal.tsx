@@ -205,7 +205,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               <Sparkles size={15} /> Mensajes por IA
             </button>
             <button className={section === 'github' ? 'active' : ''} onClick={() => setSection('github')}>
-              <Cloud size={15} /> GitHub
+              <Cloud size={15} /> Respaldo en la nube
             </button>
             <button className={section === 'snapshots' ? 'active' : ''} onClick={() => setSection('snapshots')}>
               <Clock size={15} /> Guardado automático
@@ -330,9 +330,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
             {section === 'github' && (
               <section className="settings-section">
-                <h2><Cloud size={18} /> GitHub — guardar en tu repo</h2>
+                <h2><Cloud size={18} /> Respaldo en la nube</h2>
                 <p className="modal-sub">
-                  Conectá tu cuenta y elegí el repo donde se respalda tu bóveda en la nube.
+                  Conectá tu cuenta para guardar copias de seguridad de tus cuadernos en la nube.
                 </p>
 
                 {github?.connected ? (
@@ -342,34 +342,36 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   </div>
                 ) : device ? (
                   <div className="device-box">
-                    <p>Ingresá este código en GitHub (se abrió en tu navegador):</p>
+                    <p>Escribí este código en la página que se abrió para conectar tu cuenta:</p>
                     <div className="device-code">{device.userCode}</div>
-                    <p className="hint">{device.verificationUri} — esperando autorización…</p>
+                    <p className="hint">Esperando que autorices…</p>
                   </div>
                 ) : (
                   <button onClick={() => void connectGithub()} disabled={connecting}>
-                    {connecting ? 'conectando…' : 'Conectar con GitHub'}
+                    {connecting ? 'conectando…' : 'Conectar mi cuenta'}
                   </button>
                 )}
 
                 {github?.connected && (
                   <>
-                    <label className="field-label">URL del repo</label>
-                    <div className="key-row">
-                      <input
-                        className="text-input"
-                        placeholder="https://github.com/usuario/mis-notas.git"
-                        value={remoteInput}
-                        onChange={(e) => setRemoteInput(e.target.value)}
-                      />
-                      <button onClick={() => void saveRemote()} disabled={remoteInput.trim() === (github.remote ?? '')}>
-                        Guardar
-                      </button>
-                    </div>
+                    <details className="advanced-remote">
+                      <summary className="field-label">Dirección del respaldo (avanzado)</summary>
+                      <div className="key-row">
+                        <input
+                          className="text-input"
+                          placeholder="https://github.com/usuario/mi-cuaderno.git"
+                          value={remoteInput}
+                          onChange={(e) => setRemoteInput(e.target.value)}
+                        />
+                        <button onClick={() => void saveRemote()} disabled={remoteInput.trim() === (github.remote ?? '')}>
+                          Guardar
+                        </button>
+                      </div>
+                    </details>
 
                     <p className="hint">
-                      La subida a la nube es siempre manual: usá el botón de subir de la barra
-                      superior.
+                      Tu cuaderno se respalda solo cada vez que guardás. También podés forzar una
+                      copia desde el botón de la barra inferior.
                     </p>
                   </>
                 )}

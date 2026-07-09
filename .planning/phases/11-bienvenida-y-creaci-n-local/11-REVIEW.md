@@ -1,223 +1,188 @@
 ---
 phase: 11-bienvenida-y-creaci-n-local
-reviewed: 2026-07-09T02:28:23Z
+reviewed: 2026-07-08T00:00:00Z
 depth: standard
-files_reviewed: 6
+files_reviewed: 4
 files_reviewed_list:
   - src/main/fs/vaultName.ts
   - src/main/services/vault.ts
-  - src/shared/ipc.ts
   - src/main/index.ts
-  - src/preload/index.ts
   - src/renderer/src/App.tsx
 findings:
   critical: 0
-  warning: 3
-  info: 3
-  total: 6
+  warning: 1
+  info: 1
+  total: 2
 status: issues_found
 ---
 
-# Phase 11: Code Review Report
+# Phase 11: Code Review Report (Re-Review)
 
-**Reviewed:** 2026-07-09T02:28:23Z
+**Reviewed:** 2026-07-08T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 6
+**Files Reviewed:** 4
 **Status:** issues_found
 
 ## Summary
 
-Reviewed the new purely-local vault creation path (`geode:vault-create-local`): name
-sanitization (`vaultName.ts`), filesystem/collision handling (`VaultService.createLocal`),
-the IPC contract/handler, the preload bridge, and the renderer welcome-screen flow.
+Re-reviewed the fixes applied for WR-01, WR-02, WR-03, IN-01, IN-02, IN-03 from the prior
+review of the local-vault-creation path. All six prior findings are **verified resolved**,
+correctly implemented, and introduce **no regressions** in the areas they touch (IPC
+contract shape, load-bearing write order, Spanish strings, `geode:` IPC prefix, CommonJS
+preload, racy-safe commit ordering). Details per finding are below.
 
-The core security property holds: `sanitizeVaultName` strips every Windows-illegal
-character and all path separators (`/`, `\`) before the string is ever used as a path
-segment, so a malicious `name` (`../../etc`, `C:\Windows`, `CON`, all-illegal, empty)
-cannot escape the chosen base directory or collide with a reserved device name — it
-either becomes a harmless literal folder-name token or falls back to `"Cuaderno"`.
-Collision resolution correctly uses an absolute-path `pathExists` check anchored at the
-caller-supplied `baseDir` (not `VaultService.exists()`, which is anchored at the
-*current* vault), and it runs before `mkdir`, matching the stated "never overwrite"
-invariant. The load-bearing write order (mkdir → seed → ensureRepo → commit) is
-implemented correctly, so the first commit is never a no-op. The renderer flow correctly
-chains `openNote('Bienvenida.md')` after `adoptVault()` only on the create path, and
-`openVault()` (existing folder) does not auto-open anything.
+While verifying, one new robustness gap and one narrow edge case were found that were not
+present in — or not fully covered by — the original review, so this is not a clean bill:
 
-However, three correctness/robustness gaps were found, mostly around partial-failure
-handling: `VaultService.createLocal()` mutates the active-vault singleton (`setRoot`)
-*before* the caller's `ensureRepo`/`commit` steps succeed — the opposite order used by
-the sibling flows `vaultCreateWithRepo` and `vaultCloneFromGithub` in the same file —
-which can leave the main process pointing at a git-less orphan folder while the renderer
-still believes creation failed. Separately, the renderer's bare `catch {}` around
-`createLocalVault` discards the error object entirely, which means the human-friendly
-EACCES/EPERM message deliberately crafted in `main/index.ts` never reaches the user (it's
-effectively dead code) and every failure — permissions, disk full, path too long,
-anything — shows the exact same "revisá los permisos" text.
+- A new **WARNING**: the fix for WR-01 correctly stops `VaultService.createLocal()` from
+  mutating the active-vault singleton before git succeeds, but it does so by moving
+  `ensureRepo`/`commit` entirely outside of `createLocal()`'s own try/catch. If either call
+  throws (disk fills up between seed-write and `git init`, AV locks the fresh `.git`
+  folder, etc.), the folder that `createLocal()` already created and seeded is **not**
+  cleaned up — unlike the IN-02 fix, which only covers the narrower
+  `mkdir`→`atomicWrite` failure window. A retry with the same name then skips straight to
+  the `" (2)"` suffix (via the EEXIST collision loop), leaving the orphaned, git-less,
+  untracked folder on disk forever, accumulating with every failed retry.
+- A new **INFO**: the IN-01 fix clamps the sanitized name with `name.slice(0, MAX_VAULT_NAME)`,
+  which operates on UTF-16 code units. A name containing an astral character (e.g. an
+  emoji) exactly at the 100-char boundary can be sliced through the middle of a surrogate
+  pair, leaving a lone unpaired surrogate in the folder name. Narrow, cosmetic-at-worst,
+  but worth a one-line note.
+
+## Verification of Prior Findings
+
+### WR-01 — `createLocal()` set active vault before git init/commit succeeded — **RESOLVED**
+
+`VaultService.createLocal()` (`src/main/services/vault.ts:165-202`) no longer calls
+`setRoot`; it returns `{ root: dir }` after mkdir + atomic seed-write only. The handler
+(`src/main/index.ts:471-498`) now does, in order: `vault.createLocal()` →
+`gitService.ensureRepo(root)` → `gitService.commit(root, 'Primera versión')` →
+`vault.setRoot(root)` → `rememberVault` → `restartSnapshotTimer`. This matches the sibling
+flows (`vaultCreateWithRepo`, `vaultCloneFromGithub`) exactly, and the returned shape is
+still `VaultInfo | null` per the `GeodeApi.vault.createLocal` contract
+(`src/shared/ipc.ts:152`), so the renderer's `adoptVault(info)` / `openNote('Bienvenida.md')`
+chain in `App.tsx:479-483` continues to receive what it expects. If `ensureRepo` or
+`commit` now throws, `vault.root` (the singleton) is never touched, so the active vault
+can no longer diverge from what the renderer believes succeeded — the specific
+state-divergence bug is fixed. (See new WARNING above for the residual disk-litter case
+this reorder introduces.)
+
+### WR-02 — bare `catch {}` swallowed the main-crafted EACCES/EPERM message — **RESOLVED**
+
+`App.tsx:484-493` now binds `e` and checks
+`e instanceof Error && e.message.startsWith('No se pudo crear el cuaderno')`, showing
+`e.message` verbatim only in that case and falling back to the generic Spanish message
+otherwise. The literal string thrown by `main/index.ts:492-494`
+(`'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en la carpeta.'`)
+does start with that prefix, so the intended safe copy now actually reaches the UI. Every
+other thrown error (raw stack/path text, isomorphic-git internals, `ENOSPC`, etc.) fails
+the `startsWith` check and falls through to the generic fallback — raw API text cannot
+reach the UI. Cross-checked against the rest of the codebase (`App.tsx:344, 545, 623, 758,
+840, 853, 886`), which reads `e.message` directly from rejected `ipcRenderer.invoke` calls
+without any wrapper-prefix stripping, confirming Electron in this app does not mangle the
+thrown message before it reaches the renderer's `catch` — the `startsWith` comparison is
+comparing like-for-like.
+
+### WR-03 — TOCTOU between collision check and `mkdir` — **RESOLVED**
+
+The leaf directory is now created with `mkdir(target, { recursive: false })` inside the
+suffix loop (`vault.ts:176-189`); `EEXIST` is caught and only then does `candidate` bump to
+`" (2)"`, `" (3)"`, … Any other error code rethrows immediately, so the loop cannot spin
+on an unrelated permanent failure (e.g. `EACCES`) or infinite-loop under normal
+conditions — it only continues while genuinely colliding with an existing name, which is
+bounded by however many same-named siblings actually exist on disk. `baseDir` is still
+created recursively once, upfront (`vault.ts:170`), as intended. The check-then-create
+race the original finding described is gone: creation and the “does it already exist”
+check are now the same atomic syscall.
+
+### IN-01 — `sanitizeVaultName` had no length cap — **RESOLVED**
+
+`vaultName.ts:38-39` now does `name = name.slice(0, MAX_VAULT_NAME)` **before** the
+trailing dot/space strip (`name.replace(/[. ]+$/g, '').trim()`), which is the correct
+order — truncating first and stripping after guarantees a clamped name can never end in a
+stray `.`/space that the truncation itself introduced. An all-dots or all-trimmed-to-empty
+result correctly falls through to the `name === ''` check and returns `'Cuaderno'`.
+Verified by hand-tracing an input of >100 dots and an input where the 100-char cut lands
+exactly on an internal space: both correctly resolve to a clean name or the `'Cuaderno'`
+fallback, never an empty string that bypasses the fallback. (See new INFO above for the
+one edge case — astral/surrogate-pair splitting — outside what IN-01 was scoped to catch.)
+
+### IN-02 — orphaned empty dir on seed-write failure — **RESOLVED**
+
+`vault.ts:194-199` wraps the `atomicWrite` call in try/catch and calls
+`rm(dir, { recursive: true, force: true }).catch(() => {})` before rethrowing the original
+error on failure. The `rm` failure is deliberately swallowed so a secondary cleanup error
+never masks the primary seed-write error, and the primary error still propagates to the
+handler's EACCES/EPERM mapping. This covers exactly the window the finding described
+(mkdir succeeds, atomicWrite fails). Note this fix does **not** extend to the
+`ensureRepo`/`commit` failure window that now lives outside `createLocal()` after the WR-01
+fix — that gap is the new WARNING above.
+
+### IN-03 — Enter-key handler diverges from custom-location button — **RESOLVED (comment added)**
+
+`App.tsx:1139-1141` now has a comment explicitly noting "Enter siempre apunta a la
+ubicación por defecto, nunca al picker de 'otra ubicación'... Si se agrega un tercer
+disparador, mantener esta distinción." Purely a documentation fix as requested; behavior
+unchanged (still correct).
 
 ## Warnings
 
-### WR-01: `createLocal()` sets the active vault before git init/commit succeed (inconsistent with sibling flows)
+### WR-04: Orphaned git-less folder left on disk if `ensureRepo`/`commit` fails after `createLocal()` succeeds
 
-**File:** `src/main/services/vault.ts:161-182`, `src/main/index.ts:456-495`
-**Issue:** `VaultService.createLocal()` calls `this.setRoot(dir)` as its last statement
-(vault.ts:181) and returns the resulting `VaultInfo` to the IPC handler. The handler then
-does `await gitService.ensureRepo(info.root)` and `await gitService.commit(info.root, ...)`
-(index.ts:479-480) — both AFTER the singleton's `this.root` has already been mutated. If
-either call throws (disk fills up between the seed write and the commit, an AV/indexer
-locks the fresh `.git` folder, a permissions change mid-operation, an unexpected
-isomorphic-git error, etc.), the thrown error propagates to the renderer as a rejection,
-but `VaultService.root` is left pointing at the new, half-initialized (no `.git`, not in
-`knownVaults`, no snapshot timer bound) folder. The renderer still shows the welcome
-screen (`vault === null`), so main's and renderer's notion of "the active vault" have
-diverged. A retry from the welcome screen creates a sibling `"<name> (2)"` folder next to
-the orphaned `"<name>"` one, and the orphan is never cleaned up.
-
-Contrast with the two other vault-creation flows in the very same file, which
-deliberately defer `setRoot()` until AFTER the git side succeeds:
+**File:** `src/main/index.ts:478-497`, `src/main/services/vault.ts:165-202`
+**Issue:** The WR-01 fix correctly stops the *active vault pointer* from diverging on a
+partial failure, but it does so by relocating `gitService.ensureRepo(root)` and
+`gitService.commit(root, ...)` to the IPC handler, entirely outside of
+`VaultService.createLocal()`'s own try/catch (which only guards `mkdir` +
+`atomicWrite(seed)`, per IN-02). If `ensureRepo` or `commit` throws — e.g. disk fills up
+while isomorphic-git writes `.git/objects` (`ensureRepo` calls `git.init` which is not
+atomic; see `git.ts:113-121`), an antivirus/indexer locks the freshly created `.git`
+folder, or any other mid-operation failure — the folder created by `createLocal()`
+(containing a valid `Bienvenida.md` and possibly a half-written `.git`) is never removed.
+It sits on disk, untracked by `knownVaults`, invisible to the vault selector, and — because
+the collision loop in `createLocal()` treats "directory already exists" as a hard EEXIST
+signal (WR-03's fix) — every subsequent create attempt with the same name will skip past
+it straight to `" (2)"`, `" (3)"`, etc. Each failed retry (e.g. a user hitting "Crear" more
+than once while their disk is nearly full) leaves one more orphaned, permanently
+unreachable folder.
+**Fix:** Wrap the `ensureRepo` + `commit` pair in the handler with the same
+create-then-cleanup-on-failure pattern already used inside `createLocal()` for the seed
+write, so a failure at any point before `setRoot()` removes the folder it just created:
 ```ts
-// vaultCreateWithRepo (index.ts:437-454) — ensureRepo runs BEFORE setRoot:
-await gitService.ensureRepo(dir)
-const repo = await createRepo(token, name, isPrivate)
-const info = await vault.setRoot(dir)
-
-// vaultCloneFromGithub (index.ts:415-435) — clone runs BEFORE setRoot:
-await gitService.clone(dir, url, token)
-const info = await vault.setRoot(dir)
-```
-`createLocal()` breaks that established pattern by doing the equivalent of `setRoot`
-first and the git work second.
-
-**Fix:** Move the `setRoot()` call out of `VaultService.createLocal()` — have it return
-the resolved `{ root, name }` (or just the absolute path) without mutating state, and let
-the IPC handler call `vault.setRoot(dir)` only after `ensureRepo` + `commit` succeed,
-mirroring `vaultCreateWithRepo`:
-```ts
-// vault.ts: createLocal() returns the path but does NOT call setRoot()
-async createLocal(name: string, baseDir: string): Promise<{ root: string }> {
-  // ...mkdir + atomicWrite as today...
-  return { root: dir }
-}
-
-// index.ts handler:
 const { root } = await vault.createLocal(name, baseDir)
-await gitService.ensureRepo(root)
-await gitService.commit(root, 'Primera versión')
-const info = await vault.setRoot(root) // only now becomes "active"
-await rememberVault(info.root)
-await restartSnapshotTimer()
-return info
-```
-
----
-
-### WR-02: Renderer's bare `catch {}` makes the main-crafted EACCES/EPERM message unreachable
-
-**File:** `src/renderer/src/App.tsx:475-492`, `src/main/index.ts:484-493`
-**Issue:** `main/index.ts` deliberately distinguishes EACCES/EPERM and throws a
-specific, translated message ("No se pudo crear el cuaderno. Revisá que tengas permiso de
-escritura...") while rethrowing every other error verbatim (`throw e`), with a comment
-explaining this avoids leaking raw stack/paths for the permission case. But the only
-caller, `createLocalVault` in App.tsx, uses a bare `catch { ... }` that never binds or
-reads the error at all:
-```ts
-} catch {
-  // No exponemos el error crudo del main (evita filtrar rutas/stack); texto humano fijo.
-  setCreateError(
-    'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.'
-  )
-}
-```
-Because the message is hardcoded independent of what was thrown, the EACCES/EPERM
-branch in main is dead code from the user's perspective — it can never influence what's
-displayed — and *every* failure (permissions, `ENOSPC` disk-full, `ENAMETOOLONG` from an
-overlong name, an unrelated isomorphic-git error) shows the same "revisá los permisos"
-copy, which is actively misleading for non-permission causes.
-
-**Fix:** Either drop the special-casing in main (since it has no observable effect), or
-have the renderer read `e.message` for the cases where main deliberately produced a safe,
-translated string (and keep a generic fallback for anything else):
-```ts
+try {
+  await gitService.ensureRepo(root)
+  await gitService.commit(root, 'Primera versión')
 } catch (e) {
-  setCreateError(
-    e instanceof Error && e.message.startsWith('No se pudo crear el cuaderno')
-      ? e.message
-      : 'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.'
-  )
+  await rm(root, { recursive: true, force: true }).catch(() => {})
+  throw e
 }
+const info = await vault.setRoot(root)
 ```
-
----
-
-### WR-03: TOCTOU between collision check and `mkdir` can silently reuse a folder that appeared in between
-
-**File:** `src/main/services/vault.ts:161-182`
-**Issue:** The inline comment claims resolving the suffix before `mkdir` is "la garantía
-dura del core value 'nada se pisa'" (the hard guarantee that nothing gets overwritten).
-That's true for the common case (folder already existed when the check ran), but the
-check-then-create is not atomic:
-```ts
-let candidate = safe
-let n = 2
-while (await this.pathExists(join(baseDir, candidate))) {
-  candidate = `${safe} (${n++})`
-}
-const dir = join(baseDir, candidate)
-await mkdir(dir, { recursive: true }) // no error if `dir` now exists
-await atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)
-```
-If some other process (e.g. a second Geode window/instance, or the OS/File Explorer)
-creates a folder at exactly `dir` between the `pathExists` check and the `mkdir` call,
-`mkdir({ recursive: true })` does **not** throw — it silently succeeds against the
-now-existing folder, and `atomicWrite` then writes/overwrites `Bienvenida.md` inside it.
-This is a narrow race in a single-user desktop app, but it does contradict the "hard
-guarantee" the comment claims, and the failure mode (silently seeding into someone else's
-folder) is exactly the kind of surprise the core value is meant to prevent.
-**Fix:** Use `mkdir(dir, { recursive: false })` (throws `EEXIST` if `dir` already exists)
-instead of `{ recursive: true }` for the leaf `candidate` folder — only the parent
-(`baseDir`) needs `recursive: true`, which can be ensured separately (e.g.
-`mkdir(baseDir, { recursive: true })` once, then `mkdir(dir)` non-recursively) — so a
-genuine race surfaces as a caught error and can retry the suffix loop instead of silently
-reusing the folder.
+(Requires importing `rm` from `node:fs/promises` in `main/index.ts`, or exposing a small
+`vault.discard(root)` helper that does the same via `VaultService` to keep the raw fs call
+inside the service layer, consistent with the rest of the file's conventions.)
 
 ## Info
 
-### IN-01: `sanitizeVaultName` does not cap output length
+### IN-04: `MAX_VAULT_NAME` clamp can split a UTF-16 surrogate pair
 
-**File:** `src/main/fs/vaultName.ts:29-37`
-**Issue:** A pasted name of a few hundred characters passes through untouched (only
-illegal characters and trailing dots/spaces are stripped, nothing is truncated). On
-Windows this can produce `ENAMETOOLONG`/path-length failures in `mkdir`, which — per
-WR-02 above — get reported to the user as a generic "revisá los permisos" message that
-doesn't match the actual cause.
-**Fix:** Clamp the sanitized name to a reasonable length (e.g. 100 chars) before
-returning, trimming again afterward in case truncation lands mid-space/dot run.
-
-### IN-02: Orphaned empty directory left behind if `atomicWrite` fails after `mkdir` succeeds
-
-**File:** `src/main/services/vault.ts:175-179`
-**Issue:** If `mkdir(dir, { recursive: true })` succeeds but the subsequent
-`atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)` throws (e.g. disk fills up
-between the two calls), `setRoot` is never reached (state stays consistent), but the
-empty `dir` is left on disk. A retry with the same name will see it via `pathExists` and
-permanently skip to the `" (2)"` suffix, leaving the empty `"<name>"` folder as litter
-forever.
-**Fix:** Wrap the `mkdir` + `atomicWrite` pair in a try/catch that `rm(dir, { recursive:
-true, force: true })`s the just-created directory on failure before rethrowing.
-
-### IN-03: `createLocalVault`'s Enter-key handler ignores `useCustomLocation`, harmless but worth a comment
-
-**File:** `src/renderer/src/App.tsx:1133-1134`
-**Issue:** Not a bug — `onKeyDown` correctly calls `createLocalVault()` (default
-location) rather than the custom-location variant, and the input's `disabled={creating}`
-prevents a second Enter from double-submitting while a create is in flight. Flagging only
-because the two call sites (button click vs. Enter key) diverge in an easy-to-miss way if
-a future edit adds a third trigger; a one-line comment noting "Enter always targets the
-default location, never the custom-location picker" would help future maintainers avoid
-introducing a mismatch.
+**File:** `src/main/fs/vaultName.ts:38`
+**Issue:** `name.slice(0, MAX_VAULT_NAME)` operates on UTF-16 code units. If the sanitized
+name contains an astral character (emoji, some CJK extension characters) whose surrogate
+pair straddles index 100, the slice can leave a lone unpaired surrogate in the returned
+string. Node's path handling on Windows may then produce a mangled folder name (replacement
+character) or, in rarer cases, an OS-level path error that the caller has no specific
+handling for (it would fall through to the generic `catch (e)` path in the IPC handler and
+show the generic "revisá los permisos" message — misleading for this cause, same class of
+issue as the original IN-01/WR-02 mismatch, just for a not-yet-covered input class).
+**Fix:** Use `Array.from(name).slice(0, MAX_VAULT_NAME).join('')` (iterates by Unicode code
+point, not UTF-16 code unit) instead of `String.prototype.slice`, or clamp with a
+grapheme-aware library if one is already a dependency. Low priority given how narrow the
+trigger is.
 
 ---
 
-_Reviewed: 2026-07-09T02:28:23Z_
+_Reviewed: 2026-07-08T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_

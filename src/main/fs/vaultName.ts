@@ -23,13 +23,19 @@ const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
  *
  * Reglas: reemplaza los ilegales de Windows `< > : " / \ | ? *` y los caracteres
  * de control por un espacio; colapsa espacios múltiples y recorta; quita puntos y
- * espacios finales (Windows los descarta y generarían carpetas fantasma). Si el
- * resultado queda vacío o el stem es un nombre reservado, cae a `"Cuaderno"`.
+ * espacios finales (Windows los descarta y generarían carpetas fantasma); acota a
+ * 100 caracteres (nombres muy largos rompen el límite de ruta de Windows con
+ * `ENAMETOOLONG`). Si el resultado queda vacío o el stem es un nombre reservado,
+ * cae a `"Cuaderno"`.
  */
+const MAX_VAULT_NAME = 100
+
 export function sanitizeVaultName(raw: string): string {
   // ilegales de Windows + control chars (\x00-\x1f) → espacio
   let name = (raw ?? '').replace(/[<>:"/\\|?*\x00-\x1f]/g, ' ') // eslint-disable-line no-control-regex
   name = name.replace(/\s+/g, ' ').trim() // colapsa espacios múltiples
+  // Acota antes del strip final: truncar puede dejar un punto/espacio al borde.
+  name = name.slice(0, MAX_VAULT_NAME)
   name = name.replace(/[. ]+$/g, '').trim() // sin punto/espacio final
   const stem = name.split('.')[0] || name
   if (name === '' || WINDOWS_RESERVED.test(stem)) return 'Cuaderno'

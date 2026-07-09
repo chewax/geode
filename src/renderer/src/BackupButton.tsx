@@ -16,6 +16,7 @@ export function BackupButton({
   pushCount,
   backingUp,
   failed,
+  failedMessage,
   login,
   autoPush,
   onOpenWizard,
@@ -25,6 +26,10 @@ export function BackupButton({
   pushCount: number
   backingUp: boolean
   failed: boolean
+  /** Copy humana del último fallo (ya mapeada por mapBackupError en el main).
+   *  Se muestra inline en el popover del estado "error" (BACKUP-05); jamás el
+   *  crudo de la API. */
+  failedMessage: string | null
   login: string | null
   autoPush: boolean
   onOpenWizard: () => void
@@ -88,7 +93,14 @@ export function BackupButton({
         <span className="pop-title">
           <Cloud size={13} /> Respaldo en la nube
         </span>
-        {connected ? (
+        {kind === 'error' ? (
+          // Estado "error": mostramos la copy humana del fallo (BACKUP-05) e
+          // invitamos a reintentar. Nunca el mensaje crudo de la API.
+          <span className="pop-note st-warn">
+            {failedMessage ??
+              'No se pudo respaldar ahora. Tocá para volver a intentarlo.'}
+          </span>
+        ) : connected ? (
           <>
             <span className="pop-row">
               <span>Cuenta</span>

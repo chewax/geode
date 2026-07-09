@@ -172,6 +172,10 @@ export function App(): JSX.Element {
   /** Último respaldo falló (efímero, NO se persiste): tiñe el botón de "no se pudo
    *  respaldar". Al reabrir, pushCount>0 ya indica pendiente. */
   const [backupFailed, setBackupFailed] = useState(false)
+  /** Mensaje humano del último fallo de respaldo (BACKUP-05). Ya viene mapeado
+   *  por el main (mapBackupError), así que es seguro mostrarlo tal cual; se
+   *  surface inline en el botón persistente, nunca con un alert bloqueante. */
+  const [backupFailMsg, setBackupFailMsg] = useState<string | null>(null)
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -348,14 +352,17 @@ export function App(): JSX.Element {
   const doPush = useCallback(async () => {
     setPushing(true)
     setBackupFailed(false) // reintentamos: limpiamos el error previo
+    setBackupFailMsg(null)
     try {
       const res = await window.geode.git.push()
       host.emit('sync:after', { branch: res.branch, oid: res.oid })
     } catch (e) {
       // El respaldo falló: el botón lo refleja de forma efímera ("No se pudo
-      // respaldar"). No se persiste; al reabrir, pushCount>0 ya indica pendiente.
+      // respaldar") con el mensaje humano inline. No se persiste; al reabrir,
+      // pushCount>0 ya indica pendiente. El main ya humanizó el error
+      // (mapBackupError), así que e.message es copy segura, sin crudo de API.
       setBackupFailed(true)
-      window.alert(e instanceof Error ? e.message : 'No se pudo pushear')
+      setBackupFailMsg(e instanceof Error ? e.message : 'No se pudo respaldar')
     } finally {
       setPushing(false)
       await refreshGithub()
@@ -1506,6 +1513,7 @@ export function App(): JSX.Element {
                 pushCount={pushCount}
                 backingUp={pushing}
                 failed={backupFailed}
+                failedMessage={backupFailMsg}
                 login={githubCfg?.login ?? null}
                 autoPush={!!githubCfg?.autoPush}
                 onOpenWizard={() => setBackupWizardOpen(true)}

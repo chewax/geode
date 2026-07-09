@@ -815,7 +815,19 @@ function registerIpcHandlers(): void {
 
     const root = requireRoot()
     await gitService.setRemote(root, url)
-    const { branch, oid } = await gitService.push(root, url, token)
+
+    // Push manual (reintento del botón persistente): TODO fallo de git/API pasa
+    // por mapBackupError (BACKUP-05) para que solo cruce el mensaje humano —
+    // nunca el crudo de la API ni el token embebido en la URL (T-12-01/T-12-03).
+    let branch: string
+    let oid: string
+    try {
+      const res = await gitService.push(root, url, token)
+      branch = res.branch
+      oid = res.oid
+    } catch (e) {
+      throw mapBackupError(e)
+    }
 
     // Recordar el oid pusheado por rama, para el contador de pendientes.
     const pushed = { ...settings.github?.pushed, [branch]: oid }

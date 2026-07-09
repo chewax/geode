@@ -3,6 +3,7 @@ import { cp, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import type { TreeNode, VaultInfo } from '@shared/ipc'
 import { atomicWrite } from '../fs/atomic'
+import { sanitizeVaultName, SEED_BIENVENIDA } from '../fs/vaultName'
 
 /** Carpetas que nunca se muestran en el árbol. */
 const IGNORED_DIRS = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
@@ -145,6 +146,49 @@ export class VaultService {
     const rel = relDir ? `${relDir}/${name}` : name
     await mkdir(this.resolveInside(rel), { recursive: true })
     return { name, path: rel, isDir: true, children: [] }
+  }
+
+  /**
+   * Crea un cuaderno LOCAL nuevo bajo `baseDir` (p.ej. `~/Documents/Geode`),
+   * siembra `Bienvenida.md` y fija el cuaderno como activo (ONB-02/03/04). Este
+   * método hace SOLO el lado de filesystem; el `git init` + primer commit del seed
+   * son responsabilidad del handler.
+   *
+   * La resolución de colisión con sufijo ` (2)`, ` (3)`… corre ANTES del `mkdir`:
+   * es la garantía dura del core value "nada se pisa" — nunca se escribe sobre una
+   * carpeta existente, aunque `mkdir({recursive})` no fallaría al hacerlo.
+   */
+  async createLocal(name: string, baseDir: string): Promise<VaultInfo> {
+    const safe = sanitizeVaultName(name)
+
+    // Resolver la colisión sobre la ruta ABSOLUTA bajo baseDir (NO vía this.exists,
+    // que se ancla al vault ACTUAL vía resolveInside — base equivocada para una
+    // carpeta fresca). Sufijo con paréntesis y espacio exactos: " (2)", " (3)"…
+    let candidate = safe
+    let n = 2
+    while (await this.pathExists(join(baseDir, candidate))) {
+      candidate = `${safe} (${n++})`
+    }
+
+    // mkdir DESPUÉS de resolver el sufijo: recursive no falla sobre una carpeta
+    // existente y pisaría datos si se hiciera antes.
+    const dir = join(baseDir, candidate)
+    await mkdir(dir, { recursive: true })
+
+    // Siembra atómica del seed (temp + fsync + rename): nunca una nota corrupta.
+    await atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)
+
+    return this.setRoot(dir)
+  }
+
+  /** true si la ruta absoluta existe. Usado para resolver colisiones de carpeta. */
+  private async pathExists(absPath: string): Promise<boolean> {
+    try {
+      await stat(absPath)
+      return true
+    } catch {
+      return false
+    }
   }
 
   /** Renombra/mueve una nota o carpeta. Ambas rutas quedan validadas dentro del vault. */

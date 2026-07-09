@@ -28,6 +28,8 @@ const api: GeodeApi = {
     cloneFromGithub: (cloneUrl) => ipcRenderer.invoke(IPC.vaultCloneFromGithub, cloneUrl),
     createWithRepo: (name, isPrivate) =>
       ipcRenderer.invoke(IPC.vaultCreateWithRepo, name, isPrivate),
+    createLocal: (name, useCustomLocation) =>
+      ipcRenderer.invoke(IPC.vaultCreateLocal, name, useCustomLocation),
     tree: () => ipcRenderer.invoke(IPC.vaultTree),
     readNote: (path) => ipcRenderer.invoke(IPC.vaultReadNote, path),
     writeNote: (path, content) => ipcRenderer.invoke(IPC.vaultWriteNote, path, content),

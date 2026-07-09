@@ -21,6 +21,7 @@ export const IPC = {
   vaultSwitch: 'geode:vault-switch',
   vaultCloneFromGithub: 'geode:vault-clone-from-github',
   vaultCreateWithRepo: 'geode:vault-create-with-repo',
+  vaultCreateLocal: 'geode:vault-create-local',
   vaultTree: 'geode:vault-tree',
   vaultReadNote: 'geode:vault-read-note',
   vaultWriteNote: 'geode:vault-write-note',
@@ -138,6 +139,17 @@ export interface VaultApi {
    * en GitHub y lo enlaza como remoto. null si el usuario cancela.
    */
   createWithRepo(name: string, isPrivate: boolean): Promise<VaultInfo | null>
+  /**
+   * Crea un cuaderno LOCAL nuevo (sin GitHub, sin cuenta): arma la ruta, sanitiza
+   * el nombre, resuelve colisión, siembra `Bienvenida.md` y la commitea como
+   * primera versión, y fija el cuaderno como activo.
+   *
+   * Por defecto crea bajo `~/Documents/Geode/<nombre>` y NUNCA devuelve null: un
+   * nombre vacío o ilegal cae al fallback "Cuaderno". Sólo devuelve null cuando
+   * `useCustomLocation` es true y el usuario cancela el picker de "Elegir otra
+   * ubicación".
+   */
+  createLocal(name: string, useCustomLocation?: boolean): Promise<VaultInfo | null>
   /** Árbol de carpetas y notas .md del vault activo. */
   tree(): Promise<TreeNode[]>
   /** Lee una nota por su ruta relativa. */

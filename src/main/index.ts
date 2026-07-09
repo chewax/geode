@@ -453,6 +453,47 @@ function registerIpcHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    IPC.vaultCreateLocal,
+    async (_e, name: string, useCustomLocation?: boolean): Promise<VaultInfo | null> => {
+      // Base del cuaderno: por defecto ~/Documents/Geode; con el escape "Elegir otra
+      // ubicación" se usa la carpeta elegida como PADRE (el picker devuelve null si
+      // el usuario cancela → no-op).
+      let baseDir: string
+      if (useCustomLocation) {
+        const parent = await vault.pickFolder('Elegí dónde crear tu cuaderno')
+        if (!parent) return null
+        baseDir = parent
+      } else {
+        baseDir = join(app.getPath('documents'), 'Geode')
+      }
+
+      try {
+        // ORDEN LOAD-BEARING (RESEARCH Pitfall #1): sembrar la nota (dentro de
+        // createLocal) → ensureRepo → commit. Si se commiteara antes de sembrar,
+        // pendingChanges estaría vacío y commit no-opearía a null: sin primera
+        // versión. Con el seed ya en disco, este primer commit NUNCA es null.
+        // El mensaje es texto fijo en español; NO se invoca IA (la creación y los
+        // auto-snapshots no invocan IA — CLAUDE.md).
+        const info = await vault.createLocal(name, baseDir)
+        await gitService.ensureRepo(info.root) // git init (rama main), idempotente
+        await gitService.commit(info.root, 'Primera versión') // primer commit racy-safe del seed
+        await rememberVault(info.root)
+        await restartSnapshotTimer() // rebind el timer de snapshots al nuevo cuaderno
+        return info
+      } catch (e) {
+        const codigo = (e as NodeJS.ErrnoException)?.code
+        if (codigo === 'EACCES' || codigo === 'EPERM') {
+          // No filtramos el stack crudo al renderer (T-11-05): mensaje humano.
+          throw new Error(
+            'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en la carpeta.'
+          )
+        }
+        throw e
+      }
+    }
+  )
+
   ipcMain.handle(IPC.vaultTree, () => vault.tree())
   ipcMain.handle(IPC.vaultReadNote, (_e, path: string) => vault.readNote(path))
   ipcMain.handle(IPC.vaultWriteNote, (_e, path: string, content: string) =>

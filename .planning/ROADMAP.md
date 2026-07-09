@@ -96,7 +96,7 @@ Plans:
 
 - [x] 12-01-PLAN.md — Fundamentos del main: githubRepoSlug + mapBackupError/BackupError + status en createRepo + campo onboarding en settings + contrato IPC (enable/onboarding/signup) [Wave 1]
 - [x] 12-02-PLAN.md — COPY-01: reescritura de la sección de respaldo de Ajustes + NewVaultDialog (sin jerga, ⚠→Lucide) [Wave 1]
-- [ ] 12-03-PLAN.md — Handlers del main: vaultEnableBackup (createRepo→setRemote→push idempotente + autoPush) + auto-push real tras cada commit + onboarding get/set + signup a URL fija [Wave 2]
+- [x] 12-03-PLAN.md — Handlers del main: vaultEnableBackup (createRepo→setRemote→push idempotente + autoPush) + auto-push real tras cada commit + onboarding get/set + signup a URL fija [Wave 2]
 - [ ] 12-04-PLAN.md — Componentes renderer: BackupWizard (dos caminos + checklist) + BackupCard (banner) + BackupButton (persistente, 4 estados, data-tour) [Wave 2]
 - [ ] 12-05-PLAN.md — Integración en App.tsx: montar tarjeta/wizard + BackupButton reemplaza UploadCloud/píldora, preservar statusLabel (STAT-01) [Wave 3]
 

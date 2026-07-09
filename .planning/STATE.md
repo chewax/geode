@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Onboarding guiado
 status: executing
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-07-09T04:28:40.851Z"
-last_activity: 2026-07-09 -- Phase 12 execution started
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-07-09T04:40:00.000Z"
+last_activity: 2026-07-09 -- Completed 12-03 (enable + auto-push + onboarding handlers)
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
-  percent: 33
+  completed_plans: 5
+  percent: 71
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 ## Current Position
 
 Phase: 12 (Asistente de respaldo en la nube) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
-Last activity: 2026-07-09 -- Phase 12 execution started
+Last activity: 2026-07-09 -- Completed 12-03 (enable + auto-push + onboarding handlers)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 11 P02 | 3 | 2 tasks | 1 files |
 | Phase 12 P01 | 6 | 3 tasks | 6 files |
 | Phase 12 P02 | 12 | 2 tasks | 2 files |
+| Phase 12 P03 | 8 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 11-01: colisión de carpeta con pathExists(absPath) vía stat (no this.exists); sufijo ' (2)' resuelto ANTES de mkdir para no pisar datos
 - [Phase ?]: Phase 11-02: welcome sin jerga cableada; el flujo de creación encadena openNote('Bienvenida.md') tras adoptVault (que deja panel vacío); 'Elegir otra ubicación' = createLocal(name,true), null (picker cancelado) = no-op silencioso
 - [Phase 12]: Phase 12-01: contrato IPC de respaldo declarado interface-first (4 canales + BackupApi + puente preload); mapBackupError traduce errores a 4 mensajes LOCKED sin filtrar crudo; githubRepoSlug con fallback no vacio
+- [Phase 12]: Phase 12-03: vaultEnableBackup orquesta createRepo(private)->setRemote->push idempotente (salta createRepo si ya hay remoto -> evita 422 propio); autoPush deja de ser config muerta -> autoPushAfterCommit best-effort tras cada commit real (manual+snapshot), nunca lanza, nunca IA; signup a URL fija hardcodeada
 
 ### Pending Todos
 
@@ -110,8 +112,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-09T04:28:10.968Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-07-09T04:40:00.000Z
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

@@ -11,10 +11,11 @@ files_reviewed_list:
   - src/renderer/src/BackupButton.tsx
 findings:
   critical: 0
-  warning: 1
+  warning: 0
   info: 0
-  total: 1
-status: issues_found
+  total: 0
+status: clean
+resolution: "Click-through variant fixed in f47acff (velo .tour-overlay pointer-events:auto absorbe clics; spotlight cosmético pointer-events:none; velo sin onClick = no cierra el tour). WR-01/02/03 + IN-01/02/03 previamente resueltos (4273b1a, 7249f6b, 5446665, 16f5557). typecheck + build verde."
 ---
 
 # Phase 13: Code Review Report (re-review)

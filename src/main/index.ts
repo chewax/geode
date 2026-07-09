@@ -198,13 +198,43 @@ async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<stri
       const aiMsg = await aiSnapshotMessage(info.root)
       mensaje = aiMsg ?? snapshotMessage()
     }
-    return await gitService.commit(info.root, mensaje)
+    const oid = await gitService.commit(info.root, mensaje)
+    // Auto-push tras el commit real (no si fue no-op → oid null). Best-effort:
+    // no bloquea ni rompe el snapshot (el before-quit lo envuelve en un race de 3s).
+    if (oid) await autoPushAfterCommit(info.root)
+    return oid
   } catch (e) {
     console.warn('[snapshot] falló (' + reason + '):', e)
     return null
   } finally {
     // Se libera siempre: un fallo no puede dejar la guarda trabada permanentemente.
     if (useAi) cadenceSnapshotInFlight = false
+  }
+}
+
+/**
+ * Auto-push best-effort tras un commit REAL (BACKUP-04): si el respaldo está
+ * activo (autoPush ON + remoto), sube los bytes ya commiteados al remoto sin
+ * bloquear ni romper el guardado. NUNCA lanza (espejo del try/catch de
+ * snapshotIfChanged): un push fallido se traga —el cuaderno sigue local y se
+ * reintenta en el próximo commit— y queda reflejado por pushCount>0. NUNCA
+ * invoca IA: solo sube bytes ya escritos (costo de red, no de IA — CLAUDE.md).
+ * Corre solo tras un commit real, no por tecla.
+ */
+async function autoPushAfterCommit(root: string): Promise<void> {
+  const s = await loadSettings()
+  if (!s.github?.autoPush || !s.github.remote) return // respaldo apagado o sin remoto
+  const token = await getGithubToken()
+  if (!token) return // sin credencial: no se puede pushear, se reintenta luego
+  try {
+    const url = normalizeRemoteUrl(s.github.remote)
+    const { branch, oid } = await gitService.push(root, url, token)
+    // Recordar el oid pusheado por rama (el contador de pendientes vuelve a 0).
+    const pushed = { ...s.github.pushed, [branch]: oid }
+    s.github = { ...s.github, pushed }
+    await saveSettings(s)
+  } catch (e) {
+    console.warn('[auto-push] falló, el cuaderno sigue local:', e)
   }
 }
 
@@ -534,9 +564,14 @@ function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.vaultDuplicate, (_e, path: string) => vault.duplicate(path))
 
-  ipcMain.handle(IPC.gitCommit, (_e, message?: string) =>
-    gitService.commit(requireRoot(), message ?? autoCommitMessage())
-  )
+  ipcMain.handle(IPC.gitCommit, async (_e, message?: string) => {
+    const root = requireRoot()
+    const oid = await gitService.commit(root, message ?? autoCommitMessage())
+    // El guardado manual también se respalda solo (BACKUP-04) si el respaldo está
+    // activo. Solo tras un commit real (oid no-null); best-effort, nunca IA.
+    if (oid) await autoPushAfterCommit(root)
+    return oid
+  })
   ipcMain.handle(IPC.gitGraph, async () => {
     const { github } = await loadSettings()
     return gitService.graph(requireRoot(), Object.values(github?.pushed ?? {}))

@@ -1007,6 +1007,15 @@ export function App(): JSX.Element {
   const canMerge = !!graph?.branches.find((b) => b.name === graph.head.branch)?.base
   const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
 
+  // Flag único "esta bóveda tiene respaldo activo" (STAT-01): exige la cuenta
+  // conectada (global) Y el origin PROPIO de la bóveda (per-vault, CR-01). No
+  // basta con `connected`: una bóveda recién creada tiene `remote: null` aunque
+  // la cuenta esté conectada globalmente — afirmar "Todo en la nube" ahí sería
+  // una violación de honestidad (jamás decir "a salvo" antes de un respaldo real
+  // de ESTA bóveda). Se deriva una sola vez y se usa en TODOS los sitios que
+  // deciden estado de respaldo (footer, botón persistente, pushEnabled).
+  const backedUp = !!(githubCfg?.connected && githubCfg.remote)
+
   // ── Plugins ───────────────────────────────────────────────────────────────
   // Acciones de la app en un ref siempre fresco: los comandos se registran una
   // sola vez pero invocan los callbacks/estado actuales (sin closures viejas).
@@ -1024,7 +1033,7 @@ export function App(): JSX.Element {
     hasOpenPath: !!openPath,
     hasHead,
     canMerge,
-    pushEnabled: !!(githubCfg?.connected && githubCfg.remote) && pushCount > 0 && !pushing
+    pushEnabled: backedUp && pushCount > 0 && !pushing
   }
   const commandApiRef = useRef(commandApi)
   commandApiRef.current = commandApi
@@ -1471,7 +1480,7 @@ export function App(): JSX.Element {
                 <span>Ninguna nota abierta</span>
               )}
               {(() => {
-                const s = statusLabel(status, !!githubCfg?.connected, pushCount)
+                const s = statusLabel(status, backedUp, pushCount)
                 if (!s) return null
                 const { text, Icon, spin } = s
                 return (
@@ -1509,7 +1518,7 @@ export function App(): JSX.Element {
                   del footer. Deriva sus 4 estados de los mismos flags que statusLabel
                   (STAT-01: nunca afirma nube con pushCount>0). */}
               <BackupButton
-                connected={!!githubCfg?.connected}
+                backedUp={backedUp}
                 pushCount={pushCount}
                 backingUp={pushing}
                 failed={backupFailed}
@@ -1803,18 +1812,23 @@ interface StatusDescriptor {
 
 /**
  * STAT-01: estado de guardado en lenguaje humano (4 frases exactas, sin hora).
- * Combina el estado de guardado con la conexión a GitHub y los cambios sin
- * subir para distinguir "Todo en la nube" de "Guardado en este dispositivo".
+ * Combina el estado de guardado con el respaldo REAL de esta bóveda y los
+ * cambios sin subir para distinguir "Todo en la nube" de "Guardado en este
+ * dispositivo".
  *
  * Honestidad (valor central "nunca perdés nada"): "Todo en la nube" sólo puede
  * aparecer cuando el contenido está realmente confirmado Y subido — es decir
- * `clean` (== HEAD) con nada pendiente de subir. Un `saved` es sólo un
- * autoguardado en disco (contenido escrito localmente, aún sin commit), por lo
- * que siempre es "Guardado en este dispositivo": no afirmamos la nube ahí.
+ * `clean` (== HEAD) con nada pendiente de subir Y con la bóveda efectivamente
+ * respaldada (`backedUp`). Un `saved` es sólo un autoguardado en disco
+ * (contenido escrito localmente, aún sin commit), por lo que siempre es
+ * "Guardado en este dispositivo": no afirmamos la nube ahí.
+ *
+ * @param backedUp Esta bóveda tiene respaldo activo: cuenta conectada Y origin
+ *   propio (no basta con que la cuenta de GitHub esté conectada globalmente).
  */
 function statusLabel(
   status: SaveStatus,
-  githubConnected: boolean,
+  backedUp: boolean,
   pushCount: number
 ): StatusDescriptor | null {
   switch (status) {
@@ -1825,7 +1839,7 @@ function statusLabel(
       return { text: 'Guardado en este dispositivo', Icon: HardDrive }
     case 'clean':
       // El árbol de trabajo coincide con HEAD. Sólo entonces la nube es honesta.
-      if (githubConnected) {
+      if (backedUp) {
         return pushCount === 0
           ? { text: 'Todo en la nube', Icon: Cloud }
           : { text: 'Guardado en este dispositivo', Icon: HardDrive }

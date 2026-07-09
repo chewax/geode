@@ -7,12 +7,13 @@ import { Cloud, CloudOff, CloudUpload, RefreshCw } from 'lucide-react'
  *
  * SIEMPRE montado con `data-tour="respaldo"` (ancla del tour de Fase 13): nunca
  * se renderiza condicionalmente. Deriva 4 estados por prioridad y honra STAT-01
- * (jamás dice "Todo en la nube" con cambios sin subir). El popover no expone la
- * URL del repo (T-12-10). El popover se arma con spans/`<b>` (contenido en
- * línea) para que el nodo raíz sea un `<button>` accesible válido.
+ * (jamás dice "Todo en la nube" con cambios sin subir NI en una bóveda sin
+ * respaldo propio). El popover no expone la URL del repo (T-12-10). El popover
+ * se arma con spans/`<b>` (contenido en línea) para que el nodo raíz sea un
+ * `<button>` accesible válido.
  */
 export function BackupButton({
-  connected,
+  backedUp,
   pushCount,
   backingUp,
   failed,
@@ -22,7 +23,10 @@ export function BackupButton({
   onOpenWizard,
   onForcePush
 }: {
-  connected: boolean
+  /** Esta bóveda tiene respaldo activo: cuenta conectada Y origin propio. NO es
+   *  sólo "la cuenta de GitHub está conectada" — una bóveda nunca respaldada da
+   *  `false` aunque la cuenta esté conectada globalmente (STAT-01). */
+  backedUp: boolean
   pushCount: number
   backingUp: boolean
   failed: boolean
@@ -36,13 +40,15 @@ export function BackupButton({
   onForcePush: () => void
 }): JSX.Element {
   // Prioridad: respaldando > error > al-día > sin subir (pendientes) > sin respaldo.
+  // "al-dia"/"sin-subir" sólo con respaldo real de ESTA bóveda (backedUp): una
+  // bóveda con cuenta conectada pero sin origin propio cae a "sin-respaldo".
   const kind = backingUp
     ? 'respaldando'
     : failed
       ? 'error'
-      : connected && pushCount === 0
+      : backedUp && pushCount === 0
         ? 'al-dia'
-        : connected
+        : backedUp
           ? 'sin-subir'
           : 'sin-respaldo'
 
@@ -71,10 +77,10 @@ export function BackupButton({
       text = 'Sin respaldo'
   }
 
-  // Sin respaldo o error → reabre el wizard; conectado → fuerza una copia
+  // Sin respaldo o error → reabre el wizard; respaldada → fuerza una copia
   // (rol del viejo UploadCloud). Durante el respaldo, el click es no-op.
   const handleClick = (): void => {
-    if (!connected || failed) onOpenWizard()
+    if (!backedUp || failed) onOpenWizard()
     else if (!backingUp) onForcePush()
   }
 
@@ -100,7 +106,7 @@ export function BackupButton({
             {failedMessage ??
               'No se pudo respaldar ahora. Tocá para volver a intentarlo.'}
           </span>
-        ) : connected ? (
+        ) : backedUp ? (
           <>
             <span className="pop-row">
               <span>Cuenta</span>

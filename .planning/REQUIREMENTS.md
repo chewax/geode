@@ -16,11 +16,11 @@ Requisitos del milestone v1.3. Cada uno mapea a una fase del roadmap.
 
 ### Respaldo en la nube (BACKUP)
 
-- [ ] **BACKUP-01**: El asistente de respaldo es no bloqueante (tarjeta, no modal), con "Hacerlo después" siempre presente y un punto de re-entrada persistente para retomarlo más tarde.
-- [ ] **BACKUP-02**: El usuario sin cuenta es guiado a crearla: hand-off a la página de registro en el navegador + checklist en la app que sobrevive el ida-y-vuelta; "GitHub" se nombra solo en ese paso, enmarcado como "servicio gratuito y seguro", con refuerzo "gratis + privado".
-- [ ] **BACKUP-03**: Al conectar (reusando el device flow existente) se crea el repo privado y se hace el primer push automáticamente, con la primera versión sembrada para que el push nunca sea vacío, sin exponer repo/commit/push al usuario.
+- [x] **BACKUP-01**: El asistente de respaldo es no bloqueante (tarjeta, no modal), con "Hacerlo después" siempre presente y un punto de re-entrada persistente para retomarlo más tarde.
+- [x] **BACKUP-02**: El usuario sin cuenta es guiado a crearla: hand-off a la página de registro en el navegador + checklist en la app que sobrevive el ida-y-vuelta; "GitHub" se nombra solo en ese paso, enmarcado como "servicio gratuito y seguro", con refuerzo "gratis + privado".
+- [x] **BACKUP-03**: Al conectar (reusando el device flow existente) se crea el repo privado y se hace el primer push automáticamente, con la primera versión sembrada para que el push nunca sea vacío, sin exponer repo/commit/push al usuario.
 - [ ] **BACKUP-04**: Tras conectar, el respaldo es automático e invisible ("cada vez que guardás, se respalda solo"), respetando el invariante de honestidad STAT-01 ("Todo en la nube" solo cuando el árbol está limpio y pusheado).
-- [ ] **BACKUP-05**: Los errores del camino de respaldo se muestran en lenguaje humano sin jerga (p.ej. nombre de repo tomado → "Ya tenés un respaldo con ese nombre"), nunca el mensaje crudo de la API.
+- [x] **BACKUP-05**: Los errores del camino de respaldo se muestran en lenguaje humano sin jerga (p.ej. nombre de repo tomado → "Ya tenés un respaldo con ese nombre"), nunca el mensaje crudo de la API.
 
 ### Tour interactivo de primera vez (TOUR)
 
@@ -68,11 +68,11 @@ Qué fases cubren qué requisitos. La completa el roadmapper.
 | ONB-03 | Phase 11 | Complete |
 | ONB-04 | Phase 11 | Complete |
 | COPY-01 | Phase 11 | Complete |
-| BACKUP-01 | Phase 12 | Pending |
-| BACKUP-02 | Phase 12 | Pending |
-| BACKUP-03 | Phase 12 | Pending |
+| BACKUP-01 | Phase 12 | Complete |
+| BACKUP-02 | Phase 12 | Complete |
+| BACKUP-03 | Phase 12 | Complete |
 | BACKUP-04 | Phase 12 | Pending |
-| BACKUP-05 | Phase 12 | Pending |
+| BACKUP-05 | Phase 12 | Complete |
 | TOUR-01 | Phase 13 | Pending |
 | TOUR-02 | Phase 13 | Pending |
 | TOUR-03 | Phase 13 | Pending |

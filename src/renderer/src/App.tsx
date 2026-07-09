@@ -481,10 +481,15 @@ export function App(): JSX.Element {
       if (!info) return
       await adoptVault(info) // adoptVault resetea a un panel VACÍO (no abre nota)
       await openNote('Bienvenida.md') // REQUERIDO: solo la creación fuerza la nota sembrada
-    } catch {
-      // No exponemos el error crudo del main (evita filtrar rutas/stack); texto humano fijo.
+    } catch (e) {
+      // El main ya elabora un mensaje humano en español para EACCES/EPERM (y lo
+      // rethrow para el resto). Cuando reconocemos esa copia segura la mostramos tal
+      // cual; para cualquier otro error caemos al texto humano fijo, sin filtrar el
+      // stack/ruta crudo del main al usuario (WR-02).
       setCreateError(
-        'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.'
+        e instanceof Error && e.message.startsWith('No se pudo crear el cuaderno')
+          ? e.message
+          : 'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.'
       )
     } finally {
       setCreating(false)

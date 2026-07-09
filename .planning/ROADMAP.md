@@ -91,7 +91,15 @@ Plans:
   4. Tras conectar, cada vez que el usuario guarda, su cuaderno se respalda solo, y el indicador dice "Todo en la nube" únicamente cuando de verdad está todo subido (honra STAT-01: nunca "a salvo" antes de un respaldo real).
   5. Si algo falla en el camino de respaldo, el usuario ve un mensaje en lenguaje claro (p.ej. "Ya tenés un respaldo con ese nombre"), nunca el mensaje crudo de la API.
 
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
+Plans:
+
+- [ ] 12-01-PLAN.md — Fundamentos del main: githubRepoSlug + mapBackupError/BackupError + status en createRepo + campo onboarding en settings + contrato IPC (enable/onboarding/signup) [Wave 1]
+- [ ] 12-02-PLAN.md — COPY-01: reescritura de la sección de respaldo de Ajustes + NewVaultDialog (sin jerga, ⚠→Lucide) [Wave 1]
+- [ ] 12-03-PLAN.md — Handlers del main: vaultEnableBackup (createRepo→setRemote→push idempotente + autoPush) + auto-push real tras cada commit + onboarding get/set + signup a URL fija [Wave 2]
+- [ ] 12-04-PLAN.md — Componentes renderer: BackupWizard (dos caminos + checklist) + BackupCard (banner) + BackupButton (persistente, 4 estados, data-tour) [Wave 2]
+- [ ] 12-05-PLAN.md — Integración en App.tsx: montar tarjeta/wizard + BackupButton reemplaza UploadCloud/píldora, preservar statusLabel (STAT-01) [Wave 3]
+
 **UI hint**: yes
 
 ### Phase 13: Tour interactivo de primera vez
@@ -127,5 +135,5 @@ Phases execute in numeric order: 11 → 12 → 13
 | 9. Snapshots automáticos con IA opcional | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 11. Bienvenida y creación local | v1.3 | 2/2 | Complete   | 2026-07-09 |
-| 12. Asistente de respaldo en la nube | v1.3 | 0/TBD | Not started | - |
+| 12. Asistente de respaldo en la nube | v1.3 | 0/5 | Not started | - |
 | 13. Tour interactivo de primera vez | v1.3 | 0/TBD | Not started | - |

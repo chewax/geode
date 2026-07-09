@@ -114,7 +114,12 @@ Plans:
   3. Una vez visto, el recorrido queda marcado como visto y no vuelve a aparecer solo en arranques posteriores.
   4. Si un botón del paso todavía no está en pantalla (p.ej. el de nube antes de conectar), el paso se adapta sin romperse (sin spotlight sobre la nada), y el recorrido nunca resalta funciones de Modo Avanzado (rama/merge/grafo).
 
-**Plans**: TBD
+**Plans**: 3 plans (2 waves)
+Plans:
+- [ ] 13-01-PLAN.md — Backbone de persistencia: canales geode:tour-get/-set + TourState/TourApi + settings.tour + handlers con coerción enum + puente preload [Wave 1]
+- [ ] 13-02-PLAN.md — Overlay renderer: modelo de 4 pasos (copy LOCKED) + TourOverlay (portal + spotlight + medición + degradación) + clases CSS [Wave 1]
+- [ ] 13-03-PLAN.md — Integración: hook useTour + disparo en createLocalVault (tour primero vs BackupCard) + comando de paleta + data-tour Capa 0 + HelpCircle en ActivityBar [Wave 2]
+
 **UI hint**: yes
 
 ## Progress
@@ -136,4 +141,4 @@ Phases execute in numeric order: 11 → 12 → 13
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 11. Bienvenida y creación local | v1.3 | 2/2 | Complete   | 2026-07-09 |
 | 12. Asistente de respaldo en la nube | v1.3 | 5/5 | Complete   | 2026-07-09 |
-| 13. Tour interactivo de primera vez | v1.3 | 0/TBD | Not started | - |
+| 13. Tour interactivo de primera vez | v1.3 | 0/3 | Planned | - |

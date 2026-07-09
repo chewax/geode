@@ -3083,3 +3083,81 @@ body.resizing-row { cursor: row-resize; user-select: none; }
 .main.past .epane-body > * {
   opacity: 0.9;
 }
+
+/* ── Recorrido guiado de primera vez (TourOverlay, Fase 13) ─────────────────
+   Superficie NUEVA (spotlight + cartel) que NO introduce valores nuevos:
+   reusa el velo rgba(0,0,0,0.55) de .modal-overlay, los tokens de :root y la
+   sombra 0 8px 24px rgba(0,0,0,0.45) de los popovers. z-index 300/301 supera
+   todo el chrome (máximo actual: .ctx-menu 210, toasts 200, modales 100). */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+}
+
+/* Recorte del control real: un elemento sobre el rect del ancla (inflado 8px)
+   con un box-shadow gigante que oscurece TODO lo de afuera, más un anillo de
+   acento. El control queda "iluminado" dentro del recorte. No captura clics. */
+.tour-spotlight {
+  position: fixed;
+  z-index: 300;
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  transition: all 0.12s ease;
+}
+
+/* Cartel coach-mark: misma superficie que popovers/modales. */
+.tour-card {
+  position: fixed;
+  z-index: 301;
+  max-width: 320px;
+  padding: 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transition: all 0.12s ease;
+}
+
+/* Fila de título: ícono Lucide + título (18/600). */
+.tour-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.tour-card-body {
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.tour-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Progreso "Paso N de M" a la izquierda del footer (muted). */
+.tour-progress {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -986,9 +986,17 @@ export function App(): JSX.Element {
     })()
   }, [refreshTree, refreshGraph, refreshGithub, refreshAiUsage, refreshVaults, refreshAdvanced])
 
+  // Espejo de tour.active para leerlo desde los handlers globales de teclado sin
+  // recrearlos (mismo idiom que commandApiRef/tourRef). Mientras el recorrido
+  // guiado está activo, absorbe los atajos globales (Ctrl+S/Ctrl+P/Ctrl+\) para
+  // no abrir chrome (CommitDialog/CommandPalette) oculto tras el overlay del tour.
+  const tourActiveRef = useRef(tour.active)
+  tourActiveRef.current = tour.active
+
   // Ctrl/Cmd+S: abre el diálogo de guardar versión.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (tourActiveRef.current) return // el recorrido guiado absorbe el teclado global
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void openCommitDialog()
@@ -1146,6 +1154,7 @@ export function App(): JSX.Element {
   // Ctrl/Cmd+P: paleta de comandos. Ctrl+\: dividir el editor a la derecha.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      if (tourActiveRef.current) return // el recorrido guiado absorbe el teclado global
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setPaletteOpen(true)

@@ -25,12 +25,26 @@ export interface Settings {
     tokenEncrypted?: boolean
     /** Cuenta conectada (para mostrar). */
     login?: string
-    /** URL del repo del vault donde se pushea (cada usuario el suyo). */
+    /**
+     * @deprecated Remoto GLOBAL heredado. Ya NO es la fuente del destino de push
+     * (CR-01): el destino real es el origin propio de cada bóveda (git.getRemote).
+     * Se conserva por compatibilidad y para el flujo avanzado de "pegar URL".
+     */
     remote?: string
     /** Pushear automáticamente al guardar cada versión. */
     autoPush?: boolean
-    /** Último oid pusheado por rama, para contar commits pendientes. */
+    /**
+     * @deprecated Mapa GLOBAL rama→oid pusheado. Reemplazado por `pushedByVault`
+     * para evitar la fuga cross-vault (CR-01). Se migra perezosamente: si existe,
+     * se atribuye a `lastVault` (la única bóveda que pudo haberlo escrito).
+     */
     pushed?: Record<string, string>
+    /**
+     * Último oid pusheado por rama, SCOPEADO POR BÓVEDA (`root`). Cada bóveda lleva
+     * su propio estado de push: el contador de pendientes de la bóveda B nunca
+     * refleja lo pusheado por la bóveda A (CR-01).
+     */
+    pushedByVault?: Record<string, Record<string, string>>
   }
   plugins?: {
     /** Activado por id de plugin. Ausente = desactivado (default seguro). */
@@ -172,6 +186,35 @@ export async function clearGithub(): Promise<void> {
   const settings = await loadSettings()
   delete settings.github
   await saveSettings(settings)
+}
+
+/**
+ * Mapa rama→oid pusheado de ESA bóveda (`root`) leído de un Settings ya cargado.
+ * Cada bóveda lleva su propio estado (CR-01): nunca se comparte entre bóvedas.
+ * Back-compat: si aún existe el `pushed` plano global (settings viejos) y `root`
+ * es la última bóveda activa, se atribuye a ella (migración perezosa, sin romper).
+ */
+export function pushedForVault(settings: Settings, root: string): Record<string, string> {
+  const perVault = settings.github?.pushedByVault?.[root]
+  if (perVault) return perVault
+  if (settings.github?.pushed && settings.lastVault === root) return settings.github.pushed
+  return {}
+}
+
+/**
+ * Devuelve una copia inmutable de `settings` con el oid pusheado de `branch`
+ * registrado PARA ESA bóveda (`root`) en `github.pushedByVault`. No toca el
+ * `pushed` global heredado ni el estado de otras bóvedas.
+ */
+export function withPushedForVault(
+  settings: Settings,
+  root: string,
+  branch: string,
+  oid: string
+): Settings {
+  const vaultPushed = { ...pushedForVault(settings, root), [branch]: oid }
+  const pushedByVault = { ...settings.github?.pushedByVault, [root]: vaultPushed }
+  return { ...settings, github: { ...settings.github, pushedByVault } }
 }
 
 // ── Plugins externos ─────────────────────────────────────────────────────────

@@ -61,7 +61,9 @@ import {
   setSnapshotAiTitles,
   setAdvanced,
   getBackupOnboarding,
-  setBackupOnboarding
+  setBackupOnboarding,
+  pushedForVault,
+  withPushedForVault
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
 
@@ -91,10 +93,16 @@ let cadenceSnapshotInFlight = false
 
 async function githubConfig(): Promise<GithubConfig> {
   const { github } = await loadSettings()
+  // El remoto reportado es el de LA BÓVEDA ACTIVA (su origin en `.git`), NUNCA el
+  // global (CR-01): una bóveda sin respaldo propio muestra `remote=null` aunque
+  // otra bóveda sí esté respaldada. `connected`/`login` sí son globales: la cuenta
+  // de GitHub es una sola y se comparte entre bóvedas legítimamente.
+  const info = vault.getInfo()
+  const remote = info ? await gitService.getRemote(info.root) : null
   return {
     connected: !!github?.token,
     login: github?.login ?? null,
-    remote: github?.remote ?? null,
+    remote,
     autoPush: github?.autoPush ?? false
   }
 }
@@ -226,16 +234,22 @@ async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<stri
  */
 async function autoPushAfterCommit(root: string): Promise<void> {
   const s = await loadSettings()
-  if (!s.github?.autoPush || !s.github.remote) return // respaldo apagado o sin remoto
+  if (!s.github?.autoPush) return // respaldo apagado globalmente
   const token = await getGithubToken()
   if (!token) return // sin credencial: no se puede pushear, se reintenta luego
+  // INVARIANTE DE SEGURIDAD (CR-01): el destino es SIEMPRE el origin propio de
+  // ESTA bóveda (leído de su `.git`), nunca un remoto global. Si esta bóveda no
+  // tiene origin (no está respaldada), es un NO-OP: es IMPOSIBLE que un commit de
+  // la bóveda B termine en el repo de la bóveda A.
+  const remote = await gitService.getRemote(root)
+  if (!remote) return // esta bóveda no está respaldada: no se pushea nada
   try {
-    const url = normalizeRemoteUrl(s.github.remote)
+    const url = normalizeRemoteUrl(remote)
     const { branch, oid } = await gitService.push(root, url, token)
-    // Recordar el oid pusheado por rama (el contador de pendientes vuelve a 0).
-    const pushed = { ...s.github.pushed, [branch]: oid }
-    s.github = { ...s.github, pushed }
-    await saveSettings(s)
+    // Recordar el oid pusheado por rama PARA ESTA bóveda (el contador de
+    // pendientes de esta bóveda vuelve a 0, sin tocar el de otras). Se recarga el
+    // settings por si otra operación lo modificó durante el await del push.
+    await saveSettings(withPushedForVault(await loadSettings(), root, branch, oid))
   } catch (e) {
     console.warn('[auto-push] falló, el cuaderno sigue local:', e)
   }
@@ -576,8 +590,11 @@ function registerIpcHandlers(): void {
     return oid
   })
   ipcMain.handle(IPC.gitGraph, async () => {
-    const { github } = await loadSettings()
-    return gitService.graph(requireRoot(), Object.values(github?.pushed ?? {}))
+    const root = requireRoot()
+    // Refs pusheadas SCOPEADAS a esta bóveda (CR-01): el grafo marca como
+    // "en la nube" solo lo que se pusheó del repo de ESTA bóveda, nunca oids de otra.
+    const pushed = pushedForVault(await loadSettings(), root)
+    return gitService.graph(root, Object.values(pushed))
   })
   ipcMain.handle(IPC.gitCheckout, (_e, oid: string) => gitService.checkout(requireRoot(), oid))
   ipcMain.handle(IPC.gitChanges, () => gitService.changes(requireRoot()))
@@ -800,21 +817,28 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.gitPendingPush, async () => {
     const info = vault.getInfo()
     if (!info) return 0
-    const { github } = await loadSettings()
+    // El contador de pendientes usa el estado pusheado DE ESTA bóveda (CR-01):
+    // nunca el oid de otra bóveda (que no existiría en este log y contaría de más).
+    const pushed = pushedForVault(await loadSettings(), info.root)
     const branch = await gitService.currentBranch(info.root)
-    const sinceOid = branch ? (github?.pushed?.[branch] ?? null) : null
+    const sinceOid = branch ? (pushed[branch] ?? null) : null
     return gitService.aheadCount(info.root, sinceOid)
   })
 
   ipcMain.handle(IPC.gitPush, async () => {
-    const settings = await loadSettings()
     const token = await getGithubToken()
-    const url = normalizeRemoteUrl(settings.github?.remote ?? '') // arregla URLs SSH ya guardadas
     if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
-    if (!url) throw new Error('Configurá la URL del repo en Ajustes')
 
     const root = requireRoot()
-    await gitService.setRemote(root, url)
+    // INVARIANTE DE SEGURIDAD (CR-01): el destino es el origin propio de ESTA
+    // bóveda (leído de su `.git`), NUNCA el remoto global compartido. Ya no se
+    // fuerza `setRemote(root, urlGlobal)`: eso podía apuntar la bóveda B al repo
+    // de la bóveda A. Si esta bóveda no tiene origin, no hay respaldo que reintentar.
+    const ownRemote = await gitService.getRemote(root)
+    if (!ownRemote) {
+      throw new Error('Este cuaderno todavía no tiene respaldo en la nube. Activalo primero.')
+    }
+    const url = normalizeRemoteUrl(ownRemote) // arregla URLs SSH ya guardadas
 
     // Push manual (reintento del botón persistente): TODO fallo de git/API pasa
     // por mapBackupError (BACKUP-05) para que solo cruce el mensaje humano —
@@ -829,10 +853,8 @@ function registerIpcHandlers(): void {
       throw mapBackupError(e)
     }
 
-    // Recordar el oid pusheado por rama, para el contador de pendientes.
-    const pushed = { ...settings.github?.pushed, [branch]: oid }
-    settings.github = { ...settings.github, pushed }
-    await saveSettings(settings)
+    // Recordar el oid pusheado por rama PARA ESTA bóveda, para el contador de pendientes.
+    await saveSettings(withPushedForVault(await loadSettings(), root, branch, oid))
     return { branch, oid }
   })
 
@@ -854,13 +876,13 @@ function registerIpcHandlers(): void {
     const info = vault.getInfo()
     if (!info) throw new Error('No hay cuaderno abierto')
 
-    const settings = await loadSettings()
-
-    // IDEMPOTENCIA (RESEARCH Pattern 1 + Open Q #2): si ya hay un remoto seteado
-    // —p.ej. un reintento tras un push que falló— NO recreamos el repo, porque
-    // createRepo dispararía un 422 autoinfligido ("ya existe"). Vamos directo al
-    // push sobre el remoto vigente.
-    let remote = settings.github?.remote ?? null
+    // IDEMPOTENCIA + INVARIANTE DE SEGURIDAD (CR-01): la decisión de "ya está
+    // respaldada" se toma sobre el origin PROPIO de ESTA bóveda (`git.getRemote`),
+    // NUNCA sobre un remoto global. Antes, el remoto global de la bóveda A hacía
+    // que el wizard abierto en la bóveda B saltara createRepo y pusheara B al repo
+    // de A. Ahora: si ESTA bóveda no tiene origin, se crea su repo; si ya lo tiene
+    // (reintento tras un push fallido), se reusa el suyo, nunca el de otra.
+    let remote = await gitService.getRemote(root)
     if (!remote) {
       try {
         const slug = githubRepoSlug(info.name)
@@ -869,9 +891,7 @@ function registerIpcHandlers(): void {
       } catch (e) {
         throw mapBackupError(e)
       }
-      await gitService.setRemote(root, remote)
-      settings.github = { ...settings.github, remote }
-      await saveSettings(settings)
+      await gitService.setRemote(root, remote) // origin propio de ESTA bóveda
     }
 
     // Primer respaldo: push del seed sembrado en Fase 11 ("Primera versión").
@@ -886,11 +906,11 @@ function registerIpcHandlers(): void {
       throw mapBackupError(e)
     }
 
-    // Persistir el oid pusheado (contador de pendientes), encender autoPush
-    // (BACKUP-04) y marcar el onboarding como completado.
-    const pushed = { ...settings.github?.pushed, [branch]: oid }
-    settings.github = { ...settings.github, pushed, autoPush: true }
-    await saveSettings(settings)
+    // Persistir el oid pusheado PARA ESTA bóveda (contador de pendientes), encender
+    // autoPush (BACKUP-04) y marcar el onboarding como completado.
+    const next = withPushedForVault(await loadSettings(), root, branch, oid)
+    next.github = { ...next.github, autoPush: true }
+    await saveSettings(next)
     await setBackupOnboarding('completado')
 
     return githubConfig()

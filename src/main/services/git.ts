@@ -448,6 +448,20 @@ export class GitService {
     return (await git.currentBranch({ fs, dir, fullname: false })) ?? null
   }
 
+  /**
+   * URL del remoto 'origin' de ESTA bóveda (leída de su `.git/config`), o null si
+   * la bóveda no tiene origin configurado. Es la ÚNICA fuente de verdad del destino
+   * de push (CR-01): nunca se pushea a un remoto global compartido entre bóvedas.
+   */
+  async getRemote(dir: string): Promise<string | null> {
+    try {
+      const remotes = await git.listRemotes({ fs, dir })
+      return remotes.find((r) => r.remote === 'origin')?.url ?? null
+    } catch {
+      return null
+    }
+  }
+
   /** Configura (o reemplaza) el remoto 'origin' del vault. */
   async setRemote(dir: string, url: string): Promise<void> {
     const remotes = await git.listRemotes({ fs, dir })

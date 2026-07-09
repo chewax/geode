@@ -505,7 +505,11 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               </section>
             )}
 
-            {error && <p className="modal-error">⚠ {error}</p>}
+            {error && (
+              <p className="modal-error">
+                <AlertTriangle size={14} /> {error}
+              </p>
+            )}
           </div>
         </div>
 

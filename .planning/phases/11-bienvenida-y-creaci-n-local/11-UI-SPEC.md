@@ -47,6 +47,8 @@ Exceptions (valores heredados del CSS existente, se conservan para consistencia 
 - `18px` / `20px` — padding horizontal de `.primary`; margen inferior de `.tagline` (`0 0 20px`).
 - `44px` alto de la franja `.welcome-drag` (controles de ventana), fuera del flujo central.
 
+Nota para planning: estos valores son heredados y ya justificados. Planning debe garantizar que NO se introduzca ningún valor de spacing NUEVO fuera del conjunto reutilizado (4/8/16/24/32 + las excepciones heredadas listadas arriba).
+
 Objetivo de layout: la bienvenida sigue centrada vertical y horizontalmente (`.welcome` ya es `flex column; align-items:center; justify-content:center`). El nuevo mini-campo de nombre + CTA se apilan bajo la tagline dentro de ese mismo centro.
 
 ---
@@ -62,7 +64,7 @@ Objetivo de layout: la bienvenida sigue centrada vertical y horizontalmente (`.w
 
 Pesos declarados (máx. 2): **400 regular** + **600 semibold**. El 600 se reserva a `.primary`, `h1` y labels de énfasis; todo el cuerpo va en 400.
 
-Exception: `.hint` existente usa `11px` (`--muted`). Se conserva tal cual para el microcopy auxiliar; no se introduce un 5º tamaño nuevo más allá de este heredado.
+Escala de esta fase: exactamente **4 tamaños** (44 / 18 / 14 / 12) para las superficies que esta fase crea o toca. No se introduce ningún 5º tamaño.
 
 Line-height del cuerpo: **1.5** (coincide con `.tagline.error` existente). Headings/Display: **1.1–1.3**.
 
@@ -140,7 +142,7 @@ Reworked screen: bloque `if (!vault)` de `App.tsx` (~líneas 1079–1105).
 - `<h1>Geode</h1>` (Display 44px, se conserva).
 - `<p class="tagline">` → nueva copy: "Escribí sin miedo a perder nada."
 - **Grupo de creación** (nuevo, apilado, centrado, `-webkit-app-region: no-drag`):
-  - `<input class="text-input">` pre-rellenado con "Mi primer cuaderno", `autoFocus`, texto seleccionado al montar para que el usuario pueda sobrescribir de una. Ancho acotado (~320px) para no verse como campo de formulario ancho.
+  - `<input class="text-input">` pre-rellenado con "Mi primer cuaderno", `autoFocus`, texto seleccionado al montar para que el usuario pueda sobrescribir de una. Ancho fijo **320px** (contrato, no sugerencia) para no verse como campo de formulario ancho.
   - `<button class="primary">` con ícono Lucide `NotebookPen` (`size={16}`) + "Crear mi primer cuaderno". Dispara `vault.createLocal(name)` (canal `geode:vault-create-local`).
   - `Enter` en el input equivale a click en el CTA (1-click / 1-Enter).
 - **Links secundarios** (bajo el CTA, en `.welcome-actions` o fila propia, estilo `.link-btn`, `--muted`/`--accent`):

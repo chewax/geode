@@ -10,7 +10,6 @@ import {
   GitBranch,
   Pencil,
   Trash2,
-  UploadCloud,
   GitMerge,
   GitBranchPlus,
   Cloud,
@@ -72,6 +71,7 @@ import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
 import { BackupCard } from './BackupCard'
 import { BackupWizard } from './BackupWizard'
+import { BackupButton } from './BackupButton'
 import { AiPromptModal } from './AiPromptModal'
 import {
   PluginHost,
@@ -169,6 +169,9 @@ export function App(): JSX.Element {
   const [backupOnboarding, setBackupOnboarding] = useState<BackupOnboarding['state']>(null)
   /** Wizard de cuenta abierto (desde la tarjeta o el botón persistente). */
   const [backupWizardOpen, setBackupWizardOpen] = useState(false)
+  /** Último respaldo falló (efímero, NO se persiste): tiñe el botón de "no se pudo
+   *  respaldar". Al reabrir, pushCount>0 ya indica pendiente. */
+  const [backupFailed, setBackupFailed] = useState(false)
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -344,10 +347,14 @@ export function App(): JSX.Element {
 
   const doPush = useCallback(async () => {
     setPushing(true)
+    setBackupFailed(false) // reintentamos: limpiamos el error previo
     try {
       const res = await window.geode.git.push()
       host.emit('sync:after', { branch: res.branch, oid: res.oid })
     } catch (e) {
+      // El respaldo falló: el botón lo refleja de forma efímera ("No se pudo
+      // respaldar"). No se persiste; al reabrir, pushCount>0 ya indica pendiente.
+      setBackupFailed(true)
       window.alert(e instanceof Error ? e.message : 'No se pudo pushear')
     } finally {
       setPushing(false)
@@ -794,7 +801,9 @@ export function App(): JSX.Element {
     void refreshAiUsage() // el mensaje pudo haber usado la IA
     void refreshLineStat() // el commit vació lo pendiente → el contador va a 0/oculto (CR-01)
     host.emit('note:afterSave', { path: openPathRef.current })
-    // El push es SIEMPRE manual (botón Push). Guardar versión nunca sube al remoto.
+    // El push automático ocurre en el main tras el commit cuando el respaldo está
+    // activo (autoPushAfterCommit, 12-03); acá sólo refrescamos el estado para
+    // reflejar el nuevo pushCount/conexión. Sin respaldo activo, queda local.
   }, [refreshGraph, refreshGithub, refreshAiUsage, refreshLineStat, host])
 
   /** Ir a una versión: checkout. Avisa si hay cambios sin versionar (se perderían). */
@@ -1291,18 +1300,6 @@ export function App(): JSX.Element {
                 <GitBranch size={15} />
               </button>
             )}
-            {githubCfg?.connected && githubCfg.remote && (
-              <button
-                className="tb-btn icon push"
-                title={pushCount > 0 ? `Subir cambios a la nube (${pushCount} pendiente(s))` : 'Subir cambios a la nube'}
-                aria-label="Subir cambios a la nube"
-                disabled={pushing || pushCount === 0}
-                onClick={() => void doPush()}
-              >
-                <UploadCloud size={15} className={pushing ? 'spin' : ''} />
-                {pushCount > 0 && <span className="push-badge">{pushCount}</span>}
-              </button>
-            )}
           </div>
           <WindowControls />
         </div>
@@ -1500,26 +1497,20 @@ export function App(): JSX.Element {
                 />
               )}
 
-              <div className="status-item">
-                <Cloud size={14} className={githubCfg?.connected ? 'st-ok' : 'st-off'} />
-                <span>{githubCfg?.connected ? 'GitHub' : 'sin GitHub'}</span>
-                <div className="status-pop">
-                  {githubCfg?.connected ? (
-                    <>
-                      <div className="pop-title"><Cloud size={13} /> GitHub</div>
-                      <div className="pop-row"><span>Cuenta</span><b>{githubCfg.login}</b></div>
-                      <div className="pop-row"><span>Repo</span><b>{githubCfg.remote ?? 'sin configurar'}</b></div>
-                      <div className="pop-row"><span>Cambios sin subir</span><b>{pushCount}</b></div>
-                      <div className="pop-row"><span>Subida automática</span><b>{githubCfg.autoPush ? 'sí' : 'no'}</b></div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="pop-title"><Cloud size={13} /> GitHub</div>
-                      <div className="pop-note">No conectado. Conectá tu cuenta en Ajustes (⚙).</div>
-                    </>
-                  )}
-                </div>
-              </div>
+              {/* Botón de respaldo persistente (data-tour="respaldo" siempre montado):
+                  absorbe el viejo botón de subida del header y la píldora de estado
+                  del footer. Deriva sus 4 estados de los mismos flags que statusLabel
+                  (STAT-01: nunca afirma nube con pushCount>0). */}
+              <BackupButton
+                connected={!!githubCfg?.connected}
+                pushCount={pushCount}
+                backingUp={pushing}
+                failed={backupFailed}
+                login={githubCfg?.login ?? null}
+                autoPush={!!githubCfg?.autoPush}
+                onOpenWizard={() => setBackupWizardOpen(true)}
+                onForcePush={() => void doPush()}
+              />
 
               {aiConfig?.hasKey && (
                 <div

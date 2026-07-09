@@ -53,7 +53,7 @@ Full detail archived at [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.m
 
 - [x] **Phase 11: Bienvenida y creación local** — Bienvenida sin jerga + cuaderno local en 1 click, nota sembrada y reescritura de strings. (completed 2026-07-09)
 - [x] **Phase 12: Asistente de respaldo en la nube** — Tarjeta no bloqueante que guía cuenta + primer push automático, con errores humanizados. (completed 2026-07-09)
-- [ ] **Phase 13: Tour interactivo de primera vez** — TourOverlay propio de ≤5 pasos, disparado tras el primer cuaderno, re-lanzable y con degradación grácil.
+- [x] **Phase 13: Tour interactivo de primera vez** — TourOverlay propio de ≤5 pasos, disparado tras el primer cuaderno, re-lanzable y con degradación grácil. (completed 2026-07-09)
 
 ## Phase Details
 
@@ -119,7 +119,7 @@ Plans:
 
 - [x] 13-01-PLAN.md — Backbone de persistencia: canales geode:tour-get/-set + TourState/TourApi + settings.tour + handlers con coerción enum + puente preload [Wave 1]
 - [x] 13-02-PLAN.md — Overlay renderer: modelo de 4 pasos (copy LOCKED) + TourOverlay (portal + spotlight + medición + degradación) + clases CSS [Wave 1]
-- [ ] 13-03-PLAN.md — Integración: hook useTour + disparo en createLocalVault (tour primero vs BackupCard) + comando de paleta + data-tour Capa 0 + HelpCircle en ActivityBar [Wave 2]
+- [x] 13-03-PLAN.md — Integración: hook useTour + disparo en createLocalVault (tour primero vs BackupCard) + comando de paleta + data-tour Capa 0 + HelpCircle en ActivityBar [Wave 2]
 
 **UI hint**: yes
 
@@ -142,4 +142,4 @@ Phases execute in numeric order: 11 → 12 → 13
 | 10. Gestión de plugins — built-ins | v1.2 | 3/3 | Complete | 2026-07-07 |
 | 11. Bienvenida y creación local | v1.3 | 2/2 | Complete   | 2026-07-09 |
 | 12. Asistente de respaldo en la nube | v1.3 | 5/5 | Complete   | 2026-07-09 |
-| 13. Tour interactivo de primera vez | v1.3 | 2/3 | In Progress|  |
+| 13. Tour interactivo de primera vez | v1.3 | 3/3 | Complete   | 2026-07-09 |

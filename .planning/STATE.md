@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Onboarding guiado
-status: executing
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-07-09T17:08:12.052Z"
+status: verifying
+stopped_at: Completed 13-03-PLAN.md
+last_updated: "2026-07-09T17:17:56.975Z"
 last_activity: 2026-07-09 -- Phase 13 execution started
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
-  percent: 67
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 
 Phase: 13 (Tour interactivo de primera vez) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-09 -- Phase 13 execution started
 
 Progress: [███████░░░] 71%
@@ -61,6 +61,7 @@ Progress: [███████░░░] 71%
 | Phase 12 P05 | 4min | 2 tasks | 1 files |
 | Phase 13 P01 | 6 | 2 tasks | 4 files |
 | Phase 13 P02 | 18 | 2 tasks | 3 files |
+| Phase 13 P03 | 11min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 12-05: el exito 'a salvo en la nube' se anuncia solo en onDone del wizard tras el push real (STAT-01)
 - [Phase ?]: 12-05: BackupButton persistente (data-tour) absorbe el UploadCloud y la pildora de estado; statusLabel intacto
 - [Phase ?]: Phase 13-01: backbone de persistencia del tour (tri-state 'unseen'|'started'|'seen', default 'unseen' NO null); IPC.tourSet coerciona al enum via whitelist (nunca persiste el crudo del renderer); espeja 1:1 el patron backup.onboarding en las 4 capas
+- [Phase ?]: Fase 13 Plan 03: hook useTour cablea el recorrido de primera vez (disparo tras el primer cuaderno, gate !tour.active en la BackupCard, re-lanzamiento por paleta/HelpCircle, recuperación 'started' reaparece una vez)
 
 ### Pending Todos
 
@@ -120,8 +122,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-09T17:08:02.289Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-07-09T17:17:45.490Z
+Stopped at: Completed 13-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

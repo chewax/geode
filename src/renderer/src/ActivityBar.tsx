@@ -4,6 +4,8 @@ import { HelpCircle, Settings as SettingsIcon } from 'lucide-react'
 export interface ActivityBarProps {
   /** Abre el diálogo de ajustes. */
   onOpenSettings: () => void
+  /** Re-lanza el recorrido guiado de primera vez (botón de ayuda). */
+  onShowTour: () => void
 }
 
 /**
@@ -13,7 +15,7 @@ export interface ActivityBarProps {
  * del sidebar (que era la regresión del footer). La zona superior queda lista
  * para futuros conmutadores de vista (p. ej. notas / timeline) en fases próximas.
  */
-export function ActivityBar({ onOpenSettings }: ActivityBarProps): JSX.Element {
+export function ActivityBar({ onOpenSettings, onShowTour }: ActivityBarProps): JSX.Element {
   return (
     <nav className="activity-bar" aria-label="Barra de actividad">
       {/* Zona superior: reservada para conmutadores de vista (fases próximas). */}
@@ -21,7 +23,12 @@ export function ActivityBar({ onOpenSettings }: ActivityBarProps): JSX.Element {
 
       {/* Zona inferior: accesos globales anclados al borde inferior. */}
       <div className="activity-bar-bottom">
-        <button className="activity-btn" title="Ayuda" aria-label="Ayuda" disabled>
+        <button
+          className="activity-btn"
+          title="Ver el recorrido guiado"
+          aria-label="Ver el recorrido guiado"
+          onClick={onShowTour}
+        >
           <HelpCircle size={20} />
         </button>
         <button

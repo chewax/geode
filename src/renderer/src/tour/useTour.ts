@@ -106,10 +106,16 @@ export function useTour(vaultReady: boolean): UseTour {
   useEffect(() => {
     void (async () => {
       const snap = await window.geode.tour.get()
+      // Guarda de orden explícita: si ya hubo una escritura más autoritativa esta
+      // sesión (startFirstRun o la propia rama de recuperación), NO pisamos
+      // tourState con el snapshot —posiblemente ya obsoleto— de este fetch, que
+      // pudo emitirse antes de esa escritura. Evita el revert transitorio de
+      // 'started'→'unseen' en la carrera de creación del primer cuaderno (WR-03).
+      if (oneShotRef.current) return
       setTourState(snap.state)
       // Interrumpido a mitad ('started') + cuaderno abierto → relanzar UNA vez y
       // fijar 'seen' de inmediato, para que una segunda interrupción no cicle.
-      if (snap.state === 'started' && vaultReady && !oneShotRef.current) {
+      if (snap.state === 'started' && vaultReady) {
         oneShotRef.current = true
         launch()
         await window.geode.tour.set('seen')

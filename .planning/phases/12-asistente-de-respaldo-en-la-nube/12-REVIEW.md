@@ -2,263 +2,114 @@
 phase: 12-asistente-de-respaldo-en-la-nube
 reviewed: 2026-07-09T00:00:00Z
 depth: standard
-files_reviewed: 10
+files_reviewed: 5
 files_reviewed_list:
-  - src/main/services/git.ts
-  - src/main/services/settings.ts
-  - src/main/index.ts
-  - src/main/services/github.ts
-  - src/main/services/backupErrors.ts
   - src/renderer/src/App.tsx
   - src/renderer/src/BackupButton.tsx
-  - src/renderer/src/SettingsModal.tsx
-  - src/renderer/src/BackupWizard.tsx
-  - src/renderer/src/BackupCard.tsx
+  - src/main/services/github.ts
+  - src/main/services/backupErrors.ts
+  - src/main/index.ts
 findings:
-  critical: 1
-  warning: 1
-  info: 1
-  total: 3
-status: issues_found
+  critical: 0
+  warning: 0
+  info: 0
+  total: 0
+status: clean
 ---
 
-# Phase 12: Code Review Report (re-review)
+# Phase 12: Code Review Report (final re-review)
 
 **Reviewed:** 2026-07-09T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 10
-**Status:** issues_found
+**Files Reviewed:** 5
+**Status:** clean
 
 ## Summary
 
-This is a targeted re-review of the fixes applied for the prior CR-01 blocker
-(cross-vault auto-push leak) and WR-01/WR-02/IN-01. `npm run typecheck` and
-`npm run build` both pass clean; the preload still builds as CommonJS
-(`out/preload/index.cjs`, `"use strict"; const electron = require("electron")`).
+This is the final re-review of the fixes applied for the prior CR-02/STAT-01
+regression (false "Todo en la nube" for never-backed-up vaults), the WR-01
+device-flow message collapse, and the IN-01 deprecated-field annotation. All
+three are verified closed, with no new regression introduced by the prop
+renames. `npm run typecheck` (node + web) and `npm run build` both pass
+clean, and the preload still builds as CommonJS
+(`out/preload/index.cjs`: `"use strict"; const electron = require("electron")`).
 
-**CR-01 (cross-vault push destination) is correctly closed.** `getRemote(dir)`
-reads `origin` from the vault's own `.git` config; `autoPushAfterCommit`,
-`gitPush`, and `vaultEnableBackup` all resolve the push URL exclusively via
-`gitService.getRemote(root)`, never via a global `settings.github.remote`. A
-vault with no origin correctly no-ops on auto-push and throws a Spanish
-"activá el respaldo primero" error on manual push. `pushedByVault` is
-consistently used by every reader/writer (`gitPendingPush`, `gitGraph`,
-`autoPushAfterCommit`, `gitPush`, `vaultEnableBackup`); the legacy flat
-`github.pushed` is only ever read (lazily attributed to `lastVault`), never
-written. `githubConfig()` keeps `connected`/`login` global (correct — one
-GitHub account, shared) while `remote` is now genuinely per-vault. I could not
-find any remaining code path that reads the deprecated global
-`settings.github.remote` as a source of truth for a push decision.
-
-**WR-02 (full error object logged) and IN-01 (⚠ literal) are both correctly
-fixed** — verified below.
-
-**However, the CR-01 refactor introduced a new regression (see CR-01 below,
-renumbered from the previous review since the old CR-01 is now closed):** the
-renderer's status bar and persistent backup button derive "is this vault
-backed up" from `githubCfg.connected` (the **global** GitHub-account flag)
-without also checking `githubCfg.remote` (the **per-vault** field the CR-01
-fix just introduced). Since `pushCount` is forced to `0` whenever
-`cfg.remote` is `null` (see `refreshGithub`), a vault that has **never** been
-backed up shows "Todo en la nube" / the green cloud "al-dia" state as soon as
-the user's GitHub account is connected globally — which, in a multi-vault
-app, now happens routinely for every newly created vault. This directly
-violates the STAT-01 invariant the review focus asked to re-verify, and is a
-textbook example of a regression caused by only partially propagating the
-CR-01 per-vault scoping (one call site, `pushEnabled` in the command palette
-wiring, *was* updated correctly and shows the intended pattern; two others
-were not).
-
-A secondary, lower-severity regression from the WR-01 fix is also flagged
-(mapping already-Spanish, already-specific device-flow errors through
-`mapBackupError` collapses them into a generic fallback message).
-
-## Critical Issues
-
-### CR-01: "Todo en la nube" / backup-button "al día" state ignores per-vault `remote`, falsely claiming an unbacked vault is safe
-
-**File:** `src/renderer/src/App.tsx:1474` (`statusLabel` call), `src/renderer/src/App.tsx:1512` (`BackupButton` `connected` prop), `src/renderer/src/App.tsx:1815-1837` (`statusLabel`), `src/renderer/src/BackupButton.tsx:39-47` (`kind` derivation)
-
-**Issue:**
-`refreshGithub()` computes `pushCount` as:
+**1. STAT-01 is correctly closed.** A single flag is now derived once and
+threaded through every backup-safety UI surface:
 ```ts
-setPushCount(cfg.connected && cfg.remote ? await window.geode.git.pendingPush() : 0)
-```
-So `pushCount` is `0` both when the vault is fully backed up **and** when the
-vault has no `origin` at all (`cfg.remote === null`) — the CR-01 fix
-correctly made `cfg.remote` per-vault, so a freshly created/switched-to vault
-that was never backed up now legitimately has `remote: null`.
-
-But the two UI call sites that decide "is this vault safe to call
-backed-up" only look at `githubCfg.connected` (the **global** account flag,
-intentionally kept global per CR-01's design) — they never check
-`githubCfg.remote`:
-
-```ts
-// App.tsx:1474
-const s = statusLabel(status, !!githubCfg?.connected, pushCount)
-
-// App.tsx:1512
-<BackupButton
-  connected={!!githubCfg?.connected}
-  pushCount={pushCount}
-  ...
-/>
-
-// App.tsx:1826-1833 (statusLabel)
-case 'clean':
-  if (githubConnected) {
-    return pushCount === 0
-      ? { text: 'Todo en la nube', Icon: Cloud }
-      : { text: 'Guardado en este dispositivo', Icon: HardDrive }
-  }
-  return { text: 'Guardado', Icon: Check }
-
-// BackupButton.tsx:39-47
-const kind = backingUp ? 'respaldando'
-  : failed ? 'error'
-    : connected && pushCount === 0 ? 'al-dia'      // <-- reached with remote=null
-      : connected ? 'sin-subir'
-        : 'sin-respaldo'
-```
-
-Repro: user connects their GitHub account while working in vault A (sets
-`settings.github.token`, i.e. `connected = true` globally) and backs it up.
-They then create vault B (`vaultCreateLocal`, a plain local notebook, no
-`origin` ever configured). `githubConfig()` correctly reports
-`{ connected: true, remote: null }` for vault B. `refreshGithub()` sets
-`pushCount = 0` (because `cfg.remote` is null, not because anything is
-actually synced). As soon as any note is opened in vault B
-(`onPaneNoteOpen` sets `status = 'clean'`), the footer shows **"Todo en la
-nube"** with the green `Cloud` icon, and the persistent `BackupButton` shows
-**"al-dia"** — for a vault that has no remote configured at all and has never
-been pushed anywhere.
-
-This is worse than it sounds combined with the onboarding flow: `BackupCard`
-(the explicit invitation banner) only fires once, guarded by
-`backupOnboarding === null` at vault-creation time
-(`App.tsx:507-510`); `backupOnboarding` is a single global setting
-(`settings.backup.onboarding`), so once vault A's backup completes it becomes
-`'completado'` and the invitation card never fires again for vault B either.
-The user is left with no correct signal anywhere that vault B is unprotected
-— the status bar actively claims the opposite.
-
-Note that the fix pattern already exists correctly elsewhere in the same
-file, one gate away from these two:
-```ts
-// App.tsx:1027 (commandApi.pushEnabled) — correct: checks BOTH connected and remote
-pushEnabled: !!(githubCfg?.connected && githubCfg.remote) && pushCount > 0 && !pushing
-```
-
-This is a direct, easily reproducible regression introduced by the CR-01
-refactor: before the fix, `remote` was a single global field shared by every
-vault, so `connected` and `remote` were (accidentally) correlated almost
-everywhere — the false-safe state was rare (and masked by the *worse*
-cross-vault-push bug). After correctly scoping `remote` per vault, every new
-never-backed-up vault now routinely hits this path, because `connected`
-(global) is very commonly `true` while `remote` (per-vault) is legitimately
-`null`.
-
-**Fix:** Derive a single per-vault "backed up" flag and use it consistently,
-mirroring the already-correct `pushEnabled` pattern:
-```ts
-// App.tsx — derive once, alongside the other graph/head-derived booleans
+// App.tsx:1017
 const backedUp = !!(githubCfg?.connected && githubCfg.remote)
-
-// footer status label
-const s = statusLabel(status, backedUp, pushCount)
-
-// persistent backup button
-<BackupButton
-  connected={backedUp}
-  pushCount={pushCount}
-  ...
-/>
 ```
-Also update the `statusLabel`/`BackupButton` doc comments and parameter names
-(currently `githubConnected`/`connected`) to make clear the flag now means
-"this vault has an active backup", not "the GitHub account is connected" —
-the current naming is exactly what let the two call sites be updated
-inconsistently.
+- `statusLabel(status, backedUp, pushCount)` (App.tsx:1483, def at 1829-1851)
+  only returns `{ text: 'Todo en la nube' }` inside the `case 'clean'` branch,
+  gated by `backedUp`, and only when `pushCount === 0`; otherwise it falls
+  back to `'Guardado en este dispositivo'` (backedUp+pending) or `'Guardado'`
+  (not backed up at all). No path reaches the cloud-safe copy without both
+  `backedUp` and `pushCount === 0`.
+- `<BackupButton backedUp={backedUp} ... />` (App.tsx:1520-1521) matches the
+  renamed `backedUp: boolean` prop in `BackupButton.tsx:16/29`. Its `kind`
+  derivation (`BackupButton.tsx:45-53`) only reaches `'al-dia'` when
+  `backedUp && pushCount === 0`; a connected-but-no-origin vault correctly
+  falls through to `'sin-respaldo'` ("Sin respaldo" text, off-state cloud
+  icon), never a cloud-safe claim.
+- Grepping every remaining `githubCfg?.connected` read in `App.tsx` confirms
+  they are legitimate account/auth-level gates, not backup-safe claims:
+  `NewVaultDialog` (App.tsx:1584, gates whether the clone-from-GitHub repo
+  list is fetched), `BackupWizard` (App.tsx:1595, skips the "connect
+  account" step if the account is already authorized — the wizard still
+  performs the real per-vault `enable()`/push before reporting success), and
+  `SettingsModal`'s `github?.connected` (account display: "Conectado como
+  {login}", remote field, disconnect button — describes the GitHub account,
+  not a specific vault's backup state). None of these assert or imply "this
+  vault's content is safely in the cloud."
+- `commandApi.pushEnabled` (App.tsx:1036) also now reads `backedUp` directly
+  (previously duplicated the `connected && remote` expression inline) —
+  single source of truth, no drift risk.
 
-## Warnings
+**2. Device-flow messages hold.** `mapBackupError` (backupErrors.ts:55) early
+-returns any `e instanceof BackupError` unchanged, before the network/status
+classification runs. `pollForToken` (github.ts:86-96) now throws
+`BackupError('unknown', ...)` for `expired_token`, `access_denied`, and the
+post-loop timeout, so their specific Spanish copy ("El código expiró; probá
+de nuevo", "Autorización cancelada", "Se agotó el tiempo de autorización")
+survives intact to the wizard. The `default` branch (unrecognized API error)
+still throws a plain `Error` with the raw `GitHub: ...` text, which does NOT
+match `instanceof BackupError`, so it correctly continues on to
+`mapBackupError`'s classification/generic-fallback path — no raw English
+leaks. Both `githubStartDeviceFlow` and `githubCompleteDeviceFlow` in
+`main/index.ts` (782-811) wrap their bodies in `try { ... } catch (e) { throw
+mapBackupError(e) }`, so the boundary is enforced at the IPC edge regardless
+of what `github.ts` throws.
 
-### WR-01: `mapBackupError` collapses already-good, already-Spanish device-flow messages into a generic fallback
+**3. No new regression from the renames.** `grep` for `BackupButton` usage
+across `src/` shows only the two expected files
+(`BackupButton.tsx`/`App.tsx`); the sole call site passes `backedUp`
+matching the prop's new name. `statusLabel`'s parameter is consistently named
+`backedUp` in both signature and JSDoc (App.tsx:1826-1831). No stale
+`connected`/`githubConnected` prop names remain on either component.
+`git.ts`'s `pushedByVault`/`getRemote` per-vault plumbing (verified in the
+prior review round) is untouched by this round's changes.
 
-**File:** `src/main/services/github.ts:81-89` (`pollForToken`), `src/main/index.ts:794-807` (`githubCompleteDeviceFlow`), `src/main/services/backupErrors.ts:49-74` (`mapBackupError`)
+**4. Build verification (self-run).**
+- `npm run typecheck` → `typecheck:node` (tsc -p tsconfig.node.json) and
+  `typecheck:web` (tsc -p tsconfig.web.json) both exit clean, no errors.
+- `npm run build` → exits 0, no error/fail lines in output; preload output
+  confirmed CommonJS (`.cjs`, `require("electron")`, no ESM `import`).
 
-**Issue:** The previous review's WR-01 (raw English API text leaking to the
-UI) is correctly fixed — `githubStartDeviceFlow`/`githubCompleteDeviceFlow`
-now wrap every call in `mapBackupError`, so nothing untranslated reaches the
-renderer. However, `pollForToken` already throws specific, well-written
-Spanish messages for the common device-flow outcomes:
-```ts
-case 'expired_token': throw new Error('El código expiró; probá de nuevo')
-case 'access_denied': throw new Error('Autorización cancelada')
-...
-throw new Error('Se agotó el tiempo de autorización')
-```
-None of these carry an HTTP `status`/`code` that `mapBackupError` recognizes
-(they're not network errors, not 401/403, not 422/"already exists"), so every
-one of them falls through to the generic `unknown` branch and gets replaced
-by the same fallback string:
-```
-"No se pudo respaldar ahora. Tu cuaderno sigue guardado en este dispositivo; volvé a intentarlo en un momento."
-```
-A user whose device code expired, or who declined authorization on GitHub's
-page, now sees this generic "try again later" message instead of the
-specific, more actionable original copy — a UX regression relative to
-pre-fix behavior for these particular cases, even though the "no raw English"
-goal is achieved. This also conflicts with the CLAUDE.md convention that
-Spanish errors be "specific and actionable".
+## Remaining non-blocking notes (not filed as findings — informational only)
 
-**Fix:** Let `mapBackupError` pass through errors that are already a
-`BackupError` (or already-classified/human), and have `pollForToken` throw
-`BackupError` directly for its known cases instead of a raw `Error`:
-```ts
-// backupErrors.ts — early pass-through
-export function mapBackupError(e: unknown): BackupError {
-  if (e instanceof BackupError) return e
-  // ...existing classification...
-}
-```
-```ts
-// github.ts — pollForToken
-import { BackupError } from './backupErrors'
-// ...
-case 'expired_token':
-  throw new BackupError('unknown', 'El código expiró; probá de nuevo')
-case 'access_denied':
-  throw new BackupError('unknown', 'Autorización cancelada')
-// ...
-throw new BackupError('unknown', 'Se agotó el tiempo de autorización')
-```
-(`kind: 'unknown'` is fine here since these aren't `offline`/`auth`/
-`name-taken`; the point is preserving the specific `message`.)
-
-## Info
-
-### IN-01: Deprecated global `settings.github.remote` is still written by three handlers even though it is no longer read as a source of truth
-
-**File:** `src/main/index.ts:471-491` (`vaultCloneFromGithub`), `src/main/index.ts:493-510` (`vaultCreateWithRepo`), `src/main/index.ts:809-816` (`githubSetRemote`)
-
-**Issue:** All three handlers still do
-`settings.github = { ...settings.github, remote: url }` even though
-`githubConfig()` (the only reader that matters for UI/push decisions) now
-exclusively derives `remote` from `gitService.getRemote(vault.root)`. The
-field is correctly documented `@deprecated` in `settings.ts:28-33`, but
-continuing to write it from three call sites is dead weight that could
-mislead a future maintainer into thinking it's still load-bearing (it very
-nearly was, per CR-01 above, for a different field with the same shape of
-bug).
-
-**Fix:** Either stop writing `settings.github.remote` from these three
-handlers now that it's inert, or add a one-line comment at each write site
-pointing at the `@deprecated` doc in `settings.ts`, e.g.:
-```ts
-// Compat only: `remote` is unused as source of truth (see settings.ts @deprecated).
-settings.github = { ...settings.github, remote: url }
-```
+- Runtime multi-vault UAT (create vault A, connect+backup, create vault B,
+  confirm the footer/button correctly show "Sin respaldo" for B) is
+  legitimately a human-in-the-loop check; the static trace above supports
+  correctness but was not executed against a running Electron instance in
+  this pass, consistent with the review's stated scope.
+- `SettingsModal`'s "Tu cuaderno se respalda solo cada vez que guardás" hint
+  (SettingsModal.tsx:372-375) is shown whenever the GitHub *account* is
+  connected, regardless of whether the *current* vault has an origin yet.
+  This is descriptive/aspirational copy in a settings panel, not a status
+  claim gated by `case 'clean'` like `statusLabel`/`BackupButton`, and it was
+  not in scope for this focused re-review (not flagged in the prior CR-02);
+  noting it here only for completeness, not as a blocker.
 
 ---
 

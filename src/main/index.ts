@@ -40,6 +40,8 @@ import {
   createRepo,
   type DeviceCode
 } from './services/github'
+import { githubRepoSlug } from './fs/githubRepoSlug'
+import { mapBackupError } from './services/backupErrors'
 import {
   loadSettings,
   saveSettings,
@@ -55,7 +57,8 @@ import {
   setPluginEnabled,
   setSnapshotCadence,
   setSnapshotAiTitles,
-  setAdvanced
+  setAdvanced,
+  setBackupOnboarding
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
 
@@ -781,6 +784,66 @@ function registerIpcHandlers(): void {
     settings.github = { ...settings.github, pushed }
     await saveSettings(settings)
     return { branch, oid }
+  })
+
+  // ── Respaldo en la nube (enable + onboarding + signup) ──────────────────────
+
+  // Orquestador del primer respaldo (BACKUP-03): encadena createRepo(private)→
+  // setRemote→push reusando las primitivas ya probadas, persiste pushed[branch],
+  // activa autoPush (BACKUP-04) y marca el onboarding como completado. Es
+  // idempotente en el reintento (si ya hay remoto, va directo al push) y traduce
+  // TODO error al español con mapBackupError (BACKUP-05): nunca cruza crudo ni el
+  // token al renderer (devuelve solo GithubConfig, sin repo/commit/push).
+  ipcMain.handle(IPC.vaultEnableBackup, async (): Promise<GithubConfig> => {
+    // El wizard ya conectó la cuenta antes de llamar acá; si falta el token es un
+    // fallo de auth que el renderer muestra con la copy de "reconectá".
+    const token = await getGithubToken()
+    if (!token) throw mapBackupError({ status: 401 })
+
+    const root = requireRoot()
+    const info = vault.getInfo()
+    if (!info) throw new Error('No hay cuaderno abierto')
+
+    const settings = await loadSettings()
+
+    // IDEMPOTENCIA (RESEARCH Pattern 1 + Open Q #2): si ya hay un remoto seteado
+    // —p.ej. un reintento tras un push que falló— NO recreamos el repo, porque
+    // createRepo dispararía un 422 autoinfligido ("ya existe"). Vamos directo al
+    // push sobre el remoto vigente.
+    let remote = settings.github?.remote ?? null
+    if (!remote) {
+      try {
+        const slug = githubRepoSlug(info.name)
+        const repo = await createRepo(token, slug, true) // private=true
+        remote = repo.cloneUrl
+      } catch (e) {
+        throw mapBackupError(e)
+      }
+      await gitService.setRemote(root, remote)
+      settings.github = { ...settings.github, remote }
+      await saveSettings(settings)
+    }
+
+    // Primer respaldo: push del seed sembrado en Fase 11 ("Primera versión").
+    let branch: string
+    let oid: string
+    try {
+      const url = normalizeRemoteUrl(remote)
+      const res = await gitService.push(root, url, token)
+      branch = res.branch
+      oid = res.oid
+    } catch (e) {
+      throw mapBackupError(e)
+    }
+
+    // Persistir el oid pusheado (contador de pendientes), encender autoPush
+    // (BACKUP-04) y marcar el onboarding como completado.
+    const pushed = { ...settings.github?.pushed, [branch]: oid }
+    settings.github = { ...settings.github, pushed, autoPush: true }
+    await saveSettings(settings)
+    await setBackupOnboarding('completado')
+
+    return githubConfig()
   })
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { JSX } from 'react'
 import { Sparkles, AlertTriangle } from 'lucide-react'
 import type { EditorContext } from './editor/CodeMirrorEditor'
+import { friendlyAiError } from './ai/friendlyError'
 
 interface AiPromptModalProps {
   context: EditorContext
@@ -41,7 +42,12 @@ export function AiPromptModal({ context, onInsert, onClose }: AiPromptModalProps
       const result = await window.geode.ai.generateText(text, context.selection, context.before)
       onInsert(result)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo generar el texto')
+      setError(
+        friendlyAiError(
+          e,
+          'No se pudo generar el texto. Probá otra instrucción o revisá la IA en Ajustes → IA.'
+        )
+      )
       setLoading(false)
     }
   }

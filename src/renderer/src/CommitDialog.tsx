@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { changedSummary } from './time/labels'
+import { friendlyAiError } from './ai/friendlyError'
 
 interface CommitDialogProps {
   /** Rutas que se van a versionar. */
@@ -41,7 +42,12 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
       setName(v.title)
       setDescription(v.description)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo generar la descripción')
+      setError(
+        friendlyAiError(
+          e,
+          'No se pudo generar la sugerencia de IA. Podés escribir el nombre y la descripción a mano.'
+        )
+      )
     } finally {
       setGenerating(false)
     }

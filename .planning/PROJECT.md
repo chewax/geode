@@ -8,9 +8,11 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Non-destructive editing** — "you can never lose anything" and "you can experiment without fear." If everything else fails, this must hold: no user content is ever irrecoverable, and the git plumbing stays invisible to non-technical users.
 
-## Current Milestone: v1.3 Onboarding guiado
+## Latest Milestone: v1.3 Onboarding guiado — SHIPPED 2026-07-09
 
-**Goal:** Que un usuario que no sabe qué es GitHub llegue solo, guiado, desde "abrir la app por primera vez" hasta "escribí una nota, la guardé y la respaldé en la nube" — sin toparse nunca con jerga (vault/Git/clonar/repo/commit/push).
+**Goal (logrado):** Que un usuario que no sabe qué es GitHub llegue solo, guiado, desde "abrir la app por primera vez" hasta "escribí una nota, la guardé y la respaldé en la nube" — sin toparse nunca con jerga (vault/Git/clonar/repo/commit/push). Verificado con UAT humano de la ruta completa; el respaldo también funciona para bóvedas existentes (fix de rama sin nacer).
+
+**Próximo hito candidato:** *Aislamiento de plugins (Fase B)* — PLUG-02 (iframe sandbox + puente postMessage + permisos `plugin.json` + API async + quitar `unsafe-eval` del CSP). Otros candidatos del ToDo: edición Markdown enriquecida, dictado por voz. Bugs diferidos a atender: `geode:vault-remove` "Bóveda desconocida" + feedback de carga en la baja de bóveda con muchos archivos.
 
 **Target features:**
 - Bienvenida sin jerga; camino primario "Crear mi primer cuaderno".
@@ -21,9 +23,11 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 
 **Key context (decisiones cerradas con el usuario):** (1) *local primero, nube después* — el respaldo nunca es peaje de entrada; empezar a escribir es 1 click sin cuenta. (2) Framear todo como "respaldo en la nube"; nombrar "GitHub" solo cuando es inevitable (la propia página de signup), enmarcado como "servicio gratuito y seguro". La creación de cuenta no se puede automatizar (captcha/verificación de email) → hand-off guiado con checklist es el máximo posible. Refuerza el core value (git invisible).
 
-## Current State: v1.2 shipped (2026-07-07)
+## Current State: v1.3 shipped (2026-07-09)
 
-Tres hitos enviados (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerró con 3 fases (8-10): borrar rama sin mergear + contador +N/-N (Modo Avanzado), IA opcional en auto-snapshots (opt-in), y activar/desactivar plugins internos. **Re-scope al cierre:** PLUG-02 (aislamiento de plugins de terceros, Fase B MVP) se difirió a un hito dedicado por tamaño/riesgo.
+Cuatro hitos enviados (v1.0, v1.1, v1.2, v1.3). **v1.3 "Onboarding guiado"** cerró con 3 fases (11-13): creación de cuaderno local en 1 click sin jerga + nota sembrada (ONB), asistente de respaldo en la nube no bloqueante con onboarding de cuenta guiado + primer push automático + errores humanos + reescritura de copy (BACKUP/COPY), y tour interactivo de primera vez (`TourOverlay` propio, primer `createPortal` del repo) anclado a botones reales (TOUR). Durante el UAT se arreglaron: auto-sufijo de repo en colisión de nombre, honestidad STAT-01 por-bóveda, y respaldo de bóvedas sin versiones (rama sin nacer → commit-antes-de-push). Bugs pre-existentes diferidos: baja de bóveda "Bóveda desconocida" y falta de feedback en bóvedas grandes.
+
+Tres hitos previos (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerró con 3 fases (8-10): borrar rama sin mergear + contador +N/-N (Modo Avanzado), IA opcional en auto-snapshots (opt-in), y activar/desactivar plugins internos. **Re-scope al cierre:** PLUG-02 (aislamiento de plugins de terceros, Fase B MVP) se difirió a un hito dedicado por tamaño/riesgo.
 
 **Próximo hito candidato:** *Aislamiento de plugins (Fase B)* — PLUG-02: iframe sandbox + puente postMessage + permisos `plugin.json` + API de editor async + quitar `unsafe-eval` del CSP (ver docs/PLUGINS.md). Otros candidatos del ToDo: edición Markdown enriquecida, dictado por voz.
 
@@ -93,6 +97,26 @@ Tres hitos enviados (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerr�
 
 <!-- Diferidos a hitos futuros: edición Markdown rica (toolbar/tablas/imágenes/links/Mermaid/ayuda); dictado por voz (STT); CAPA1-01 (try/keep/discard); CONF-01 (conflictos humanos). -->
 
+### Validated — v1.3 (Onboarding guiado, shipped 2026-07-09)
+
+**Bienvenida y creación local (Fase 11):**
+- ✓ Bienvenida sin jerga con CTA único "Crear mi primer cuaderno"; abrir carpeta existente como link secundario — v1.3 (ONB-01)
+- ✓ Cuaderno local en 1 click en `~/Documents/Geode/<nombre>` sin cuenta ni selector; "elegir otra ubicación" como escape secundario — v1.3 (ONB-02)
+- ✓ Nota `Bienvenida.md` sembrada en español, borrable, commiteada como primera versión — v1.3 (ONB-03)
+- ✓ Sanitización de nombre (ilegales Windows + reservados, fallback "Cuaderno") + colisión por sufijo, nunca pisa — v1.3 (ONB-04)
+
+**Respaldo en la nube (Fase 12):**
+- ✓ Invitación no bloqueante (tarjeta) + "Hacerlo después" + botón de respaldo persistente (ancla del tour) — v1.3 (BACKUP-01)
+- ✓ Onboarding de cuenta guiado: hand-off a github.com/signup + checklist que sobrevive el ida-y-vuelta; "GitHub" solo en ese paso — v1.3 (BACKUP-02)
+- ✓ Repo privado + primer push automático (idempotente, auto-sufijo en colisión, commit si la bóveda no tiene versiones) — v1.3 (BACKUP-03)
+- ✓ Auto-respaldo real tras cada guardado (antes `autoPush` era config muerta) + "Todo en la nube" honesto por-bóveda (STAT-01) — v1.3 (BACKUP-04)
+- ✓ Errores del respaldo en lenguaje humano (4 mensajes LOCKED), nunca el crudo de la API — v1.3 (BACKUP-05)
+- ✓ Reescritura de copy Capa 0 "bóveda/GitHub/repo/clonar" → "cuaderno/respaldo/copia de seguridad" (welcome, NewVaultDialog, Ajustes, píldora/popover) — v1.3 (COPY-01)
+
+**Tour interactivo (Fase 13):**
+- ✓ `TourOverlay` propio (primer `createPortal` del repo): spotlight + coach-mark, 4 pasos anclados a botones reales vía `data-tour`, disparado tras el primer cuaderno (no al arrancar) — v1.3 (TOUR-01)
+- ✓ "Paso N de M" + Saltar + re-lanzable desde Ayuda/paleta + persiste "visto" (tri-state) + nunca se auto-repite — v1.3 (TOUR-02)
+- ✓ Degradación grácil (ancla ausente → cartel centrado sin crash) + jamás ancla Modo Avanzado — v1.3 (TOUR-03)
 
 ### Out of Scope
 
@@ -139,6 +163,13 @@ Tres hitos enviados (v1.0, v1.1, v1.2). **v1.2 "Power-user y plataforma"** cerr�
 | IA en auto-snapshots = opt-in con gate emergente "solo con cambios" (sin detector de idle, sin tocar el timer) | Árbol limpio = no-op ⇒ el costo escala con edición real, no con tiempo; la misma snapshot de seguridad se nombra con IA | ✓ Good (v1.2 — AISNAP-01) |
 | Built-ins gestionados como externos pero default ON (`?? true`) + activación fail-open | Consistencia con externos; un error de IPC nunca deja al usuario sin funcionalidad core | ✓ Good (v1.2 — PLUG-01) |
 | Diferir PLUG-02 (Fase B) a un hito dedicado al cierre de v1.2 | Es el ítem más grande/riesgoso (iframe + bridge + permisos + API async + quitar unsafe-eval); merece su propio ciclo | ✓ Decisión de alcance (v1.2 close) |
+| Creación local en 1 click con carpeta por defecto `~/Documents/Geode`, sin selector ni cuenta | "Local primero, nube después": empezar a escribir nunca es peaje; el respaldo viene después | ✓ Good (v1.3 — ONB-02) |
+| Framear todo como "respaldo en la nube"; nombrar "GitHub" solo en el hand-off de signup | Git invisible (core value); la creación de cuenta no se puede automatizar (captcha) → hand-off + checklist es el techo | ✓ Good (v1.3 — BACKUP-02) |
+| Auto-sufijo del repo en colisión de nombre (como carpetas en Fase 11), no error | El nombre es autoderivado e invisible; además garantiza repo nuevo distinto (seguridad CR-01, nunca reusa ajeno) | ✓ Good (v1.3 — UAT fix) |
+| Respaldo commitea el contenido si la bóveda no tiene versiones antes del push | Pushear una rama sin nacer falla ("Could not find main"); BACKUP-03 "nunca vacío" debe valer para bóvedas existentes | ✓ Good (v1.3 — UAT fix) |
+| "Todo en la nube" (STAT-01) por-bóveda: connected && remoto-propio && pushCount===0 | El remoto es per-bóveda (origin propio); un flag global mentiría al cambiar de bóveda (fuga cross-vault CR-01/CR-02) | ✓ Good (v1.3 — code-review) |
+| Auto-push real tras cada commit (antes `autoPush` era config muerta) | BACKUP-04 "se respalda solo" exigía cablearlo de verdad en el main; best-effort, sin IA, gated en backup activo | ✓ Good (v1.3 — BACKUP-04) |
+| `TourOverlay` propio (primer `createPortal`) en vez de librería | "Sin dependencia nueva"; spotlight + coach-mark con box-shadow + getBoundingClientRect; velo absorbe clics (no-modal) | ✓ Good (v1.3 — TOUR-01) |
 
 ## Evolution
 
@@ -158,4 +189,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-08 — v1.3 Onboarding guiado started*
+*Last updated: 2026-07-09 — v1.3 Onboarding guiado shipped*

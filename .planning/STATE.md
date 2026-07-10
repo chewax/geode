@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Onboarding guiado
-status: verifying
+status: Awaiting next milestone
 stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-07-09T17:17:56.975Z"
-last_activity: 2026-07-09 -- Phase 13 execution started
+last_updated: "2026-07-10T01:45:04.799Z"
+last_activity: 2026-07-10 — Milestone v1.3 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 
 ## Current Position
 
-Phase: 13 (Tour interactivo de primera vez) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-07-09 -- Phase 13 execution started
-
-Progress: [███████░░░] 71%
+Phase: Milestone v1.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-10 — Milestone v1.3 completed and archived
 
 ## Performance Metrics
 
@@ -128,4 +126,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Planificar la Fase 11 con /gsd-plan-phase 11
+- Start the next milestone with /gsd-new-milestone

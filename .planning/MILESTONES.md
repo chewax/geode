@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.3 Onboarding guiado (Shipped: 2026-07-10)
+
+**Phases completed:** 3 phases, 10 plans, 17 tasks
+
+**Key accomplishments:**
+
+- Creación de cuaderno LOCAL en 1 click sin GitHub ni picker: util de sanitización Windows, `VaultService.createLocal` (colisión por sufijo + siembra atómica de Bienvenida.md) y el canal `geode:vault-create-local` cableado end-to-end con commit del seed como primera versión.
+- Reescritura del bloque `if (!vault)` de `App.tsx` como la nueva pantalla de bienvenida sin jerga (tagline "Escribí sin miedo a perder nada.", input pre-rellenado, CTA único y links secundarios) cableada end-to-end contra `window.geode.vault.createLocal`, encadenando `openNote('Bienvenida.md')` tras `adoptVault` para que el cuaderno abra SIEMPRE con la nota sembrada, con estados idle/creando/error.
+- Slug de repo GitHub-válido, boundary de errores a español humano (4 mensajes LOCKED), createRepo con status HTTP, persistencia del onboarding y el contrato IPC completo (4 canales tipados + puente preload) que consumirán los planes 12-03/04/05.
+- 1. [Rule 2 - Consistencia con must_have] Ítem de nav de Ajustes también renombrado
+- El handler orquestador `vaultEnableBackup` (createRepo privado → setRemote → primer push, idempotente, autoPush ON, onboarding completado, errores humanos) + el AUTO-PUSH REAL tras cada commit (manual y snapshot, best-effort, sin IA — antes era config muerta) + los handlers de persistencia del onboarding y el hand-off de signup a una URL fija.
+- Tres componentes presentacionales que reutilizan clases CSS existentes: el wizard de cuenta (dos caminos + checklist resumible + device flow sin jerga + enable + errores humanos con ícono Lucide), la tarjeta-banner de invitación no bloqueante, y el botón de respaldo persistente de 4 estados honestos (STAT-01) con `data-tour="respaldo"` siempre montado y popover sin la URL del repo.
+- El ultimo eslabon: cablea las tres superficies del respaldo (12-04) contra los handlers del main (12-03) dentro de `App.tsx` — monta la tarjeta de invitacion una sola vez tras el primer cuaderno (sin re-nag), el wizard como modal, y el `BackupButton` persistente que absorbe el `UploadCloud` del header y la pildora "GitHub/sin GitHub" del footer, preservando exactamente la logica honesta de `statusLabel` (STAT-01).
+- 1. [Rule 3 - Blocking] Import de `TourState` en settings.ts
+- Overlay de tour de 4 pasos vía el primer `createPortal` del repo: spotlight recortado con box-shadow gigante sobre el ancla real medida en vivo, cartel coach-mark con auto-flip, y degradación grácil (rect null/0/enorme/sección colapsada) sin crash.
+- Último eslabón de la Fase 13: el hook `useTour` (máquina de estado tri-state con recuperación "reaparecer una vez" y cierre por Esc) más su cableado en App.tsx (disparo tras el primer cuaderno, gate de la BackupCard, comando de paleta, anclas Capa 0 y montaje del overlay) y el botón de Ayuda de la ActivityBar como re-lanzamiento — convierten las piezas aisladas de los Planes 01/02 en un recorrido de primera vez funcional y coordinado con la Fase 12.
+
+---
+
 ## v1.2 Power-user y plataforma (Shipped: 2026-07-07)
 
 **Phases completed:** 3 phases (8, 9, 10), 9 plans · PLUG-02 (Fase B) diferido a hito dedicado

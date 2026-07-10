@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 Phase: Milestone v1.3 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-10 — Completed quick task 260710-nq5: manejo elegante de errores de IA al guardar versión
+Last activity: 2026-07-10 — Completed quick task 260710-ol2: hover en la línea de tiempo muestra la descripción completa
 
 ## Performance Metrics
 
@@ -107,6 +107,7 @@ None yet.
 | 260708-3om | Fixes del árbol lateral: eliminar carpetas, crear en raíz, mostrar en explorador, duplicar, foco al crear | 2026-07-08 | e1c2ac3 | [260708-3om-arreglar-5-problemas-del-arbol-lateral-d](./quick/260708-3om-arreglar-5-problemas-del-arbol-lateral-d/) |
 | 260710-jll | Optimizar cambio/baja de bóveda con muchos archivos: cache racy-safe persistido, workBlobs paralelo, push no bloqueante, git.add batch, sniff binario en lineStat, single-flight | 2026-07-10 | c2f09b5 | [260710-jll-optimizar-cambio-baja-de-boveda-con-much](./quick/260710-jll-optimizar-cambio-baja-de-boveda-con-much/) |
 | 260710-nq5 | Manejo elegante de errores de IA al guardar versión: mapAiError en main traduce fallos de OpenRouter a español (404 → revisar modelo en Ajustes → IA), friendlyAiError descarta el envoltorio IPC en los diálogos | 2026-07-10 | f33e471 | [260710-nq5-manejo-elegante-de-errores-de-ia-al-guar](./quick/260710-nq5-manejo-elegante-de-errores-de-ia-al-guar/) |
+| 260710-ol2 | Hover en item de la línea de tiempo muestra la descripción completa (title nativo con el mensaje completo del commit en tl-entry-label) | 2026-07-10 | 52a7be5 | [260710-ol2-hover-en-item-de-la-l-nea-de-tiempo-mues](./quick/260710-ol2-hover-en-item-de-la-l-nea-de-tiempo-mues/) |
 
 ## Deferred Items
 

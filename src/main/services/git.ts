@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import os from 'node:os'
-import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, open, readdir, readFile, rm, stat, type FileHandle } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
@@ -110,6 +110,65 @@ export class GitService {
     string,
     Map<string, { size: number; mtimeMs: number; oid: string; hashedAt: number }>
   >()
+
+  /** Bóvedas cuyo cache persistido (.geode/hashcache.json) ya se intentó cargar. */
+  private hashCacheLoaded = new Set<string>()
+
+  private hashCachePath(dir: string): string {
+    return join(dir, '.geode', 'hashcache.json')
+  }
+
+  /**
+   * Carga el cache de hashes persistido de la bóveda (una sola vez por sesión).
+   * Sin él, el PRIMER escaneo de cada sesión re-lee y re-hashea el contenido
+   * completo de la bóveda (con adjuntos grandes: gigabytes → decenas de segundos).
+   * Con él, el escaneo frío queda en stats. Es una optimización PURA: cualquier
+   * entrada inválida o ilegible se descarta y ese archivo se re-hashea (la
+   * ventana racy guardada en `hashedAt` sigue aplicando tras reiniciar, porque
+   * son tiempos absolutos).
+   */
+  private async loadHashCache(dir: string): Promise<void> {
+    if (this.hashCacheLoaded.has(dir)) return
+    this.hashCacheLoaded.add(dir)
+    if (this.hashCache.has(dir)) return // ya hay un cache en memoria más fresco
+    try {
+      const raw = JSON.parse(await readFile(this.hashCachePath(dir), 'utf8')) as {
+        version?: number
+        entries?: Record<string, { size: number; mtimeMs: number; oid: string; hashedAt: number }>
+      }
+      if (raw?.version !== 1 || typeof raw.entries !== 'object' || raw.entries === null) return
+      const map = new Map<string, { size: number; mtimeMs: number; oid: string; hashedAt: number }>()
+      for (const [rel, e] of Object.entries(raw.entries)) {
+        if (
+          typeof e?.size === 'number' &&
+          typeof e.mtimeMs === 'number' &&
+          typeof e.oid === 'string' &&
+          typeof e.hashedAt === 'number'
+        ) {
+          map.set(rel, e)
+        }
+      }
+      this.hashCache.set(dir, map)
+    } catch {
+      // Sin cache persistido (primera vez) o JSON corrupto: se re-hashea todo.
+    }
+  }
+
+  /** Persiste el cache de hashes de la bóveda. Best-effort: un fallo no rompe nada. */
+  private async saveHashCache(
+    dir: string,
+    cache: Map<string, { size: number; mtimeMs: number; oid: string; hashedAt: number }>
+  ): Promise<void> {
+    try {
+      await mkdir(join(dir, '.geode'), { recursive: true })
+      await atomicWrite(
+        this.hashCachePath(dir),
+        JSON.stringify({ version: 1, entries: Object.fromEntries(cache) })
+      )
+    } catch {
+      // Best-effort: sin cache persistido, el próximo arranque re-hashea.
+    }
+  }
 
   private author(): { name: string; email: string } {
     let name = 'geode'
@@ -838,14 +897,28 @@ export class GitService {
     if (changes.length === 0) return { added: 0, removed: 0 }
     const headOid = await this.headOid(dir)
 
+    // Cap de lectura: un adjunto grande (video, PDF, descarga a medias) no puede
+    // ser una nota de texto; leerlo ENTERO solo para que `looksBinary` lo descarte
+    // costaba gigabytes de I/O por refresh del contador. Por encima del cap se
+    // trata como binario (que ya no aporta líneas) SIN leerlo. Por debajo, se
+    // huele el primer bloque (como git): si ya parece binario, ni se lee entero
+    // ni se toca el blob de HEAD (leer HEAD es un walk del tree POR archivo).
+    const MAX_TEXT_BYTES = 5 * 1024 * 1024
+
     let added = 0
     let removed = 0
     for (const { filepath, deleted } of changes) {
-      const oldText = headOid ? await this.safeReadAt(dir, headOid, filepath) : ''
+      if (!deleted) {
+        const st = await stat(join(dir, filepath)).catch(() => null)
+        if (!st || st.size > MAX_TEXT_BYTES) continue
+        if (await this.sniffsBinary(join(dir, filepath))) continue
+      }
       const newText = deleted ? '' : await readFile(join(dir, filepath), 'utf8').catch(() => '')
+      if (this.looksBinary(newText)) continue
+      const oldText = headOid ? await this.safeReadAt(dir, headOid, filepath) : ''
 
       // Los binarios no se diffean por líneas; se saltan del recuento.
-      if (this.looksBinary(oldText) || this.looksBinary(newText)) continue
+      if (this.looksBinary(oldText)) continue
 
       for (const part of diffLines(oldText, newText)) {
         if (part.added) added += part.count ?? 0
@@ -907,6 +980,25 @@ export class GitService {
   /** Heurística simple: un byte NUL sugiere contenido binario (no diffeable como texto). */
   private looksBinary(text: string): boolean {
     return text.includes(String.fromCharCode(0))
+  }
+
+  /**
+   * Huele si un archivo es binario leyendo SOLO su primer bloque (8 KB, como
+   * git): un byte NUL ⇒ binario. Evita cargar jpg/epub/pdf enteros a memoria
+   * solo para descartarlos. Ante error de lectura, true (se salta: conservador).
+   */
+  private async sniffsBinary(absPath: string): Promise<boolean> {
+    let fh: FileHandle | null = null
+    try {
+      fh = await open(absPath, 'r')
+      const buf = Buffer.alloc(8192)
+      const { bytesRead } = await fh.read(buf, 0, 8192, 0)
+      return buf.subarray(0, bytesRead).includes(0)
+    } catch {
+      return true
+    } finally {
+      await fh?.close().catch(() => {})
+    }
   }
 
   private async safeReadAt(dir: string, oid: string, filepath: string): Promise<string> {
@@ -1012,6 +1104,9 @@ export class GitService {
     }
     await collect('')
 
+    // Cache persistido: convierte el escaneo frío de cada sesión (re-hashear
+    // TODO el contenido) en un escaneo por stats. No-op si ya se cargó.
+    await this.loadHashCache(dir)
     const prevCache = this.hashCache.get(dir)
     // Cache nuevo: solo las entradas observadas en ESTA corrida (así no crece con
     // archivos borrados). Las reusadas conservan su hashedAt/mtimeMs/oid.
@@ -1020,6 +1115,8 @@ export class GitService {
       { size: number; mtimeMs: number; oid: string; hashedAt: number }
     >()
     const map = new Map<string, string>()
+    // true si esta corrida hasheó al menos un archivo (⇒ el cache cambió).
+    let rehashed = false
 
     // 2+3) Resolver el oid de una ruta: reutiliza el cache cuando es seguro, o
     // re-lee+re-hashea. Registra la entrada resultante en `nextCache`.
@@ -1049,6 +1146,7 @@ export class GitService {
       // en la ventana racy) fuerza leer el contenido real y hashearlo.
       const content = await readFile(join(dir, rel))
       const { oid } = await git.hashBlob({ object: content })
+      rehashed = true
       map.set(rel, oid)
       nextCache.set(rel, { size, mtimeMs, oid, hashedAt: Date.now() })
     }
@@ -1065,8 +1163,12 @@ export class GitService {
       Array.from({ length: Math.min(CONCURRENCY, paths.length) }, () => worker())
     )
 
-    // 5) Reemplazar el cache de este dir por las entradas de esta corrida.
+    // 5) Reemplazar el cache de este dir por las entradas de esta corrida y
+    // persistirlo si cambió (algo se hasheó, o aparecieron/desaparecieron rutas).
+    // Fire-and-forget: guardar el JSON nunca bloquea ni rompe el escaneo.
+    const dirty = rehashed || nextCache.size !== (prevCache?.size ?? -1)
     this.hashCache.set(dir, nextCache)
+    if (dirty) void this.saveHashCache(dir, nextCache)
     return map
   }
 }

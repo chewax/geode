@@ -95,6 +95,15 @@ let quitting = false
  */
 let cadenceSnapshotInFlight = false
 
+/**
+ * Bóvedas (por root) con un snapshot en curso. Single-flight: dos commits
+ * concurrentes sobre el mismo .git pueden pisarse el index (con adjuntos
+ * grandes un commit puede tardar mucho y encimarse con la cadencia o con un
+ * cambio de bóveda ida y vuelta). El que llega segundo se salta sin perder
+ * nada: el primero captura el estado y el próximo tick agarra lo que falte.
+ */
+const snapshotsInFlight = new Set<string>()
+
 async function githubConfig(): Promise<GithubConfig> {
   const { github } = await loadSettings()
   // El remoto reportado es el de LA BÓVEDA ACTIVA (su origin en `.git`), NUNCA el
@@ -206,6 +215,13 @@ async function snapshotIfChanged(
   const info = vault.getInfo()
   if (!info) return null // sin vault: no-op, sin lanzar
 
+  // Single-flight POR BÓVEDA: si ya hay un snapshot de ESTE repo en curso (un
+  // commit grande de la cadencia, o un cambio de bóveda rápido ida y vuelta),
+  // este se salta. Dos commits concurrentes sobre el mismo .git pueden pisarse
+  // el index; y el que está corriendo ya va a capturar el estado actual.
+  if (snapshotsInFlight.has(info.root)) return null
+  snapshotsInFlight.add(info.root)
+
   // `useAi` decide el path de IA. El `&&` corta el short-circuit antes de loadSettings:
   // los paths de ciclo de vida (allowAi=false) nunca tocan disco ni red.
   const useAi = allowAi && resolveAiTitles((await loadSettings()).snapshots?.aiTitles)
@@ -213,7 +229,10 @@ async function snapshotIfChanged(
   // Guarda de re-entrada SOLO para la cadencia con IA: si ya hay una en curso, esta
   // tick no-opea (return null) en vez de arrancar una segunda llamada de IA/commit.
   // Los paths de ciclo de vida (useAi=false) NUNCA se bloquean: caen directo al marcador.
-  if (useAi && cadenceSnapshotInFlight) return null
+  if (useAi && cadenceSnapshotInFlight) {
+    snapshotsInFlight.delete(info.root)
+    return null
+  }
   if (useAi) cadenceSnapshotInFlight = true
 
   try {
@@ -237,6 +256,7 @@ async function snapshotIfChanged(
     return null
   } finally {
     // Se libera siempre: un fallo no puede dejar la guarda trabada permanentemente.
+    snapshotsInFlight.delete(info.root)
     if (useAi) cadenceSnapshotInFlight = false
   }
 }

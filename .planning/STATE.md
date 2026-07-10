@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 Phase: Milestone v1.3 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-10 — Completed quick task 260710-ol2: hover en la línea de tiempo muestra la descripción completa
+Last activity: 2026-07-10 — Completed quick task 260710-ovf: drag & drop de documentos entre carpetas del árbol
 
 ## Performance Metrics
 
@@ -108,6 +108,7 @@ None yet.
 | 260710-jll | Optimizar cambio/baja de bóveda con muchos archivos: cache racy-safe persistido, workBlobs paralelo, push no bloqueante, git.add batch, sniff binario en lineStat, single-flight | 2026-07-10 | c2f09b5 | [260710-jll-optimizar-cambio-baja-de-boveda-con-much](./quick/260710-jll-optimizar-cambio-baja-de-boveda-con-much/) |
 | 260710-nq5 | Manejo elegante de errores de IA al guardar versión: mapAiError en main traduce fallos de OpenRouter a español (404 → revisar modelo en Ajustes → IA), friendlyAiError descarta el envoltorio IPC en los diálogos | 2026-07-10 | f33e471 | [260710-nq5-manejo-elegante-de-errores-de-ia-al-guar](./quick/260710-nq5-manejo-elegante-de-errores-de-ia-al-guar/) |
 | 260710-ol2 | Hover en item de la línea de tiempo muestra la descripción completa (title nativo con el mensaje completo del commit en tl-entry-label) | 2026-07-10 | 52a7be5 | [260710-ol2-hover-en-item-de-la-l-nea-de-tiempo-mues](./quick/260710-ol2-hover-en-item-de-la-l-nea-de-tiempo-mues/) |
+| 260710-ovf | Drag & drop en el árbol lateral: mover notas/carpetas a otras carpetas o a la raíz (HTML5 nativo, reusa vault.rename, remap de pestañas, colisiones en español) | 2026-07-10 | 8338483 | [260710-ovf-arrastrar-documentos-a-otras-carpetas-de](./quick/260710-ovf-arrastrar-documentos-a-otras-carpetas-de/) |
 
 ## Deferred Items
 

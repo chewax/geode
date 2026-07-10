@@ -870,6 +870,14 @@ function registerIpcHandlers(): void {
     }
     const url = normalizeRemoteUrl(ownRemote) // arregla URLs SSH ya guardadas
 
+    // RESPALDO NUNCA VACÍO (BACKUP-03): si la bóveda todavía no tiene ninguna
+    // versión (rama sin commits — típico al abrir una carpeta existente como
+    // cuaderno), commiteamos su contenido actual como primera versión ANTES del
+    // push. Sin esto, pushear una rama sin nacer falla con "Could not find <rama>".
+    if (!(await gitService.hasCommits(root))) {
+      await gitService.commit(root, 'Primera versión')
+    }
+
     // Push manual (reintento del botón persistente): TODO fallo de git/API pasa
     // por mapBackupError (BACKUP-05) para que solo cruce el mensaje humano —
     // nunca el crudo de la API ni el token embebido en la URL (T-12-01/T-12-03).
@@ -947,7 +955,16 @@ function registerIpcHandlers(): void {
       await gitService.setRemote(root, remote) // origin propio de ESTA bóveda
     }
 
-    // Primer respaldo: push del seed sembrado en Fase 11 ("Primera versión").
+    // RESPALDO NUNCA VACÍO (BACKUP-03): el onboarding siembra Bienvenida.md como
+    // "Primera versión", pero una bóveda EXISTENTE abierta como cuaderno puede no
+    // tener ninguna versión todavía (rama sin nacer). Commiteamos su contenido
+    // actual antes del push para que "el push nunca sea vacío" valga para cualquier
+    // bóveda, no solo las sembradas — sin esto el push falla con "Could not find".
+    if (!(await gitService.hasCommits(root))) {
+      await gitService.commit(root, 'Primera versión')
+    }
+
+    // Primer respaldo: push de la primera versión (sembrada o recién commiteada).
     let branch: string
     let oid: string
     try {

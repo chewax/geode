@@ -152,6 +152,21 @@ export class GitService {
     return git.commit({ fs, dir, message, author: this.author() })
   }
 
+  /**
+   * true si la rama actual tiene al menos una versión (HEAD resoluble). false si
+   * la rama está "sin nacer" (recién `git init`, HEAD apunta a una rama sin commits
+   * todavía) — típico al abrir una carpeta existente como cuaderno. Se usa antes de
+   * pushear: pushear una rama sin commits falla con "Could not find <rama>".
+   */
+  async hasCommits(dir: string): Promise<boolean> {
+    try {
+      await git.resolveRef({ fs, dir, ref: 'HEAD' })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   // ── Metadata de ramas (.geode/branches.json): guarda de qué rama salió cada
   // rama, para poder integrarla "a su base". .geode está fuera del versionado.
   private branchMetaPath(dir: string): string {

@@ -450,9 +450,12 @@ function registerIpcHandlers(): void {
       const wasActive = vault.getInfo()?.root === root
 
       // Instantánea de seguridad de la bóveda activa antes de soltarla, para no
-      // perder cambios sin commitear (mismo patrón que vaultSwitch).
+      // perder cambios sin commitear (mismo patrón que vaultSwitch). El push solo
+      // es fire-and-forget si la carpeta QUEDA en disco: si va a la papelera, hay
+      // que esperarlo — es la última chance de respaldar, y un push leyendo .git
+      // en paralelo con trashItem puede fallar con EBUSY en Windows.
       if (wasActive) {
-        await snapshotIfChanged('baja-de-boveda', false, { awaitPush: false })
+        await snapshotIfChanged('baja-de-boveda', false, { awaitPush: opts.fromDisk })
       }
 
       if (opts.fromDisk) {

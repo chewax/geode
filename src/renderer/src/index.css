@@ -808,6 +808,17 @@ body.resizing-col {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+/* Resaltado del destino de un arrastre (drag & drop del árbol): mismo contorno
+   inset sobrio que la selección, para reorganizar sin ruido visual. */
+.tree-dir.drop-target {
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tree-scroll.root-drop-target {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .tree-empty {
   color: var(--muted);
   font-size: 12px;

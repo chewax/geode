@@ -186,6 +186,8 @@ export function App(): JSX.Element {
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  /** Resaltado de la zona de drop raíz (soltar sobre el área vacía del árbol). */
+  const [rootDragOver, setRootDragOver] = useState(false)
   /** Refresco desde disco en curso: alimenta el `.spin` del icono RefreshCw. */
   const [refreshing, setRefreshing] = useState(false)
 
@@ -679,6 +681,42 @@ export function App(): JSX.Element {
         // Remapear también la tab de preview: si no, tras renombrar quedaría
         // apuntando al path viejo (referencia colgada → pierde la itálica y el
         // doble-click para fijar deja de funcionar en ese panel).
+        preview: leaf.preview ? remap(leaf.preview) : leaf.preview
+      }))
+    )
+    setSelected((s) => (s ? { ...s, path: remap(s.path) } : s))
+    await refreshTree()
+  }, [refreshTree])
+
+  // Mueve una nota o carpeta a otra carpeta (drag & drop del árbol). Reusa el
+  // canal de rename (que ya mueve entre carpetas, valida colisión y es racy-safe)
+  // y aplica el mismo remap de pestañas/panes/selección que renameNode.
+  const moveNode = useCallback(async (fromPath: string, toDir: string) => {
+    const base = fromPath.slice(fromPath.lastIndexOf('/') + 1)
+    const toRel = toDir ? `${toDir}/${base}` : base
+    // No-op silencioso: soltar sobre sí mismo o sobre la carpeta que ya lo contiene.
+    if (toRel === fromPath) return
+    if (parentDir(fromPath) === toDir) return
+    // No-op de seguridad: mover una carpeta dentro de sí misma o de una
+    // descendiente corrompería el árbol; lo ignoramos.
+    if (toDir === fromPath || toDir.startsWith(`${fromPath}/`)) return
+    try {
+      await window.geode.vault.rename(fromPath, toRel)
+    } catch (e) {
+      // La colisión llega como "Ya existe: <ruta>" desde vault.rename. No
+      // reintentamos ni sobrescribimos: avisamos en español vía toast.
+      setToast(e instanceof Error ? e.message : 'No se pudo mover el elemento.')
+      return
+    }
+    // Reflejar en todos los paneles (tabs + nota activa) y en la selección,
+    // igual que renameNode.
+    const remap = (p: string): string =>
+      p === fromPath ? toRel : p.startsWith(`${fromPath}/`) ? toRel + p.slice(fromPath.length) : p
+    setPanes((prev) =>
+      mapLeaves(prev, (leaf) => ({
+        ...leaf,
+        tabs: leaf.tabs.map(remap),
+        active: leaf.active ? remap(leaf.active) : null,
         preview: leaf.preview ? remap(leaf.preview) : leaf.preview
       }))
     )
@@ -1388,13 +1426,28 @@ export function App(): JSX.Element {
               // cualquier nodo) deselecciona, y con `selected` en null los botones
               // "+" y el menú contextual crean en la raíz (estilo VSCode).
               <div
-                className="tree-scroll"
+                className={`tree-scroll${rootDragOver ? ' root-drop-target' : ''}`}
                 onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}
                 onContextMenu={(e) => {
                   if (e.target !== e.currentTarget) return
                   e.preventDefault()
                   setSelected(null)
                   setMenu({ node: null, x: e.clientX, y: e.clientY })
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  // Solo resaltamos cuando el mouse está sobre el área vacía del
+                  // contenedor (no sobre un nodo), para no competir con el drop
+                  // sobre carpetas (que hace stopPropagation y no llega acá).
+                  if (e.target === e.currentTarget) setRootDragOver(true)
+                }}
+                onDragLeave={() => setRootDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setRootDragOver(false)
+                  const from = e.dataTransfer.getData('text/geode-path')
+                  if (from) void moveNode(from, '')
                 }}
               >
                 <FileTree
@@ -1414,6 +1467,7 @@ export function App(): JSX.Element {
                   onStartRename={(node) => { setRenameError(null); setRenameSeed(null); setEditingPath(node.path) }}
                   renameError={renameError}
                   renameSeed={renameSeed}
+                  onMoveNode={(from, toDir) => void moveNode(from, toDir)}
                 />
               </div>
             ) : (

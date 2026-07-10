@@ -34,7 +34,7 @@ if (APP_ICON.isEmpty()) {
 void iconIco
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
-import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage } from './services/ai'
+import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage, mapAiError } from './services/ai'
 import {
   requestDeviceCode,
   pollForToken,
@@ -706,37 +706,52 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.aiSuggestMessage, async (): Promise<string> => {
-    const key = await getAiKey()
-    const { ai } = await loadSettings()
-    if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+    try {
+      const key = await getAiKey()
+      const { ai } = await loadSettings()
+      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
 
-    const diff = await gitService.pendingDiff(requireRoot())
-    if (!diff) return ''
+      const diff = await gitService.pendingDiff(requireRoot())
+      if (!diff) return ''
 
-    const provider = new OpenRouterProvider(key, ai.model)
-    return provider.generateMessage(diff)
+      const provider = new OpenRouterProvider(key, ai.model)
+      return await provider.generateMessage(diff)
+    } catch (e) {
+      // Boundary: traducimos a copy amigable en español y nunca filtramos el crudo.
+      throw mapAiError(e)
+    }
   })
 
   ipcMain.handle(IPC.aiSuggestVersion, async (): Promise<NamedVersion> => {
-    const key = await getAiKey()
-    const { ai } = await loadSettings()
-    if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+    try {
+      const key = await getAiKey()
+      const { ai } = await loadSettings()
+      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
 
-    // El diff ya viene acotado a notas .md desde pendingDiff.
-    const diff = await gitService.pendingDiff(requireRoot())
-    if (!diff) return { title: '', description: '' }
+      // El diff ya viene acotado a notas .md desde pendingDiff.
+      const diff = await gitService.pendingDiff(requireRoot())
+      if (!diff) return { title: '', description: '' }
 
-    return new OpenRouterProvider(key, ai.model).generateNamedVersion(diff)
+      return await new OpenRouterProvider(key, ai.model).generateNamedVersion(diff)
+    } catch (e) {
+      // Boundary: guardar versión no debe filtrar el error crudo del proveedor.
+      throw mapAiError(e)
+    }
   })
 
   ipcMain.handle(
     IPC.aiGenerateText,
     async (_e, instruction: string, selection: string, before: string): Promise<string> => {
-      const key = await getAiKey()
-      const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
-      const provider = new OpenRouterProvider(key, ai.model)
-      return provider.generateText(instruction, selection, before)
+      try {
+        const key = await getAiKey()
+        const { ai } = await loadSettings()
+        if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+        const provider = new OpenRouterProvider(key, ai.model)
+        return await provider.generateText(instruction, selection, before)
+      } catch (e) {
+        // Boundary: el asistente de escritura tampoco filtra el crudo del proveedor.
+        throw mapAiError(e)
+      }
     }
   )
 

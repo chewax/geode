@@ -204,6 +204,58 @@ export async function listOpenRouterModels(key: string): Promise<AiModel[]> {
   return new OpenRouterProvider(key, '').listModels()
 }
 
+/**
+ * Boundary de traducción de fallos de IA a español humano. Los errores crudos
+ * del proveedor los generamos nosotros en `chat()`/`listModels()` con el status
+ * HTTP y el body de OpenRouter (p. ej. `OpenRouter /chat devolvió 404: {"error":
+ * {"message":"No endpoints found for allenai/olmo-3-32b-think"}}`). Nada de eso
+ * puede cruzar al usuario: `mapAiError` clasifica y devuelve SIEMPRE un Error
+ * nuevo con copy amigable, sin relanzar el crudo. Imita el precedente de
+ * `mapBackupError` (v1.2). La IA es opcional: el mensaje deja claro que se puede
+ * seguir a mano.
+ */
+export function mapAiError(e: unknown): Error {
+  const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+  const lower = msg.toLowerCase()
+
+  // Modelo inexistente / dado de baja en el proveedor (caso real: 404 con
+  // "No endpoints found"). Es el motivo más común de este boundary.
+  if (lower.includes('404') || lower.includes('no endpoints found')) {
+    return new Error(
+      'La sugerencia de IA no está disponible: el modelo configurado ya no existe en OpenRouter. Revisá el modelo en Ajustes → IA.'
+    )
+  }
+
+  // Credencial rechazada (key inválida o sin permisos).
+  if (
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('unauthorized') ||
+    lower.includes('auth')
+  ) {
+    return new Error(
+      'La sugerencia de IA no está disponible: la API key de OpenRouter fue rechazada. Revisá la API key en Ajustes → IA.'
+    )
+  }
+
+  // Timeout / abort / fallo de red: no se pudo contactar al proveedor.
+  if (
+    lower.includes('aborted') ||
+    lower.includes('timeout') ||
+    lower.includes('network') ||
+    lower.includes('fetch failed')
+  ) {
+    return new Error(
+      'La sugerencia de IA no está disponible: no se pudo contactar a OpenRouter. Probá de nuevo en un momento.'
+    )
+  }
+
+  // Cualquier otro fallo: genérico, sin filtrar el crudo del proveedor.
+  return new Error(
+    'La sugerencia de IA no está disponible en este momento. Podés escribir el nombre y la descripción a mano.'
+  )
+}
+
 /** Uso/gasto de la API key en OpenRouter (crédito consumido y límite, en USD). */
 export async function getOpenRouterUsage(key: string): Promise<AiUsage> {
   // Timeout: sin esto un problema de red deja el fetch (y el indicador) colgado.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { JSX, KeyboardEvent } from 'react'
+import type { DragEvent, JSX, KeyboardEvent } from 'react'
 import { Triangle, Trash2 } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
 
@@ -32,6 +32,11 @@ export interface FileTreeProps {
   /** Texto a sembrar en el input al reabrir tras un rename fallido (preserva lo
    *  tipeado); null = sembrar con el nombre actual del nodo. */
   renameSeed: string | null
+  /** Mueve un nodo (nota o carpeta) a otra carpeta por drag & drop.
+   *  `fromPath` es la ruta relativa del elemento arrastrado; `toDir` es la ruta
+   *  relativa de la carpeta destino ('' = raíz de la bóveda). El move reusa el
+   *  canal de rename existente en App (que valida colisión y es racy-safe). */
+  onMoveNode: (fromPath: string, toDir: string) => void
 }
 
 /** Nombre visible de un nodo (las notas se muestran sin la extensión .md). */
@@ -64,8 +69,10 @@ function TreeItem({
   depth,
   ...props
 }: { node: TreeNode; depth: number } & Omit<FileTreeProps, 'nodes'>): JSX.Element {
-  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete, onStartRename, renameError, renameSeed } = props
+  const { openPath, selectedPath, editingPath, revealPath, defaultExpanded, collapseVersion, onOpen, onSelect, onContext, onRename, onRenameCancel, onDelete, onStartRename, renameError, renameSeed, onMoveNode } = props
   const [expanded, setExpanded] = useState(defaultExpanded)
+  // Resaltado del drop-target: solo las carpetas son destino de un arrastre.
+  const [dragOver, setDragOver] = useState(false)
 
   // "Colapsar/expandir todo": al cambiar la señal, reiniciar al estado pedido.
   useEffect(() => setExpanded(defaultExpanded), [collapseVersion, defaultExpanded])
@@ -90,6 +97,14 @@ function TreeItem({
       e.preventDefault()
       onStartRename(node)
     }
+  }
+
+  // Inicio del arrastre: transportamos la ruta origen en el dataTransfer (patrón
+  // idiomático HTML5, sin estado compartido entre TreeItems). No se arrastra
+  // mientras se edita el nombre (el input maneja su propia selección de texto).
+  const onDragStart = (e: DragEvent<HTMLElement>): void => {
+    e.dataTransfer.setData('text/geode-path', node.path)
+    e.dataTransfer.effectAllowed = 'move'
   }
 
   const nameEl = editing ? (
@@ -122,9 +137,27 @@ function TreeItem({
     return (
       <li>
         <div
-          className={`tree-dir${selected ? ' selected' : ''}`}
+          className={`tree-dir${selected ? ' selected' : ''}${dragOver ? ' drop-target' : ''}`}
           style={indent}
           tabIndex={0}
+          draggable={!editing}
+          onDragStart={onDragStart}
+          onDragOver={(e) => {
+            // preventDefault habilita el drop; marcamos el efecto y resaltamos.
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            // stopPropagation es load-bearing: evita que el drop burbujee a la zona
+            // raíz de tree-scroll (App) y dispare un segundo move a la raíz.
+            e.stopPropagation()
+            setDragOver(false)
+            const from = e.dataTransfer.getData('text/geode-path')
+            if (from) onMoveNode(from, node.path)
+          }}
           onClick={() => {
             onSelect(node)
             setExpanded((v) => !v)
@@ -165,6 +198,8 @@ function TreeItem({
       className={`tree-file${openPath === node.path ? ' active' : ''}${selected ? ' selected' : ''}`}
       style={indent}
       tabIndex={0}
+      draggable={!editing}
+      onDragStart={onDragStart}
       onClick={() => {
         if (editing) return
         onSelect(node)

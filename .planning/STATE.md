@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 Phase: Milestone v1.3 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-10 — Milestone v1.3 completed and archived
+Last activity: 2026-07-10 — Completed quick task 260710-jll: optimizar cambio/baja de bóveda con muchos archivos
 
 ## Performance Metrics
 
@@ -105,6 +105,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260708-3om | Fixes del árbol lateral: eliminar carpetas, crear en raíz, mostrar en explorador, duplicar, foco al crear | 2026-07-08 | e1c2ac3 | [260708-3om-arreglar-5-problemas-del-arbol-lateral-d](./quick/260708-3om-arreglar-5-problemas-del-arbol-lateral-d/) |
+| 260710-jll | Optimizar cambio/baja de bóveda con muchos archivos: cache racy-safe de stats+hash, workBlobs paralelo, push no bloqueante, git.add batch | 2026-07-10 | 6fc7a55 | [260710-jll-optimizar-cambio-baja-de-boveda-con-much](./quick/260710-jll-optimizar-cambio-baja-de-boveda-con-much/) |
 
 ## Deferred Items
 

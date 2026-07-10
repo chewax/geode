@@ -121,6 +121,10 @@ export function Timeline({
           const changed = names ? changedSummary(names) : '…'
           // Evitar duplicar la fecha si la etiqueta ya cayó a la fecha relativa.
           const secondary = label === rel ? changed : `${rel} · ${changed}`
+          // Texto completo del mensaje (título + cuerpo) para el tooltip nativo de
+          // la etiqueta, que se trunca con ellipsis; si el mensaje está vacío cae a
+          // `label` (tag → primera línea → fecha relativa).
+          const textoCompleto = c.message.trim() || label
           return (
             <li
               key={c.oid}
@@ -130,7 +134,12 @@ export function Timeline({
               onClick={() => (isNewest ? onJumpToPresent() : onSelect(c.oid))}
             >
               <div className="tl-entry-main">
-                <span className="tl-entry-label">{label}</span>
+                {/* title nativo expone el mensaje completo que la etiqueta trunca;
+                    anida sobre el title del <li> (basenames), el navegador prioriza
+                    el elemento más interno. */}
+                <span className="tl-entry-label" title={textoCompleto}>
+                  {label}
+                </span>
                 <span className="tl-entry-chips">
                   {/* TIME-06: ambos marcadores visibles a la vez durante el viaje. */}
                   {isNewest && <span className="chip current">presente</span>}

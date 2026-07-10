@@ -58,10 +58,41 @@ None - plan executed exactly as written.
 - Revisión manual de la lógica del cache contra el escenario racy (mismo tamaño, mismo segundo) → fuerza re-hash.
 - La detección de cambios sigue siendo por content-hash vs blobs de HEAD; garantía core intacta.
 
+## Ronda 2 — UAT "sigue demorando" (2026-07-10)
+
+El UAT reveló la causa real midiendo sobre las bóvedas del usuario: `D:\Libros` es
+una bóveda de 4.4 GB (580 PDFs, 330 EPUBs, 35 descargas parciales `.!qb` de
+qBittorrent que mutan solas) con **HEAD sin nacer** (0 commits; los intentos de
+commit inicial nunca terminaron y dejaron 3 GB de objetos huérfanos en `.git`).
+Mediciones (bundle esbuild del GitService real):
+
+- Escaneo frío por sesión (cache solo en memoria): **7.9 s** → con cache
+  persistido en `.geode/hashcache.json`: **0.07 s**.
+- `pendingLineStat`: **14 s** (leía jpg/epub enteros como utf8 y el blob de HEAD
+  por cada cambio) → con cap de 5 MB + sniff binario de 8 KB: **0.47 s**.
+- Garantía racy re-verificada end-to-end: edición mismo-tamaño con mtime clavado
+  dentro de la ventana racy → re-hash → detectada.
+
+Fixes ronda 2:
+- `97d2575` hash-cache persistido (`.geode/hashcache.json`, best-effort,
+  atomicWrite; la ventana racy viaja en `hashedAt`, tiempos absolutos).
+- `c2f09b5` single-flight de snapshots por bóveda (dos commits concurrentes
+  sobre el mismo `.git` pueden pisarse el index).
+- `6fc7a55` (post-ronda-1) `vaultRemove` a papelera espera el push (última
+  chance de respaldo; evita race push-vs-trashItem sobre `.git`).
+
+**Pendiente de decisión de producto (fuera de alcance):** una bóveda con GBs de
+binarios que mutan solos sigue commiteando GBs en cada snapshot (zlib en JS,
+main thread). Opciones: reglas de ignore (`.gitignore` / extensiones tipo
+`.!qb`), umbral de tamaño con aviso, o mover GitService a un worker thread.
+
 ## Commits
 
 - `a79f694` perf(quick-260710-jll): cache racy-safe + paralelismo en workBlobs, git.add batcheado
 - `f0cd714` perf(quick-260710-jll): push no-bloqueante en cambio/baja de boveda (quit conserva el await)
+- `6fc7a55` fix(quick-260710-jll): esperar el push antes de mandar la boveda a la papelera
+- `97d2575` perf(quick-260710-jll): hash-cache persistido en .geode + sniff binario de 8KB en lineStat
+- `c2f09b5` fix(quick-260710-jll): single-flight de snapshots por boveda
 
 ## Self-Check: PASSED
 - FOUND: src/main/services/git.ts (modified)

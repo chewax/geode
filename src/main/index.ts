@@ -192,8 +192,17 @@ async function aiSnapshotMessage(root: string): Promise<string | null> {
  * el opt-in `snapshots.aiTitles` está ON; ahí el mensaje sale de `aiSnapshotMessage`
  * y cae al marcador si falta key/modelo o la IA falla/timeout. Los paths de ciclo de
  * vida (cierre, cambio/baja de bóveda) pasan allowAi=false: nunca red en la salida.
+ *
+ * `opts.awaitPush`: controla si se ESPERA al auto-push tras el commit. Default true
+ * (cierre y cadencia lo esperan: el before-quit lo cubre con su race de 3s). El
+ * cambio/baja de bóveda pasan false → push fire-and-forget, para no bloquear la UI
+ * esperando la red (autoPushAfterCommit nunca lanza y tiene su propio try/catch).
  */
-async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<string | null> {
+async function snapshotIfChanged(
+  reason: string,
+  allowAi: boolean,
+  opts: { awaitPush?: boolean } = {}
+): Promise<string | null> {
   const info = vault.getInfo()
   if (!info) return null // sin vault: no-op, sin lanzar
 
@@ -216,7 +225,12 @@ async function snapshotIfChanged(reason: string, allowAi: boolean): Promise<stri
     const oid = await gitService.commit(info.root, mensaje)
     // Auto-push tras el commit real (no si fue no-op → oid null). Best-effort:
     // no bloquea ni rompe el snapshot (el before-quit lo envuelve en un race de 3s).
-    if (oid) await autoPushAfterCommit(info.root)
+    // Si awaitPush=false (switch/baja de bóveda), se dispara fire-and-forget para
+    // no bloquear la UI con la red; autoPushAfterCommit nunca lanza.
+    if (oid) {
+      if (opts.awaitPush === false) void autoPushAfterCommit(info.root)
+      else await autoPushAfterCommit(info.root)
+    }
     return oid
   } catch (e) {
     console.warn('[snapshot] falló (' + reason + '):', e)
@@ -414,7 +428,7 @@ function registerIpcHandlers(): void {
       // Instantánea de seguridad de la bóveda actual antes de cambiar: corre ANTES
       // de setRoot para que snapshotIfChanged (que lee vault.getInfo()) commitee el
       // root viejo/activo, no el nuevo. El orden es load-bearing (SNAP-03).
-      await snapshotIfChanged('cambio-de-boveda', false)
+      await snapshotIfChanged('cambio-de-boveda', false, { awaitPush: false })
       const info = await vault.setRoot(root)
       await gitService.ensureRepo(info.root)
       await rememberVault(info.root)
@@ -438,7 +452,7 @@ function registerIpcHandlers(): void {
       // Instantánea de seguridad de la bóveda activa antes de soltarla, para no
       // perder cambios sin commitear (mismo patrón que vaultSwitch).
       if (wasActive) {
-        await snapshotIfChanged('baja-de-boveda', false)
+        await snapshotIfChanged('baja-de-boveda', false, { awaitPush: false })
       }
 
       if (opts.fromDisk) {

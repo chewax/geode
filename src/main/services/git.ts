@@ -99,6 +99,18 @@ function sanitizeTagName(raw: string): string {
  * auto-commit. El mensaje lo genera IA a partir de pendingDiff().
  */
 export class GitService {
+  /**
+   * Cache de oids por bóveda para acelerar `workBlobs`: `dir` → (`ruta` →
+   * {size, mtimeMs, oid, hashedAt}). Es una optimización PURA para no re-leer ni
+   * re-hashear el contenido COMPLETO de cada archivo en cada escaneo (switch/baja
+   * de bóveda con muchos archivos). Ante CUALQUIER duda, se re-hashea: el cache
+   * nunca puede hacer que se pierda un cambio (garantía anti racy-git).
+   */
+  private hashCache = new Map<
+    string,
+    Map<string, { size: number; mtimeMs: number; oid: string; hashedAt: number }>
+  >()
+
   private author(): { name: string; email: string } {
     let name = 'geode'
     try {
@@ -141,12 +153,13 @@ export class GitService {
       await this.createBranch(dir, head, '', { noCheckout: true })
     }
 
+    // Adds batcheados: isomorphic-git 1.38 acepta `filepath: string[]`, así que
+    // agregamos TODOS los modificados/creados en UNA sola llamada en vez de una
+    // por archivo. Los `git.remove` NO aceptan array: van uno por borrado.
+    const toAdd = changes.filter((c) => !c.deleted).map((c) => c.filepath)
+    if (toAdd.length > 0) await git.add({ fs, dir, filepath: toAdd })
     for (const change of changes) {
-      if (change.deleted) {
-        await git.remove({ fs, dir, filepath: change.filepath })
-      } else {
-        await git.add({ fs, dir, filepath: change.filepath })
-      }
+      if (change.deleted) await git.remove({ fs, dir, filepath: change.filepath })
     }
 
     return git.commit({ fs, dir, message, author: this.author() })
@@ -960,24 +973,100 @@ export class GitService {
   /**
    * Mapa ruta→oid del working dir, hasheando el contenido real de cada archivo.
    * No pasa por el index de isomorphic-git, así que es inmune al racy git.
+   *
+   * Optimización (bóvedas grandes): en vez de leer+hashear el contenido COMPLETO
+   * de cada archivo EN SERIE, primero se recorren los directorios (barato) para
+   * juntar la lista de rutas, luego se hace `stat` de cada una y se REUTILIZA el
+   * oid cacheado cuando (size, mtimeMs) coinciden con la corrida anterior y la
+   * entrada quedó FUERA de la ventana racy. Los que sí hay que re-hashear corren
+   * con concurrencia acotada.
+   *
+   * CRÍTICO (landmine de CLAUDE.md — racy git): el cache es una optimización pura.
+   * Una entrada solo se reutiliza si `prev.hashedAt - prev.mtimeMs > RACY_MARGIN_MS`,
+   * es decir, si el archivo fue escrito con MÁS de un segundo de anticipación al
+   * hasheo que lo cacheó. Así, una edición del mismo tamaño en el mismo segundo del
+   * escaneo que pobló el cache SIEMPRE se re-hashea → el cambio nunca se pierde. NO
+   * se vuelve a statusMatrix ni se confía ciegamente en los stats.
    */
   private async workBlobs(dir: string): Promise<Map<string, string>> {
-    const map = new Map<string, string>()
-    const walk = async (relDir: string): Promise<void> => {
+    // Margen racy: git considera "racily clean" un archivo con mtime dentro del
+    // mismo segundo del escaneo. Espejamos ese comportamiento a 1s de resolución.
+    const RACY_MARGIN_MS = 1000
+    // Concurrencia máxima de stats+hash en vuelo: acota memoria y descriptores.
+    const CONCURRENCY = 16
+
+    // 1) Recorrer solo la estructura de directorios (sin leer contenido) para
+    // juntar la lista de rutas de archivo, saltando las carpetas no versionadas.
+    const paths: string[] = []
+    const collect = async (relDir: string): Promise<void> => {
       const entries = await readdir(join(dir, relDir), { withFileTypes: true })
       for (const entry of entries) {
         if (IGNORED_TOP.has(entry.name)) continue
         const rel = relDir ? `${relDir}/${entry.name}` : entry.name
         if (entry.isDirectory()) {
-          await walk(rel)
+          await collect(rel)
         } else if (entry.isFile()) {
-          const content = await readFile(join(dir, rel))
-          const { oid } = await git.hashBlob({ object: content })
-          map.set(rel, oid)
+          paths.push(rel)
         }
       }
     }
-    await walk('')
+    await collect('')
+
+    const prevCache = this.hashCache.get(dir)
+    // Cache nuevo: solo las entradas observadas en ESTA corrida (así no crece con
+    // archivos borrados). Las reusadas conservan su hashedAt/mtimeMs/oid.
+    const nextCache = new Map<
+      string,
+      { size: number; mtimeMs: number; oid: string; hashedAt: number }
+    >()
+    const map = new Map<string, string>()
+
+    // 2+3) Resolver el oid de una ruta: reutiliza el cache cuando es seguro, o
+    // re-lee+re-hashea. Registra la entrada resultante en `nextCache`.
+    const resolveOne = async (rel: string): Promise<void> => {
+      let size: number
+      let mtimeMs: number
+      try {
+        const st = await stat(join(dir, rel))
+        size = st.size
+        mtimeMs = st.mtimeMs
+      } catch {
+        // El archivo desapareció entre el readdir y el stat: lo omitimos (queda
+        // como "borrado" frente a HEAD, que es lo correcto).
+        return
+      }
+
+      const prev = prevCache?.get(rel)
+      const outsideRacyWindow = prev ? prev.hashedAt - prev.mtimeMs > RACY_MARGIN_MS : false
+      if (prev && prev.size === size && prev.mtimeMs === mtimeMs && outsideRacyWindow) {
+        // Reutilizar: mismo tamaño, mismo mtime y fuera de la ventana racy.
+        map.set(rel, prev.oid)
+        nextCache.set(rel, prev)
+        return
+      }
+
+      // Re-hashear: cualquier duda (sin entrada previa, cambió size/mtime, o cae
+      // en la ventana racy) fuerza leer el contenido real y hashearlo.
+      const content = await readFile(join(dir, rel))
+      const { oid } = await git.hashBlob({ object: content })
+      map.set(rel, oid)
+      nextCache.set(rel, { size, mtimeMs, oid, hashedAt: Date.now() })
+    }
+
+    // 4) Pool inline con índice compartido: N workers consumiendo la lista de rutas.
+    let cursor = 0
+    const worker = async (): Promise<void> => {
+      while (cursor < paths.length) {
+        const i = cursor++
+        await resolveOne(paths[i])
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, paths.length) }, () => worker())
+    )
+
+    // 5) Reemplazar el cache de este dir por las entradas de esta corrida.
+    this.hashCache.set(dir, nextCache)
     return map
   }
 }

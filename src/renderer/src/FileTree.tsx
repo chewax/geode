@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DragEvent, JSX, KeyboardEvent } from 'react'
-import { Triangle, Trash2 } from 'lucide-react'
+import { Triangle, Trash2, Image as ImageIcon } from 'lucide-react'
+import { isImagePath } from '@shared/attachments'
 import type { TreeNode } from '@shared/ipc'
 
 export interface FileTreeProps {
@@ -41,6 +42,7 @@ export interface FileTreeProps {
 
 /** Nombre visible de un nodo (las notas se muestran sin la extensión .md). */
 function displayName(node: TreeNode): string {
+  // Las imágenes conservan la extensión para distinguirlas de las notas.
   return node.isDir ? node.name : node.name.replace(/\.md$/i, '')
 }
 
@@ -221,7 +223,11 @@ function TreeItem({
     >
       {/* Espaciador del ancho del triángulo, para que el nombre del archivo
           quede alineado con el de las carpetas del mismo nivel (que sí lo llevan). */}
-      <span className="twisty-spacer" />
+      {isImagePath(node.path) ? (
+        <ImageIcon className="tree-file-icon" size={13} aria-label="Imagen" />
+      ) : (
+        <span className="twisty-spacer" />
+      )}
       {nameEl}
       {delBtn}
     </li>

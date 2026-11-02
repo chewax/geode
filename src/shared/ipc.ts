@@ -6,6 +6,10 @@
  * es la única fuente de verdad de esa frontera y lo comparten ambos lados.
  */
 
+import type { SearchMatch } from './search'
+
+export type { SearchMatch } from './search'
+
 /** Nombres de canal. Prefijo `geode:` para evitar colisiones. */
 export const IPC = {
   ping: 'geode:ping',
@@ -32,6 +36,11 @@ export const IPC = {
   vaultReveal: 'geode:vault-reveal',
   vaultDuplicate: 'geode:vault-duplicate',
   vaultRemove: 'geode:vault-remove',
+  vaultCreateNoteAt: 'geode:vault-create-note-at',
+  vaultSearch: 'geode:vault-search',
+  vaultBacklinks: 'geode:vault-backlinks',
+  vaultUpdateLinks: 'geode:vault-update-links',
+  vaultSaveAttachment: 'geode:vault-save-attachment',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
@@ -126,6 +135,23 @@ export interface TreeNode {
   children?: TreeNode[]
 }
 
+/** Resultado de búsqueda de texto completo: una nota con sus coincidencias. */
+export interface SearchResult {
+  path: string
+  /** true si la consulta aparece en el nombre de la nota. */
+  nameMatch: boolean
+  matches: SearchMatch[]
+}
+
+/** Una nota que enlaza a la nota consultada, con la línea donde lo hace. */
+export interface Backlink {
+  path: string
+  /** Línea (0-based) del enlace. */
+  line: number
+  /** Texto de esa línea (recortado), para dar contexto. */
+  context: string
+}
+
 export interface VaultApi {
   /** Abre un diálogo de carpeta. Devuelve null si el usuario cancela. */
   open(): Promise<VaultInfo | null>
@@ -180,6 +206,27 @@ export interface VaultApi {
    * (null si no queda ninguna).
    */
   remove(root: string, opts: { fromDisk: boolean }): Promise<VaultInfo | null>
+  /**
+   * Crea una nota en una ruta exacta (creando carpetas intermedias). Lanza
+   * "Ya existe" si la ruta está ocupada: nunca pisa una nota existente.
+   */
+  createNoteAt(path: string, content: string): Promise<TreeNode>
+  /** Búsqueda de texto completo en las notas (sin tildes ni mayúsculas). */
+  search(query: string): Promise<SearchResult[]>
+  /** Notas que enlazan (con `[[...]]`) a la nota o archivo indicado. */
+  backlinks(path: string): Promise<Backlink[]>
+  /**
+   * Tras renombrar/mover `from` → `to` (nota, adjunto o carpeta), reescribe los
+   * enlaces `[[...]]` de toda la bóveda que apuntaban al nombre viejo. Si hay que
+   * tocar notas, primero toma una instantánea de seguridad (deshacible desde la
+   * línea de tiempo). Devuelve cuántas notas se actualizaron.
+   */
+  updateLinks(from: string, to: string): Promise<number>
+  /**
+   * Guarda una imagen (pegada o arrastrada) en la carpeta de adjuntos con un
+   * nombre libre y devuelve su ruta relativa a la raíz.
+   */
+  saveAttachment(name: string, data: Uint8Array): Promise<string>
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────

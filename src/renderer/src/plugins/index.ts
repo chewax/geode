@@ -4,10 +4,13 @@ import type { Disposable, GeodePlugin } from './types'
 import { insertDatePlugin } from './builtin/insertDate'
 import { readingTimePlugin } from './builtin/readingTime'
 import { outlinePlugin } from './builtin/outline'
+import { dailyNotesPlugin } from './builtin/dailyNotes'
+import { templatesPlugin } from './builtin/templates'
 
 export { PluginHost } from './host'
 export { GeodeProvider, useGeode, usePluginRegistry } from './react'
 export { CommandPalette } from './CommandPalette'
+export { QuickPick } from './QuickPick'
 export { PluginPanels } from './PluginPanels'
 export { PluginStatusItems } from './PluginStatusBar'
 export { loadExternalPlugins } from './loader'
@@ -15,7 +18,13 @@ export type { LoadResult } from './loader'
 export type { GeodePlugin, PluginContext, Command } from './types'
 
 /** Plugins internos que vienen con Geode (la "prueba de fuego" de la API v1). */
-export const BUILTIN_PLUGINS: GeodePlugin[] = [insertDatePlugin, readingTimePlugin, outlinePlugin]
+export const BUILTIN_PLUGINS: GeodePlugin[] = [
+  insertDatePlugin,
+  readingTimePlugin,
+  outlinePlugin,
+  dailyNotesPlugin,
+  templatesPlugin
+]
 
 /**
  * Activa una lista de plugins contra el host. Cada plugin recibe su PluginContext

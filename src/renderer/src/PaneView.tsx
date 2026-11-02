@@ -25,6 +25,9 @@ export interface PaneViewProps {
   onResize: (splitId: string, sizes: number[]) => void
   /** oid en preview; null/undefined = presente en vivo. */
   previewOid?: string | null
+  files: string[]
+  onOpenLink: (target: string, fromPath: string) => void
+  onNotify: (message: string) => void
 }
 
 /** Renderiza el árbol de paneles recursivamente: hojas = editores, splits =
@@ -52,6 +55,9 @@ export function PaneView(props: PaneViewProps): JSX.Element {
         onRequestAi={props.onRequestAi}
         registerHandle={props.registerHandle}
         previewOid={props.previewOid ?? null}
+        files={props.files}
+        onOpenLink={props.onOpenLink}
+        onNotify={props.onNotify}
       />
     )
   }

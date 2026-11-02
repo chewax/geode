@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu, nativeImage, protocol } from 'electron'
 import { join, basename } from 'path'
 import { existsSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
@@ -70,9 +70,16 @@ import {
   withPushedForVault
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
+import { VAULT_SCHEME, mimeFor } from '@shared/attachments'
 
 // OAuth App de Geode (client IDs son públicos; device flow no usa secret).
 const GITHUB_CLIENT_ID = 'Ov23liOW1wfZr6QhxLVY'
+
+// Protocolo propio para servir imágenes de la bóveda al renderer sandboxeado
+// (que no puede leer disco). Debe registrarse como privilegiado ANTES de `ready`.
+protocol.registerSchemesAsPrivileged([
+  { scheme: VAULT_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }
+])
 
 const vault = new VaultService()
 const gitService = new GitService()
@@ -390,6 +397,34 @@ function createWindow(): void {
 }
 
 /**
+ * Sirve archivos de la bóveda vía `geode-vault://vault/<ruta>[?oid=<commit>]`.
+ * La ruta pasa por `vault.readFileBytes` (resolveInside: sin path traversal). Con
+ * `oid` se lee el blob de esa versión, para que la vista del pasado muestre las
+ * imágenes tal como eran. Cualquier error → 404, sin filtrar rutas.
+ */
+function registerVaultProtocol(): void {
+  protocol.handle(VAULT_SCHEME, async (request) => {
+    try {
+      const url = new URL(request.url)
+      const rel = url.pathname
+        .split('/')
+        .filter(Boolean)
+        .map((s) => decodeURIComponent(s))
+        .join('/')
+      const oid = url.searchParams.get('oid')
+      const bytes = oid
+        ? await gitService.readBytesAt(requireRoot(), oid, rel)
+        : await vault.readFileBytes(rel)
+      return new Response(Buffer.from(bytes), {
+        headers: { 'content-type': mimeFor(rel), 'cache-control': 'no-cache' }
+      })
+    } catch {
+      return new Response('No encontrado', { status: 404 })
+    }
+  })
+}
+
+/**
  * Handlers IPC. Un handler por canal del contrato de @shared/ipc.
  * Los del vault delegan en VaultService; acá se irán sumando Git/Sync.
  */
@@ -631,6 +666,25 @@ function registerIpcHandlers(): void {
     }
   })
   ipcMain.handle(IPC.vaultDuplicate, (_e, path: string) => vault.duplicate(path))
+  ipcMain.handle(IPC.vaultCreateNoteAt, (_e, path: string, content: string) =>
+    vault.createNoteAt(path, content)
+  )
+  ipcMain.handle(IPC.vaultSearch, (_e, query: string) => vault.search(String(query ?? '')))
+  ipcMain.handle(IPC.vaultBacklinks, (_e, path: string) => vault.backlinks(path))
+  ipcMain.handle(IPC.vaultSaveAttachment, (_e, name: string, data: Uint8Array) =>
+    vault.saveAttachment(String(name ?? ''), new Uint8Array(data))
+  )
+  // Actualizar enlaces tras renombrar/mover. Reescribir notas en masa es justo el
+  // tipo de cambio que el usuario podría querer deshacer: si hay algo que tocar,
+  // primero se toma una instantánea de seguridad (sin IA) — así el estado previo
+  // queda en la línea de tiempo y "nunca perdés nada".
+  ipcMain.handle(IPC.vaultUpdateLinks, async (_e, from: string, to: string): Promise<number> => {
+    const plan = await vault.planLinkUpdates(from, to)
+    if (plan.size === 0) return 0
+    await snapshotIfChanged('antes de actualizar enlaces', false)
+    await vault.applyLinkUpdates(plan)
+    return plan.size
+  })
 
   ipcMain.handle(IPC.gitCommit, async (_e, message?: string) => {
     const root = requireRoot()
@@ -1106,6 +1160,7 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null)
 
   registerIpcHandlers()
+  registerVaultProtocol()
   await restoreLastVault()
   createWindow()
 

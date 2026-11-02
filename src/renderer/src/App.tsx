@@ -24,7 +24,9 @@ import {
   HardDrive,
   Check,
   NotebookPen,
-  FolderCog
+  FolderCog,
+  Search,
+  X
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
 import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
@@ -76,10 +78,15 @@ import { TourOverlay } from './TourOverlay'
 import { TOUR_STEPS } from './tour/steps'
 import { useTour } from './tour/useTour'
 import { AiPromptModal } from './AiPromptModal'
+import { SearchPanel } from './SearchPanel'
+import { BacklinksPanel } from './BacklinksPanel'
+import { displayName, isNotePath, resolveLink } from '@shared/links'
+import { extOf } from '@shared/attachments'
 import {
   PluginHost,
   GeodeProvider,
   CommandPalette,
+  QuickPick,
   PluginPanels,
   PluginStatusItems,
   activatePlugins,
@@ -190,6 +197,13 @@ export function App(): JSX.Element {
   const [rootDragOver, setRootDragOver] = useState(false)
   /** Refresco desde disco en curso: alimenta el `.spin` del icono RefreshCw. */
   const [refreshing, setRefreshing] = useState(false)
+  /** Panel de búsqueda (Ctrl+Shift+F) visible; el nonce re-enfoca su input. */
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchFocus, setSearchFocus] = useState(0)
+  /** Sube con cada guardado: los enlaces entrantes se recalculan (con debounce). */
+  const [backlinksKey, setBacklinksKey] = useState(0)
+  /** Coincidencia a seleccionar cuando termine de cargar la nota (búsqueda/backlinks). */
+  const pendingRevealRef = useRef<{ path: string; line: number; col: number; length: number } | null>(null)
 
   // Host de plugins: se crea una sola vez (estable entre renders).
   const hostRef = useRef<PluginHost | null>(null)
@@ -212,6 +226,10 @@ export function App(): JSX.Element {
   const layoutSnapshotRef = useRef<{ panes: PaneLayout; activePaneId: string } | null>(null)
   const headOidRef = useRef<string | null>(null)
   headOidRef.current = graph?.head.oid ?? null
+  /** Todos los archivos del árbol (notas + imágenes): resuelven y autocompletan `[[...]]`. */
+  const allFiles = useMemo(() => flattenPaths(tree), [tree])
+  const allFilesRef = useRef(allFiles)
+  allFilesRef.current = allFiles
 
   // Editor imperativo del panel enfocado (para IA/timeline/plugins).
   const getActiveEditor = useCallback(
@@ -385,6 +403,75 @@ export function App(): JSX.Element {
     setPanes((prev) => openInLeaf(prev, activePaneIdRef.current, path, { preview: !opts?.pinned }))
   }, [flushAll])
 
+  /** Selecciona `line:col` (+length) en el editor activo, sobre el texto `text`. */
+  const revealIn = useCallback((text: string, at: { line: number; col: number; length: number }) => {
+    const lines = text.split('\n')
+    let offset = 0
+    for (let i = 0; i < at.line && i < lines.length; i++) offset += lines[i].length + 1
+    const from = offset + Math.min(at.col, lines[at.line]?.length ?? 0)
+    // Diferido: el editor aplica el documento nuevo en su propio efecto.
+    window.setTimeout(() => getActiveEditor()?.revealRange(from, from + at.length), 30)
+  }, [getActiveEditor])
+
+  /** Abre una nota (búsqueda/backlinks) y, si viene `at`, selecciona esa posición. */
+  const openNoteAt = useCallback(async (path: string, at?: { line: number; col: number; length: number }) => {
+    if (at && openPathRef.current === path) {
+      // Ya está activa: no habrá recarga, así que seleccionamos directo.
+      revealIn(paneContentRef.current.get(activePaneIdRef.current) ?? '', at)
+      return
+    }
+    pendingRevealRef.current = at ? { path, ...at } : null
+    setRevealPath(path)
+    await openNote(path, { pinned: true })
+  }, [openNote, revealIn])
+
+  /**
+   * Sigue un enlace `[[destino]]` escrito en `fromPath`. Si la nota existe, la
+   * abre; si no, la crea (como Obsidian) — en la raíz, o en la ruta si el enlace
+   * trae carpetas. Durante el viaje en el tiempo sólo abre lo que existía.
+   */
+  const openLink = useCallback(async (target: string, fromPath: string) => {
+    const existing = resolveLink(target, allFilesRef.current, fromPath)
+    if (existing) {
+      await openNoteAt(existing)
+      return
+    }
+    if (previewOid != null) {
+      setToast(`«${target}» no existía en ese momento.`)
+      return
+    }
+    const clean = target.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/[<>:"|?*]/g, '')
+    if (!clean) return
+    try {
+      const rel = isNotePath(clean) ? clean : `${clean}.md`
+      const node = await window.geode.vault.createNoteAt(rel, `# ${displayName(rel)}\n\n`)
+      await refreshTree()
+      setToast(`Nota «${displayName(node.path)}» creada.`)
+      await openNoteAt(node.path)
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'No se pudo crear la nota')
+    }
+  }, [openNoteAt, previewOid, refreshTree])
+
+  /**
+   * Tras renombrar/mover, reescribe los `[[enlaces]]` que apuntaban al nombre
+   * viejo (el main toma antes una instantánea de seguridad, así que es deshacible
+   * desde la línea de tiempo). Si tocó notas, recarga los editores abiertos.
+   */
+  const updateLinksAfterMove = useCallback(async (from: string, to: string) => {
+    try {
+      const n = await window.geode.vault.updateLinks(from, to)
+      if (n > 0) {
+        bumpAll()
+        setToast(`Se actualizaron los enlaces en ${n} ${n === 1 ? 'nota' : 'notas'}.`)
+        void refreshGraph() // la instantánea de seguridad aparece en la línea de tiempo
+      }
+    } catch (e) {
+      console.warn('[enlaces] no se pudieron actualizar:', e)
+      setToast('Se renombró, pero no se pudieron actualizar los enlaces.')
+    }
+  }, [bumpAll, refreshGraph])
+
   // ── Callbacks de los paneles (EditorPane → App) ─────────────────────────────
 
   /** Enfoca un panel: pasa a ser el activo y refresca el espejo de contenido. */
@@ -429,8 +516,13 @@ export function App(): JSX.Element {
       setContent(text)
       setStatus('clean')
       host.emit('note:open', { path, content: text })
+      const reveal = pendingRevealRef.current
+      if (reveal && reveal.path === path) {
+        pendingRevealRef.current = null
+        revealIn(text, reveal)
+      }
     }
-  }, [host])
+  }, [host, revealIn])
 
   const onPaneNoteChange = useCallback((paneId: string, path: string, doc: string) => {
     paneContentRef.current.set(paneId, doc)
@@ -455,6 +547,7 @@ export function App(): JSX.Element {
       setStatus('saved')
       void refreshLineStat() // el guardado cambió lo pendiente → recontar (CHG-01)
     }
+    setBacklinksKey((k) => k + 1)
   }, [refreshLineStat])
 
   const registerPaneHandle = useCallback((paneId: string, handle: PaneHandle | null) => {
@@ -654,9 +747,17 @@ export function App(): JSX.Element {
     const clean = rawName.replace(/[\\/]/g, '').trim()
     if (!clean) return
     const parent = parentDir(node.path)
-    const filename = node.isDir ? clean : `${clean.replace(/\.md$/i, '')}.md`
+    // Notas: siempre `.md`. Imágenes: conservan su extensión si no se tipeó una.
+    const ext = extOf(node.path)
+    const filename = node.isDir
+      ? clean
+      : isNotePath(node.path)
+        ? `${clean.replace(/\.md$/i, '')}.md`
+        : extOf(clean) === ext ? clean : `${clean}.${ext}`
     const toRel = parent ? `${parent}/${filename}` : filename
     if (toRel === node.path) return
+    // Persistir lo tipeado: la actualización de enlaces puede reescribir notas abiertas.
+    await flushAll()
     try {
       await window.geode.vault.rename(node.path, toRel)
     } catch (e) {
@@ -686,7 +787,9 @@ export function App(): JSX.Element {
     )
     setSelected((s) => (s ? { ...s, path: remap(s.path) } : s))
     await refreshTree()
-  }, [refreshTree])
+    // Sólo si cambió el NOMBRE (no el case): los enlaces resuelven sin mayúsculas.
+    if (node.path.toLowerCase() !== toRel.toLowerCase()) await updateLinksAfterMove(node.path, toRel)
+  }, [refreshTree, flushAll, updateLinksAfterMove])
 
   // Mueve una nota o carpeta a otra carpeta (drag & drop del árbol). Reusa el
   // canal de rename (que ya mueve entre carpetas, valida colisión y es racy-safe)
@@ -700,6 +803,7 @@ export function App(): JSX.Element {
     // No-op de seguridad: mover una carpeta dentro de sí misma o de una
     // descendiente corrompería el árbol; lo ignoramos.
     if (toDir === fromPath || toDir.startsWith(`${fromPath}/`)) return
+    await flushAll()
     try {
       await window.geode.vault.rename(fromPath, toRel)
     } catch (e) {
@@ -722,7 +826,8 @@ export function App(): JSX.Element {
     )
     setSelected((s) => (s ? { ...s, path: remap(s.path) } : s))
     await refreshTree()
-  }, [refreshTree])
+    await updateLinksAfterMove(fromPath, toRel)
+  }, [refreshTree, flushAll, updateLinksAfterMove])
 
   // Sólo abre el diálogo de confirmación; el borrado real vive en confirmDelete.
   const deleteNode = useCallback((node: TreeNode) => {
@@ -1084,6 +1189,14 @@ export function App(): JSX.Element {
     newNote: () => void newNoteIn(''),
     newFolder: () => void newFolderIn(''),
     togglePreview: () => paneHandles.current.get(activePaneIdRef.current)?.togglePreview(),
+    openSearch: () => {
+      setSearchOpen(true)
+      setSearchFocus((n) => n + 1)
+    },
+    openNote: async (path: string) => {
+      await refreshTree()
+      await openNoteAt(path)
+    },
     toggleGraph,
     splitRight: () => splitPane(activePaneIdRef.current, 'row'),
     splitDown: () => splitPane(activePaneIdRef.current, 'col'),
@@ -1112,7 +1225,8 @@ export function App(): JSX.Element {
         getSelection: () => getActiveEditor()?.getSelection() ?? '',
         revealRange: (f, t) => getActiveEditor()?.revealRange(f, t)
       },
-      notify: (m) => setToast(m)
+      notify: (m) => setToast(m),
+      openNote: (path) => commandApiRef.current.openNote(path)
     })
     let cancelled = false
 
@@ -1158,6 +1272,7 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.saveVersion', title: 'Guardar versión', category: 'Núcleo', shortcut: 'Ctrl+S', run: () => api().saveVersion() }),
       host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
+      host.registerCommand({ id: 'core.search', title: 'Buscar en todas las notas', category: 'Núcleo', shortcut: 'Ctrl+Shift+F', run: () => api().openSearch() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
       host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
@@ -1193,7 +1308,14 @@ export function App(): JSX.Element {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (tourActiveRef.current) return // el recorrido guiado absorbe el teclado global
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        commandApiRef.current.openSearch()
+      } else if (mod && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault()
+        host.runCommand('daily-notes.today')
+      } else if (mod && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setPaletteOpen(true)
       } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
@@ -1203,7 +1325,7 @@ export function App(): JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [splitPane])
+  }, [splitPane, host])
 
   // Toast: se desvanece solo.
   useEffect(() => {
@@ -1286,6 +1408,14 @@ export function App(): JSX.Element {
   // al hover). App las posee y las inyecta vía la prop `actions` de SidebarSection.
   const notesActions = (
     <>
+      <button
+        className="icon-btn"
+        title="Buscar en todas las notas (Ctrl+Shift+F)"
+        aria-label="Buscar en todas las notas"
+        onClick={() => commandApiRef.current.openSearch()}
+      >
+        <Search size={14} />
+      </button>
       <button
         className="icon-btn"
         title={selected?.isDir ? `Nueva nota en "${selected.path}"` : 'Nueva nota'}
@@ -1420,6 +1550,24 @@ export function App(): JSX.Element {
         />
 
         <aside className="sidebar" style={{ width: sidebarWidth }}>
+          {searchOpen && (
+            <SidebarSection
+              id="buscar"
+              title="BUSCAR"
+              actions={
+                <button className="icon-btn" title="Cerrar búsqueda" aria-label="Cerrar búsqueda" onClick={() => setSearchOpen(false)}>
+                  <X size={14} />
+                </button>
+              }
+            >
+              <SearchPanel
+                focusNonce={searchFocus}
+                disabled={previewOid != null}
+                onOpen={(p, at) => void openNoteAt(p, at)}
+                onClose={() => setSearchOpen(false)}
+              />
+            </SidebarSection>
+          )}
           <SidebarSection id="notas" title="EXPLORADOR" flex actions={notesActions}>
             {tree.length > 0 ? (
               // Contenedor que llena el alto: un click en su zona vacía (fuera de
@@ -1476,6 +1624,15 @@ export function App(): JSX.Element {
                 <p>Creá una nota o una carpeta con las acciones de la cabecera de esta sección.</p>
               </div>
             )}
+          </SidebarSection>
+
+          <SidebarSection id="enlaces" title="ENLACES ENTRANTES">
+            <BacklinksPanel
+              path={openPath && isNotePath(openPath) ? openPath : null}
+              refreshKey={backlinksKey}
+              disabled={previewOid != null}
+              onOpen={(p, line) => void openNoteAt(p, { line, col: 0, length: 0 })}
+            />
           </SidebarSection>
 
           <SidebarSection id="timeline" title="LÍNEA DE TIEMPO">
@@ -1542,6 +1699,9 @@ export function App(): JSX.Element {
               onRequestAi={(paneId) => requestAi(paneId)}
               registerHandle={registerPaneHandle}
               onResize={onPaneResize}
+              files={allFiles}
+              onOpenLink={(t, from) => void openLink(t, from)}
+              onNotify={setToast}
             />
           </div>
         </main>
@@ -1836,6 +1996,7 @@ export function App(): JSX.Element {
       )}
 
       {paletteOpen && <CommandPalette host={host} onClose={() => setPaletteOpen(false)} />}
+      <QuickPick host={host} />
       {/* Recorrido guiado: se monta por portal a document.body, así que el sitio
           de montaje solo importa para el ciclo de vida de React. */}
       {tour.active && (
@@ -1879,9 +2040,9 @@ function formatUsd(amount: number): string {
   return amount < 1 ? `$${amount.toFixed(4)}` : `$${amount.toFixed(2)}`
 }
 
-/** Nombre de una tab: basename sin extensión .md. */
+/** Nombre de una tab: notas sin `.md`, imágenes con su extensión. */
 function tabName(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+  return displayName(path)
 }
 
 /** Todas las rutas de nota (hojas) de un árbol. */

@@ -2,8 +2,10 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { JSX } from 'react'
 import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import { baseExtensions } from './extensions'
+import { baseExtensions, themeExtension } from './extensions'
 import { consumeEditorAutoFocusSuppression } from './focusControl'
+import { wikilinkExtensions, type LinkEnv } from './wikilinks'
+import { getTheme, subscribeTheme } from '../theme'
 
 /**
  * Marca las transacciones de recarga programática (cambio de nota, checkout,
@@ -51,6 +53,19 @@ interface CodeMirrorEditorProps {
    * mostrar cursor. Se reconfigura en caliente (Compartment) sin remontar el view.
    */
   readOnly?: boolean
+  /** Enlaces `[[...]]`: archivos para autocompletar y cómo abrir un destino. */
+  linkEnv?: LinkEnv
+  /**
+   * Imágenes pegadas o soltadas sobre el editor. Devuelve el Markdown a insertar
+   * en el cursor (p. ej. `![](adjuntos/foto.png)`) o null si no se pudo.
+   */
+  onPasteFiles?: (files: File[]) => Promise<string | null>
+}
+
+/** Imágenes de un DataTransfer (pegar/soltar). */
+function imageFiles(dt: DataTransfer | null): File[] {
+  if (!dt) return []
+  return Array.from(dt.files).filter((f) => f.type.startsWith('image/'))
 }
 
 /**
@@ -59,11 +74,20 @@ interface CodeMirrorEditorProps {
  * no por remontaje. Expone un handle imperativo (selección/insertar/foco).
  */
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
-  function CodeMirrorEditor({ initialDoc, reloadKey, onChange, onRequestAi, extraExtensions, readOnly }, ref): JSX.Element {
+  function CodeMirrorEditor(
+    { initialDoc, reloadKey, onChange, onRequestAi, extraExtensions, readOnly, linkEnv, onPasteFiles },
+    ref
+  ): JSX.Element {
     const hostRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
     // Compartimento para conmutar solo-lectura sin recrear el view.
     const readOnlyComp = useRef(new Compartment())
+    // Compartimento del tema (claro/oscuro), reconfigurable en caliente.
+    const themeComp = useRef(new Compartment())
+    const linkEnvRef = useRef(linkEnv)
+    linkEnvRef.current = linkEnv
+    const onPasteFilesRef = useRef(onPasteFiles)
+    onPasteFilesRef.current = onPasteFiles
     const docRef = useRef(initialDoc)
     docRef.current = initialDoc
     const onChangeRef = useRef(onChange)
@@ -140,6 +164,29 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
               }
             ]),
             ...baseExtensions(),
+            themeComp.current.of(themeExtension(getTheme())),
+            // Getters sobre refs: el view se crea una vez pero ve datos frescos.
+            wikilinkExtensions({
+              files: () => linkEnvRef.current?.files() ?? [],
+              open: (target) => linkEnvRef.current?.open(target)
+            }),
+            EditorView.domEventHandlers({
+              paste(e, view) {
+                const files = imageFiles(e.clipboardData)
+                if (files.length === 0 || !onPasteFilesRef.current || view.state.readOnly) return false
+                e.preventDefault()
+                void insertFiles(view, files, null)
+                return true
+              },
+              drop(e, view) {
+                const files = imageFiles(e.dataTransfer)
+                if (files.length === 0 || !onPasteFilesRef.current || view.state.readOnly) return false
+                e.preventDefault()
+                const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+                void insertFiles(view, files, pos)
+                return true
+              }
+            }),
             readOnlyComp.current.of([
               EditorState.readOnly.of(readOnly ?? false),
               EditorView.editable.of(!(readOnly ?? false))
@@ -161,11 +208,28 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         parent: hostRef.current
       })
       viewRef.current = view
+
+      // Guarda las imágenes vía el callback y escribe el Markdown en `pos` (o el cursor).
+      async function insertFiles(v: EditorView, files: File[], pos: number | null): Promise<void> {
+        const md = await onPasteFilesRef.current?.(files)
+        if (!md || viewRef.current !== v) return
+        const at = pos ?? v.state.selection.main.head
+        const { from, to } = pos == null ? v.state.selection.main : { from: at, to: at }
+        v.dispatch({ changes: { from, to, insert: md }, selection: { anchor: from + md.length } })
+        v.focus()
+      }
+
+      // Tema: seguir el cambio claro/oscuro sin remontar.
+      const offTheme = subscribeTheme(() => {
+        view.dispatch({ effects: themeComp.current.reconfigure(themeExtension(getTheme())) })
+      })
+
       // Al crear una nota se suprime este foco inicial para que el input de nombre
       // del árbol lo conserve (ver focusControl).
       if (!consumeEditorAutoFocusSuppression()) view.focus()
 
       return () => {
+        offTheme()
         view.destroy()
         viewRef.current = null
       }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon } from 'lucide-react'
 import type {
   AiConfig,
   AiModel,
@@ -9,6 +9,7 @@ import type {
   InstalledPlugin
 } from '@shared/ipc'
 import { BUILTIN_PLUGINS } from './plugins'
+import { getThemePref, setThemePref, type ThemePref } from './theme'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -31,6 +32,7 @@ function perMillion(perToken: string | null): string {
 /** Ajustes de IA: API key de OpenRouter, modelo (con precios) y activación. */
 export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): JSX.Element {
   const [section, setSection] = useState<Section>('ai')
+  const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref)
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [models, setModels] = useState<AiModel[]>([])
@@ -220,9 +222,31 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               <section className="settings-section">
                 <h2><SlidersHorizontal size={18} /> General</h2>
                 <p className="modal-sub">
-                  Modo Avanzado muestra el historial técnico de versiones (ramas, etiquetas y grafo).
+                  Elegí cómo se ve Geode. Modo Avanzado muestra el historial técnico de versiones (ramas, etiquetas y grafo).
                   Desactivado por defecto.
                 </p>
+
+                <div className="field-label">Apariencia</div>
+                <div className="theme-choices" role="radiogroup" aria-label="Tema">
+                  {([
+                    ['sistema', 'Como el sistema', Monitor],
+                    ['claro', 'Claro', Sun],
+                    ['oscuro', 'Oscuro', Moon]
+                  ] as const).map(([value, label, Icon]) => (
+                    <button
+                      key={value}
+                      role="radio"
+                      aria-checked={themePref === value}
+                      className={themePref === value ? 'active' : ''}
+                      onClick={() => {
+                        setThemePref(value)
+                        setThemePrefState(value)
+                      }}
+                    >
+                      <Icon size={14} /> {label}
+                    </button>
+                  ))}
+                </div>
 
                 <div className="field-label">Modo Avanzado</div>
                 <label className="switch-row">

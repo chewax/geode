@@ -1,7 +1,18 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 import type { JSX, ReactNode } from 'react'
 import type { PluginHost } from './host'
+import type { TreeNode } from '@shared/ipc'
 import type { Disposable, PluginContext, Workspace } from './types'
+
+/** true si `path` existe en el árbol (nota, imagen o carpeta). Sin distinguir mayúsculas. */
+function pathInTree(nodes: TreeNode[], path: string): boolean {
+  const target = path.toLowerCase()
+  for (const n of nodes) {
+    if (n.path.toLowerCase() === target) return true
+    if (n.children && pathInTree(n.children, path)) return true
+  }
+  return false
+}
 
 const HostContext = createContext<PluginHost | null>(null)
 
@@ -43,7 +54,15 @@ function workspaceFor(host: PluginHost): Workspace {
     activeNote: () => host.activeNote(),
     vault: {
       readNote: (path) => window.geode.vault.readNote(path),
-      tree: () => window.geode.vault.tree()
+      tree: () => window.geode.vault.tree(),
+      exists: async (path) => pathInTree(await window.geode.vault.tree(), path),
+      createNote: async (path, content) => {
+        await window.geode.vault.createNoteAt(path, content)
+      }
+    },
+    openNote: (path) => host.openNote(path),
+    ui: {
+      pick: (items, placeholder) => host.pick(items, placeholder)
     },
     git: {
       graph: () => window.geode.git.graph()

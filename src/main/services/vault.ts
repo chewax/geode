@@ -1,7 +1,10 @@
 import { dialog } from 'electron'
 import { cp, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import type { TreeNode, VaultInfo } from '@shared/ipc'
+import type { Backlink, SearchResult, TreeNode, VaultInfo } from '@shared/ipc'
+import { ATTACHMENTS_DIR, MAX_ATTACHMENT_BYTES, extOf, isImagePath } from '@shared/attachments'
+import { baseName, displayName, isNotePath, parseWikilinks, resolveLink, rewriteLinks, lineOf } from '@shared/links'
+import { foldQuery, searchText } from '@shared/search'
 import { atomicWrite } from '../fs/atomic'
 import { sanitizeVaultName, SEED_BIENVENIDA } from '../fs/vaultName'
 
@@ -96,7 +99,9 @@ export class VaultService {
           isDir: true,
           children: await this.readDir(join(absDir, entry.name), rel)
         })
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+      } else if (entry.isFile() && (isNotePath(entry.name) || isImagePath(entry.name))) {
+        // Notas e imágenes: las imágenes se muestran para poder abrirlas,
+        // renombrarlas o moverlas (y sus enlaces se actualizan).
         nodes.push({ name: entry.name, path: rel, isDir: false })
       }
     }
@@ -280,6 +285,157 @@ export class VaultService {
     const content = await readFile(src, 'utf8')
     await atomicWrite(dest, content)
     return { name: candidate, path: relDest, isDir: false }
+  }
+
+  /** Rutas relativas de todos los archivos visibles del árbol (notas + imágenes). */
+  async listFiles(): Promise<string[]> {
+    const out: string[] = []
+    const walk = (nodes: TreeNode[]): void => {
+      for (const n of nodes) {
+        if (n.isDir) walk(n.children ?? [])
+        else out.push(n.path)
+      }
+    }
+    walk(await this.tree())
+    return out
+  }
+
+  /** Contenido de todas las notas .md (ruta → texto). Las ilegibles se saltean. */
+  private async readAllNotes(paths: string[]): Promise<Map<string, string>> {
+    const notes = paths.filter(isNotePath)
+    const texts = new Map<string, string>()
+    // Lectura en tandas para no abrir cientos de descriptores a la vez.
+    const BATCH = 32
+    for (let i = 0; i < notes.length; i += BATCH) {
+      const slice = notes.slice(i, i + BATCH)
+      const read = await Promise.all(slice.map((p) => this.readNote(p).catch(() => null)))
+      slice.forEach((p, k) => {
+        const t = read[k]
+        if (t !== null) texts.set(p, t)
+      })
+    }
+    return texts
+  }
+
+  /**
+   * Búsqueda de texto completo: recorre todas las notas e ignora mayúsculas y
+   * tildes. Las notas cuyo nombre coincide van primero. Acotada para que una
+   * consulta de una letra en una bóveda grande no congele la UI.
+   */
+  async search(query: string, maxFiles = 200): Promise<SearchResult[]> {
+    const q = foldQuery(query)
+    if (!q) return []
+    const paths = await this.listFiles()
+    const texts = await this.readAllNotes(paths)
+    const results: SearchResult[] = []
+    for (const [path, text] of texts) {
+      const nameMatch = foldQuery(displayName(path)).includes(q)
+      const matches = searchText(text, q)
+      if (nameMatch || matches.length > 0) results.push({ path, nameMatch, matches })
+    }
+    results.sort(
+      (a, b) =>
+        Number(b.nameMatch) - Number(a.nameMatch) ||
+        b.matches.length - a.matches.length ||
+        a.path.localeCompare(b.path)
+    )
+    return results.slice(0, maxFiles)
+  }
+
+  /** Notas que enlazan a `targetPath` con `[[...]]`, con la línea de cada enlace. */
+  async backlinks(targetPath: string): Promise<Backlink[]> {
+    const paths = await this.listFiles()
+    const texts = await this.readAllNotes(paths)
+    const out: Backlink[] = []
+    for (const [path, text] of texts) {
+      if (path === targetPath) continue
+      const seen = new Set<number>()
+      for (const link of parseWikilinks(text)) {
+        if (resolveLink(link.target, paths, path) !== targetPath) continue
+        const line = lineOf(text, link.from)
+        if (seen.has(line)) continue // varios enlaces en la misma línea: una sola fila
+        seen.add(line)
+        const raw = text.split('\n')[line] ?? ''
+        out.push({ path, line, context: raw.trim().slice(0, 200) })
+      }
+    }
+    out.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line)
+    return out
+  }
+
+  /**
+   * Calcula (sin escribir) qué notas hay que reescribir porque `from` se renombró
+   * o movió a `to`. Se llama DESPUÉS del rename en disco: la lista "vieja" se
+   * reconstruye desde la actual. Si `to` es una carpeta, se mapea cada archivo
+   * que contiene. Devuelve ruta → texto nuevo.
+   */
+  async planLinkUpdates(from: string, to: string): Promise<Map<string, string>> {
+    const newPaths = await this.listFiles()
+    const renames = new Map<string, string>()
+    const st = await stat(this.resolveInside(to))
+    if (st.isDirectory()) {
+      for (const p of newPaths) {
+        if (p.startsWith(`${to}/`)) renames.set(from + p.slice(to.length), p)
+      }
+    } else {
+      renames.set(from, to)
+    }
+    if (renames.size === 0) return new Map()
+    const reverse = new Map([...renames].map(([o, n]) => [n, o]))
+    const oldPaths = newPaths.map((p) => reverse.get(p) ?? p)
+
+    const texts = await this.readAllNotes(newPaths)
+    const plan = new Map<string, string>()
+    for (const [path, text] of texts) {
+      // Los enlaces relativos se resuelven desde donde estaba la nota ANTES.
+      const oldNotePath = reverse.get(path) ?? path
+      const res = rewriteLinks(text, oldNotePath, renames, oldPaths, newPaths)
+      if (res.changed > 0) plan.set(path, res.text)
+    }
+    return plan
+  }
+
+  /** Escribe (atómico) las notas de un plan de `planLinkUpdates`. */
+  async applyLinkUpdates(plan: Map<string, string>): Promise<void> {
+    for (const [path, text] of plan) await this.writeNote(path, text)
+  }
+
+  /** Crea una nota en una ruta exacta; lanza si ya existe (nunca pisa). */
+  async createNoteAt(relPath: string, content: string): Promise<TreeNode> {
+    const clean = relPath.replace(/\\/g, '/').replace(/^\/+/, '')
+    const rel = isNotePath(clean) ? clean : `${clean}.md`
+    if (await this.exists(rel)) throw new Error(`Ya existe: ${rel}`)
+    await atomicWrite(this.resolveInside(rel), content)
+    return { name: baseName(rel), path: rel, isDir: false }
+  }
+
+  /**
+   * Guarda una imagen en la carpeta de adjuntos. Los nombres genéricos de
+   * portapapeles ("image.png") se reemplazan por "Pegado <fecha>.png"; los
+   * caracteres ilegales se quitan y una colisión agrega sufijo (nunca pisa).
+   */
+  async saveAttachment(name: string, data: Uint8Array): Promise<string> {
+    if (!this.root) throw new Error('No hay vault abierto')
+    if (!isImagePath(name)) throw new Error('Solo se pueden adjuntar imágenes')
+    if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('La imagen es demasiado grande (máximo 25 MB)')
+    const ext = extOf(name)
+    let stem = baseName(name).slice(0, -(ext.length + 1))
+    stem = stem.replace(/[<>:"/\\|?*\u0000-\u001f#^[\]]/g, '').trim()
+    if (!stem || /^(image|imagen|clipboard|pasted|screenshot)$/i.test(stem)) {
+      const d = new Date()
+      const pad = (n: number): string => String(n).padStart(2, '0')
+      stem = `Pegado ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+    }
+    let candidate = `${ATTACHMENTS_DIR}/${stem}.${ext}`
+    let n = 2
+    while (await this.exists(candidate)) candidate = `${ATTACHMENTS_DIR}/${stem} ${n++}.${ext}`
+    await atomicWrite(this.resolveInside(candidate), data)
+    return candidate
+  }
+
+  /** Bytes de un archivo de la bóveda (para el protocolo de imágenes). */
+  async readFileBytes(relPath: string): Promise<Uint8Array> {
+    return readFile(this.resolveInside(relPath))
   }
 
   private async exists(relPath: string): Promise<boolean> {

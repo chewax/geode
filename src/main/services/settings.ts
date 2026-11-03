@@ -2,7 +2,7 @@ import { app, safeStorage } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWrite } from '../fs/atomic'
-import type { TourState } from '@shared/ipc'
+import type { AiEngine, TourState } from '@shared/ipc'
 
 /**
  * Ajustes de la app (no del vault). Viven en userData, fuera de todo repo.
@@ -15,6 +15,8 @@ export interface Settings {
   knownVaults?: string[]
   ai?: {
     enabled?: boolean
+    /** Motor de IA. Ausente = OpenRouter (compatibilidad con ajustes previos). */
+    engine?: AiEngine
     model?: string
     /** Modelo para el dictado por voz (debe aceptar audio). Ausente = automático. */
     dictationModel?: string

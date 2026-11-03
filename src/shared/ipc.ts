@@ -82,6 +82,9 @@ export const IPC = {
   aiUsage: 'geode:ai-usage',
   aiSetDictationModel: 'geode:ai-set-dictation-model',
   aiTranscribe: 'geode:ai-transcribe',
+  aiSetEngine: 'geode:ai-set-engine',
+  aiDetectClis: 'geode:ai-detect-clis',
+  aiTestEngine: 'geode:ai-test-engine',
   dictationCommand: 'geode:dictation-command',
   dictationStatus: 'geode:dictation-status',
   dictationGetShortcut: 'geode:dictation-get-shortcut',
@@ -477,8 +480,41 @@ export interface AiModel {
   audioInput: boolean
 }
 
+/**
+ * Motor de IA: OpenRouter con la API key del usuario (BYOK), o el CLI oficial de
+ * un proveedor que el usuario ya tiene instalado y con sesión iniciada (usa su
+ * suscripción; Geode nunca ve ni guarda esas credenciales).
+ */
+export type AiEngine = 'openrouter' | 'claude' | 'codex' | 'gemini'
+
+/** Motores que corren a través de un CLI instalado en la computadora. */
+export type CliEngine = Exclude<AiEngine, 'openrouter'>
+
+/** Estado de un CLI de IA en esta computadora. */
+export interface AiCliStatus {
+  engine: CliEngine
+  installed: boolean
+  /** Primera línea de `<cli> --version`, o null si no está instalado. */
+  version: string | null
+}
+
+/** Resultado de "Probar conexión" con un motor. */
+export interface AiEngineTest {
+  ok: boolean
+  /** Mensaje para el usuario (en español). */
+  message: string
+}
+
 export interface AiConfig {
   enabled: boolean
+  /** Motor elegido (default: OpenRouter). */
+  engine: AiEngine
+  /**
+   * Si el motor tiene lo necesario para generar texto: con OpenRouter, key y
+   * modelo; con un CLI, siempre true (si no está instalado o sin sesión, el
+   * error se informa al usarlo).
+   */
+  ready: boolean
   model: string | null
   /** Modelo para el dictado por voz; null = Geode elige uno que acepte audio. */
   dictationModel: string | null
@@ -527,6 +563,12 @@ export interface AiApi {
   setDictationModel(model: string | null): Promise<AiConfig>
   /** Transcribe audio WAV (base64) a texto con OpenRouter. '' si no hubo voz. */
   transcribe(wavBase64: string): Promise<string>
+  /** Elige el motor de IA (OpenRouter o un CLI con suscripción). */
+  setEngine(engine: AiEngine): Promise<AiConfig>
+  /** Qué CLIs de IA (Claude Code, Codex, Gemini CLI) están instalados. */
+  detectClis(): Promise<AiCliStatus[]>
+  /** Hace una consulta mínima con el motor para verificar que responde. */
+  testEngine(engine: AiEngine): Promise<AiEngineTest>
 }
 
 // ── Dictado por voz (atajo global) ──────────────────────────────────────────

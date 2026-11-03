@@ -13,7 +13,7 @@ export interface AiMessageProvider {
 
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 
-const SYSTEM_PROMPT = `Sos un asistente que resume, en español, qué se hizo en un conjunto de notas personales, para etiquetar una versión guardada.
+export const SYSTEM_PROMPT = `Sos un asistente que resume, en español, qué se hizo en un conjunto de notas personales, para etiquetar una versión guardada.
 
 Te paso un diff (formato unificado) de los cambios. Devolvé SOLO el resumen, en UNA SOLA LÍNEA (sin saltos de línea, sin viñetas, sin comillas, sin bloques de código, sin prefijos tipo "feat:"/"fix:"). Va a mostrarse en un grafo de versiones, así que tiene que ser corto: idealmente 60-80 caracteres, nunca más de ~100.
 
@@ -25,7 +25,7 @@ Qué evitar:
 - No inventes nada que no esté en el diff. Inferí el tema a partir del texto de las notas.
 - Si el cambio es muy chico, igual describí el TEMA de lo agregado, no el tamaño.`
 
-const WRITER_PROMPT = `Sos un asistente de escritura integrado en un editor de notas en markdown.
+export const WRITER_PROMPT = `Sos un asistente de escritura integrado en un editor de notas en markdown.
 El usuario te da una instrucción y (opcionalmente) un texto seleccionado o el contexto previo.
 
 Devolvé ÚNICAMENTE el texto que hay que insertar en el documento, listo para pegar:
@@ -34,7 +34,7 @@ Devolvé ÚNICAMENTE el texto que hay que insertar en el documento, listo para p
 - Escribí en el mismo idioma del contexto (por defecto, español).
 - Si la instrucción es reescribir/resumir/traducir el texto seleccionado, devolvé SOLO la nueva versión de ese texto.`
 
-const NAMED_VERSION_PROMPT = `Sos un asistente que, en español, le pone nombre a una versión guardada de notas personales.
+export const NAMED_VERSION_PROMPT = `Sos un asistente que, en español, le pone nombre a una versión guardada de notas personales.
 
 Te paso un diff en formato unificado. Leelo así:
 - Las líneas que empiezan con "+" son lo que se AGREGÓ en este guardado.
@@ -56,8 +56,25 @@ Qué evitar:
 - NO rotules las secciones: no escribas "Título:" ni "Descripción:" como rótulos. El título va suelto (sin viñeta); la descripción va en viñetas.
 - No asumas que algo se hizo o se completó. Si lo agregado es una lista de pendientes/ideas, describilo como tal, no como trabajo ya realizado.`
 
+/**
+ * Lo que sabe hacer cualquier motor de texto (OpenRouter o un CLI con
+ * suscripción). El dictado queda fuera: necesita audio y solo lo ofrece OpenRouter.
+ */
+export interface AiTextProvider {
+  generateMessage(diff: string): Promise<string>
+  generateNamedVersion(diff: string, signal?: AbortSignal): Promise<NamedVersion>
+  generateText(instruction: string, selection: string, before: string): Promise<string>
+}
+
+/** Mensaje de usuario del asistente de escritura (selección o contexto previo). */
+export function writerUserMessage(instruction: string, selection: string, before: string): string {
+  return selection.trim()
+    ? `Instrucción: ${instruction}\n\nTexto seleccionado:\n${selection}`
+    : `Instrucción: ${instruction}\n\nContexto previo (tu respuesta continúa donde termina):\n${before}`
+}
+
 /** Fuerza a una sola línea: primera línea no vacía, sin viñeta ni comillas. */
-function toOneLine(text: string): string {
+export function toOneLine(text: string): string {
   const firstLine =
     text
       .split('\n')
@@ -75,7 +92,7 @@ function toOneLine(text: string): string {
  * y todo lo que sigue, ya recortado, es la descripción. Degrada sin lanzar: si la
  * entrada está vacía devuelve ambos campos vacíos.
  */
-function parseNamedVersion(raw: string): NamedVersion {
+export function parseNamedVersion(raw: string): NamedVersion {
   const lines = raw.replace(/\r/g, '').split('\n')
   const firstIdx = lines.findIndex((l) => l.trim().length > 0)
   if (firstIdx === -1) return { title: '', description: '' }
@@ -99,7 +116,7 @@ const TRANSCRIBE_PROMPT = `Sos un transcriptor. Transcribí EXACTAMENTE lo que s
 - Si la persona dicta signos ("punto", "coma", "nuevo párrafo"), aplicalos.
 - Si no hay voz entendible, devolvé exactamente: (sin voz)`
 
-export class OpenRouterProvider implements AiMessageProvider {
+export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
   constructor(
     private readonly key: string,
     private readonly model: string
@@ -167,13 +184,10 @@ export class OpenRouterProvider implements AiMessageProvider {
    * texto a insertar.
    */
   async generateText(instruction: string, selection: string, before: string): Promise<string> {
-    const user = selection.trim()
-      ? `Instrucción: ${instruction}\n\nTexto seleccionado:\n${selection}`
-      : `Instrucción: ${instruction}\n\nContexto previo (tu respuesta continúa donde termina):\n${before}`
     return this.chat(
       [
         { role: 'system', content: WRITER_PROMPT },
-        { role: 'user', content: user }
+        { role: 'user', content: writerUserMessage(instruction, selection, before) }
       ],
       1000,
       0.7

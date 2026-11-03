@@ -362,7 +362,8 @@ export interface GitApi {
   /** Versiones de una nota: commits donde su contenido cambió (viejo → nuevo). */
   noteHistory(path: string): Promise<NoteVersion[]>
   /** Contenido de una nota tal como estaba en un commit dado. */
-  readNoteAt(oid: string, path: string): Promise<string>
+  /** Contenido de la nota en ese commit, o null si todavía no existía. */
+  readNoteAt(oid: string, path: string): Promise<string | null>
   /** Árbol de notas (.md) tal como estaba en un commit — para la vista previa. */
   treeAt(oid: string): Promise<TreeNode[]>
   /** Materializa el árbol de un commit en el working dir (escribe/borra) SIN mover HEAD. */

@@ -176,12 +176,17 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           ? await window.geode.git.readNoteAt(previewOid, pane.active)
           : await window.geode.vault.readNote(pane.active)
         if (cancelled) return
+        if (text === null) {
+          // La nota no existía en ese momento del pasado → fantasma.
+          setGhost(true)
+          return
+        }
         setGhost(false)
         setContent(text)
         setEpoch((e) => e + 1)
         propsRef.current.onNoteOpen(pane.id, pane.active, text)
       } catch {
-        // readNoteAt lanza cuando el blob no existía en ese commit → fantasma.
+        // Error real de lectura (no "no existía"): también se muestra como fantasma.
         if (cancelled) return
         setGhost(true)
       }
@@ -211,7 +216,11 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
   /** Lee otra nota para `![[nota]]` (del pasado si se está viajando en el tiempo). */
   const loadNote = useCallback((path: string): Promise<string> => {
     const oid = propsRef.current.previewOid
-    return oid ? window.geode.git.readNoteAt(oid, path) : window.geode.vault.readNote(path)
+    if (!oid) return window.geode.vault.readNote(path)
+    return window.geode.git.readNoteAt(oid, path).then((text) => {
+      if (text === null) throw new Error('La nota no existía en ese momento')
+      return text
+    })
   }, [])
 
   /**

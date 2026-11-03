@@ -775,7 +775,7 @@ function registerIpcHandlers(): void {
     gitService.noteHistory(requireRoot(), path)
   )
   ipcMain.handle(IPC.gitReadNoteAt, (_e, oid: string, path: string) =>
-    gitService.readAt(requireRoot(), oid, path)
+    gitService.readAtOrNull(requireRoot(), oid, path)
   )
   ipcMain.handle(IPC.gitTreeAt, (_e, oid: string) => gitService.treeAt(requireRoot(), oid))
   ipcMain.handle(IPC.gitRestoreTree, (_e, oid: string) => gitService.restoreTree(requireRoot(), oid))

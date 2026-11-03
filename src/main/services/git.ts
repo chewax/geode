@@ -900,6 +900,20 @@ export class GitService {
     return new TextDecoder().decode(blob)
   }
 
+  /**
+   * Como readAt, pero devuelve null si la nota no existía en ese commit (caso
+   * normal al viajar en el tiempo con notas abiertas que se crearon después).
+   * Cualquier otro error se propaga.
+   */
+  async readAtOrNull(dir: string, oid: string, filepath: string): Promise<string | null> {
+    try {
+      return await this.readAt(dir, oid, filepath)
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'NotFoundError') return null
+      throw e
+    }
+  }
+
   /** Bytes crudos de un archivo tal como estaba en un commit (imágenes del pasado). */
   async readBytesAt(dir: string, oid: string, filepath: string): Promise<Uint8Array> {
     const { blob } = await git.readBlob({ fs, dir, oid, filepath })

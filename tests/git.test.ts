@@ -40,6 +40,15 @@ describe('GitService', () => {
     expect(await git.readAt(dir, second!, 'Nota.md')).toBe('bbbb')
   })
 
+  it('readAtOrNull devuelve null si la nota no existía en ese commit', async () => {
+    await writeFile(join(dir, 'Vieja.md'), 'v')
+    const v1 = (await git.commit(dir, 'v1'))!
+    await writeFile(join(dir, 'Nueva nota.md'), 'n')
+    const v2 = (await git.commit(dir, 'v2'))!
+    expect(await git.readAtOrNull(dir, v1, 'Nueva nota.md')).toBeNull()
+    expect(await git.readAtOrNull(dir, v2, 'Nueva nota.md')).toBe('n')
+  })
+
   it('restoreTree trae una versión vieja SIN mover HEAD ni perder la nueva', async () => {
     await writeFile(join(dir, 'Nota.md'), 'vieja')
     const v1 = (await git.commit(dir, 'v1'))!

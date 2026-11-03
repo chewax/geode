@@ -7,6 +7,20 @@ import { t } from '@shared/i18n'
 /** Pestañas del diálogo: local (sin cuenta), traer de GitHub o crear con respaldo. */
 export type NewNotebookMode = 'local' | 'clone' | 'create'
 
+// Electron envuelve los rejects de IPC como "Error invoking remote method '<canal>': Error: <msg>".
+const IPC_WRAPPER = /^Error invoking remote method '[^']*':\s*(?:[A-Za-z]+Error:\s*)?/
+
+/** Mensaje de error sin el envoltorio de IPC de Electron. */
+function cleanError(e: unknown): string {
+  return e instanceof Error ? e.message.replace(IPC_WRAPPER, '').trim() : String(e)
+}
+
+/** Une carpeta + nombre con el separador de la ruta (\ en Windows, / en el resto). */
+function joinPath(dir: string, name: string): string {
+  const sep = dir.includes('\\') ? '\\' : '/'
+  return dir.endsWith(sep) ? dir + name : dir + sep + name
+}
+
 /**
  * Diálogo "Nuevo cuaderno". Por defecto crea un cuaderno LOCAL (versionado con
  * git, sin cuenta ni nube): el respaldo en GitHub es opcional y vive en las otras
@@ -34,6 +48,10 @@ export function NewVaultDialog({
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(true)
   const [busy, setBusy] = useState(false)
+  // Carpeta donde se va a crear el cuaderno (adentro, una subcarpeta con su nombre).
+  // null = todavía no llegó la ubicación por defecto del main.
+  const [location, setLocation] = useState<string | null>(null)
+  const [customLocation, setCustomLocation] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const connect = async (): Promise<void> => {
@@ -45,9 +63,26 @@ export function NewVaultDialog({
       setConnected(true)
       setDevice(null)
     } catch (e) {
-      setError((e as Error).message)
+      setError(cleanError(e))
     } finally {
       setConnecting(false)
+    }
+  }
+
+  useEffect(() => {
+    void window.geode.vault.defaultLocation().then((d) => setLocation((cur) => cur ?? d))
+  }, [])
+
+  // Elige la ubicación (no crea nada): el cuaderno se crea recién con "Crear y abrir".
+  const chooseLocation = async (): Promise<void> => {
+    try {
+      const picked = await window.geode.vault.pickLocation()
+      if (picked) {
+        setLocation(picked)
+        setCustomLocation(true)
+      }
+    } catch (e) {
+      setError(cleanError(e))
     }
   }
 
@@ -61,7 +96,7 @@ export function NewVaultDialog({
         const list = await window.geode.github.listRepos()
         if (!cancelled) setRepos(list)
       } catch (e) {
-        if (!cancelled) setError((e as Error).message)
+        if (!cancelled) setError(cleanError(e))
       }
     })()
     return () => {
@@ -77,22 +112,21 @@ export function NewVaultDialog({
       const info = await window.geode.vault.cloneFromGithub(selected)
       if (info) onReady(info) // null = el usuario canceló el diálogo de carpeta
     } catch (e) {
-      setError((e as Error).message)
+      setError(cleanError(e))
     } finally {
       setBusy(false)
     }
   }
 
-  // Cuaderno local: sin GitHub. `pickLocation` abre el selector de carpeta; si no,
-  // va a la ubicación por defecto (Documentos/Geode).
-  const doCreateLocal = async (pickLocation: boolean): Promise<void> => {
+  // Cuaderno local: sin GitHub, en `<ubicación>/<nombre>`.
+  const doCreateLocal = async (): Promise<void> => {
     setBusy(true)
     setError(null)
     try {
-      const info = await window.geode.vault.createLocal(name.trim(), pickLocation)
-      if (info) onReady(info) // null = el usuario canceló el selector de carpeta
+      const info = await window.geode.vault.createLocal(name.trim(), customLocation ? location ?? undefined : undefined)
+      if (info) onReady(info)
     } catch (e) {
-      setError((e as Error).message)
+      setError(cleanError(e))
     } finally {
       setBusy(false)
     }
@@ -103,10 +137,10 @@ export function NewVaultDialog({
     setBusy(true)
     setError(null)
     try {
-      const info = await window.geode.vault.createWithRepo(name.trim(), isPrivate)
+      const info = await window.geode.vault.createWithRepo(name.trim(), isPrivate, customLocation ? location ?? undefined : undefined)
       if (info) onReady(info)
     } catch (e) {
-      setError((e as Error).message)
+      setError(cleanError(e))
     } finally {
       setBusy(false)
     }
@@ -142,22 +176,28 @@ export function NewVaultDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !busy) void doCreateLocal(false)
+                if (e.key === 'Enter' && !busy && location) void doCreateLocal()
               }}
               placeholder={t('mi-cuaderno')}
               autoFocus
             />
+            <label className="nv-label">{t('Ubicación')}</label>
+            <div className="nv-location">
+              <span className="nv-location-path" title={location ?? ''}>
+                {location ? joinPath(location, name.trim() || t('Cuaderno')) : '…'}
+              </span>
+              <button disabled={busy} onClick={() => void chooseLocation()}>
+                <FolderCog size={14} /> {t('Cambiar…')}
+              </button>
+            </div>
             <div className="nv-actions">
               <button onClick={onClose}>{t('Cancelar')}</button>
-              <button disabled={busy} onClick={() => void doCreateLocal(true)}>
-                <FolderCog size={14} /> {t('Elegir ubicación…')}
-              </button>
-              <button className="primary" disabled={busy} onClick={() => void doCreateLocal(false)}>
+              <button className="primary" disabled={busy || !location} onClick={() => void doCreateLocal()}>
                 {busy ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />} {t('Crear y abrir')}
               </button>
             </div>
             <p className="hint">
-              {t('Se guarda en Documentos/Geode, con todo su historial en tu equipo. No hace falta ninguna cuenta: podés respaldarlo en la nube cuando quieras.')}
+              {t('Todo su historial queda en tu equipo. No hace falta ninguna cuenta: podés respaldarlo en la nube cuando quieras.')}
             </p>
           </div>
         ) : !connected ? (
@@ -236,13 +276,21 @@ export function NewVaultDialog({
               />
               {t('Privado (solo vos lo ves)')}
             </label>
+            <label className="nv-label">{t('Ubicación')}</label>
+            <div className="nv-location">
+              <span className="nv-location-path" title={location ?? ''}>
+                {location ? joinPath(location, name.trim() || t('Cuaderno')) : '…'}
+              </span>
+              <button disabled={busy} onClick={() => void chooseLocation()}>
+                <FolderCog size={14} /> {t('Cambiar…')}
+              </button>
+            </div>
             <div className="nv-actions">
               <button onClick={onClose}>{t('Cancelar')}</button>
-              <button className="primary" disabled={!name.trim() || busy} onClick={() => void doCreate()}>
+              <button className="primary" disabled={!name.trim() || busy || !location} onClick={() => void doCreate()}>
                 {busy ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />} {t('Crear y abrir')}
               </button>
             </div>
-            <p className="hint">{t('Vas a elegir dónde guardarlo: si la carpeta está vacía se usa tal cual; si no, se crea una subcarpeta con el nombre.')}</p>
           </div>
         )}
         {error && (

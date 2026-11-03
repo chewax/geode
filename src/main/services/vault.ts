@@ -19,6 +19,15 @@ const IGNORED_DIRS = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
  * Es la implementación concreta, en el main, sobre la que después se apoyarán
  * Git/Sync. El markdown en disco es la fuente de verdad.
  */
+/** true si la ruta existe y es una carpeta (nunca lanza). */
+async function isDir(p: string): Promise<boolean> {
+  try {
+    return (await stat(p)).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 export class VaultService {
   private root: string | null = null
 
@@ -175,7 +184,9 @@ export class VaultService {
 
     // baseDir (p.ej. ~/Documents/Geode) puede no existir todavía: se crea recursivo.
     // Solo la carpeta HOJA se crea de forma no recursiva para detectar colisiones.
-    await mkdir(baseDir, { recursive: true })
+    // Si ya existe NO se llama a mkdir: en Windows, `mkdir` sobre la raíz de una
+    // unidad (`D:\`) lanza EPERM aunque sea recursivo y la unidad exista.
+    if (!(await isDir(baseDir))) await mkdir(baseDir, { recursive: true })
 
     // Crear la carpeta hoja con `recursive: false`: `mkdir` lanza EEXIST si ya
     // existe, lo que hace el chequeo-de-colisión atómico con la creación. Sufijo
@@ -207,35 +218,6 @@ export class VaultService {
     }
 
     return { root: dir }
-  }
-
-  /**
-   * Prepara un cuaderno nuevo en una carpeta ELEGIDA por el usuario. Si la carpeta
-   * está vacía (típico: la acaba de crear en el diálogo nativo), se usa TAL CUAL
-   * como cuaderno; si ya tiene contenido, se crea adentro una subcarpeta con el
-   * nombre del cuaderno (vía `createLocal`, que nunca pisa nada). En ambos casos
-   * siembra `Bienvenida.md`. `reused` indica si se usó la carpeta elegida, para
-   * que `discardNew` sepa qué limpiar si falla un paso posterior.
-   */
-  async createInPicked(name: string, picked: string): Promise<{ root: string; reused: boolean }> {
-    if (await this.isEmptyDir(picked)) {
-      await mkdir(picked, { recursive: true })
-      await atomicWrite(join(picked, 'Bienvenida.md'), seedBienvenida())
-      return { root: picked, reused: true }
-    }
-    const { root } = await this.createLocal(name, picked)
-    return { root, reused: false }
-  }
-
-  /**
-   * Limpia un cuaderno recién preparado cuando falla un paso posterior. Si la
-   * carpeta era la elegida por el usuario (`reused`), NO se borra la carpeta: solo
-   * lo que sembramos nosotros (la nota y el `.git`), y queda vacía como estaba.
-   */
-  async discardNew(root: string, reused: boolean): Promise<void> {
-    if (!reused) return this.discard(root)
-    await rm(join(root, 'Bienvenida.md'), { force: true })
-    await rm(join(root, '.git'), { recursive: true, force: true })
   }
 
   /**

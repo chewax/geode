@@ -1041,8 +1041,15 @@ export function App(): JSX.Element {
     setCreating(true)
     setCreateError(null)
     try {
-      const info = await window.geode.vault.createLocal(vaultName, useCustomLocation)
-      // Solo el escape de ubicación puede devolver null (picker cancelado) → no-op.
+      // "Elegir otra ubicación": primero se elige la carpeta (cancelar → no-op) y
+      // el cuaderno se crea adentro como subcarpeta con su nombre.
+      let location: string | undefined
+      if (useCustomLocation) {
+        const picked = await window.geode.vault.pickLocation()
+        if (!picked) return
+        location = picked
+      }
+      const info = await window.geode.vault.createLocal(vaultName, location)
       if (!info) return
       await adoptVault(info) // adoptVault resetea a un panel VACÍO (no abre nota)
       await openNote('Bienvenida.md') // REQUERIDO: solo la creación fuerza la nota sembrada

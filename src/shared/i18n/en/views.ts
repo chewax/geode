@@ -103,9 +103,10 @@ export const views: Record<string, string> = {
   // Nuevo cuaderno (local o respaldado)
   'Nuevo cuaderno': 'New notebook',
   'En este equipo': 'On this computer',
-  'Elegir ubicación…': 'Choose location…',
-  'Se guarda en Documentos/Geode, con todo su historial en tu equipo. No hace falta ninguna cuenta: podés respaldarlo en la nube cuando quieras.':
-    'It’s saved in Documents/Geode, with its full history on your computer. No account needed: you can back it up to the cloud whenever you want.',
+  Ubicación: 'Location',
+  'Cambiar…': 'Change…',
+  'Todo su historial queda en tu equipo. No hace falta ninguna cuenta: podés respaldarlo en la nube cuando quieras.':
+    'Its full history stays on your computer. No account needed: you can back it up to the cloud whenever you want.',
   'Para respaldar o traer cuadernos de la nube, conectá tu cuenta.':
     'To back up or get notebooks from the cloud, connect your account.',
   'Escribí este código en la página que se abrió:': 'Enter this code on the page that opened:',
@@ -125,8 +126,6 @@ export const views: Record<string, string> = {
   'mi-cuaderno': 'my-notebook',
   'Privado (solo vos lo ves)': 'Private (only you can see it)',
   'Crear y abrir': 'Create and open',
-  'Vas a elegir dónde guardarlo: si la carpeta está vacía se usa tal cual; si no, se crea una subcarpeta con el nombre.':
-    "You'll choose where to store it: an empty folder is used as is; otherwise a subfolder with the name is created.",
 
   // Selector de cuadernos
   'Gestionar cuadernos': 'Manage notebooks',

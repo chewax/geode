@@ -142,25 +142,20 @@ describe('VaultService — bóvedas de Obsidian', () => {
   })
 })
 
-describe('VaultService.createInPicked', () => {
-  it('usa la carpeta elegida tal cual si está vacía, y al descartar la deja vacía', async () => {
-    const picked = join(dir, 'Nueva')
-    await mkdir(picked)
-    const { root, reused } = await vault.createInPicked('Mi cuaderno', picked)
-    expect(root).toBe(picked)
-    expect(reused).toBe(true)
-    expect(await readdir(picked)).toEqual(['Bienvenida.md'])
-    await mkdir(join(picked, '.git'))
-    await vault.discardNew(root, reused)
-    expect(await readdir(picked)).toEqual([])
-  })
-
-  it('si la carpeta elegida tiene contenido, crea una subcarpeta con el nombre', async () => {
+describe('VaultService.createLocal en una ubicación elegida', () => {
+  it('crea el cuaderno como subcarpeta con el nombre, sin tocar lo que ya había', async () => {
     await writeFile(join(dir, 'otra.md'), 'x')
-    const { root, reused } = await vault.createInPicked('Mi cuaderno', dir)
-    expect(reused).toBe(false)
+    const { root } = await vault.createLocal('Mi cuaderno', dir)
     expect(root).toBe(join(dir, 'Mi cuaderno'))
     expect(await readdir(root)).toEqual(['Bienvenida.md'])
     expect(await readFile(join(dir, 'otra.md'), 'utf8')).toBe('x')
+    // Mismo nombre otra vez: nunca se pisa, se agrega sufijo.
+    expect((await vault.createLocal('Mi cuaderno', dir)).root).toBe(join(dir, 'Mi cuaderno (2)'))
+  })
+
+  it('crea la ubicación si todavía no existe', async () => {
+    const base = join(dir, 'a', 'b')
+    const { root } = await vault.createLocal('X', base)
+    expect(root).toBe(join(base, 'X'))
   })
 })

@@ -238,7 +238,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     try {
       setTest(await window.geode.ai.testEngine(config.engine))
     } catch (e) {
-      setTest({ ok: false, message: e instanceof Error ? e.message : 'No se pudo probar la conexión' })
+      setTest({ ok: false, message: e instanceof Error ? e.message : t('No se pudo probar la conexión') })
     } finally {
       setTesting(false)
     }
@@ -255,8 +255,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   /** Campo de la API key de OpenRouter (motor principal o solo para dictar). */
   const keyField = config?.hasKey ? (
     <div className="key-row">
-      <span className="key-set"><Check size={14} /> Key guardada</span>
-      <button onClick={() => void clearKey()}>Quitar</button>
+      <span className="key-set"><Check size={14} /> {t('Key guardada')}</span>
+      <button onClick={() => void clearKey()}>{t('Quitar')}</button>
     </div>
   ) : (
     <div className="key-row">
@@ -268,7 +268,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
         onChange={(e) => setKeyInput(e.target.value)}
       />
       <button onClick={() => void saveKey()} disabled={!keyInput.trim()}>
-        Guardar
+        {t('Guardar')}
       </button>
     </div>
   )
@@ -292,13 +292,13 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               <SlidersHorizontal size={15} /> {t('General')}
             </button>
             <button className={section === 'shortcuts' ? 'active' : ''} onClick={() => setSection('shortcuts')}>
-              <Keyboard size={15} /> Atajos
+              <Keyboard size={15} /> {t('Atajos')}
             </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
-              <Sparkles size={15} /> Inteligencia artificial
+              <Sparkles size={15} /> {t('Inteligencia artificial')}
             </button>
             <button className={section === 'mcp' ? 'active' : ''} onClick={() => setSection('mcp')}>
-              <Brain size={15} /> Memoria para IA
+              <Brain size={15} /> {t('Memoria para IA')}
             </button>
             <button className={section === 'github' ? 'active' : ''} onClick={() => setSection('github')}>
               <Cloud size={15} /> {t('Respaldo en la nube')}
@@ -386,14 +386,13 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
             {section === 'ai' && (
               <section className="settings-section">
-                <h2><Sparkles size={18} /> Inteligencia artificial</h2>
+                <h2><Sparkles size={18} /> {t('Inteligencia artificial')}</h2>
                 <p className="modal-sub">
-                  Geode usa IA para nombrar tus versiones y en el asistente de escritura (Ctrl+K). Elegí con
-                  qué IA trabajar.
+                  {t('Geode usa IA para nombrar tus versiones y en el asistente de escritura ({key}). Elegí con qué IA trabajar.', { key: labelOf('aiPrompt', shortcuts.bindings) })}
                 </p>
 
-                <label className="field-label">Motor</label>
-                <ul className="engine-list" role="radiogroup" aria-label="Motor de IA">
+                <label className="field-label">{t('Motor')}</label>
+                <ul className="engine-list" role="radiogroup" aria-label={t('Motor de IA')}>
                   <li>
                     <button
                       type="button"
@@ -406,11 +405,11 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                       <span className="engine-text">
                         <span className="engine-name">OpenRouter</span>
                         <span className="engine-desc">
-                          Con tu API key. Pagás por uso y elegís entre cientos de modelos.
+                          {t('Con tu API key. Pagás por uso y elegís entre cientos de modelos.')}
                         </span>
                       </span>
                       {config?.hasKey && (
-                        <span className="engine-status ok"><Check size={12} /> Key guardada</span>
+                        <span className="engine-status ok"><Check size={12} /> {t('Key guardada')}</span>
                       )}
                     </button>
                   </li>
@@ -430,16 +429,16 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                           <span className="engine-text">
                             <span className="engine-name">{spec.name}</span>
                             <span className="engine-desc">
-                              Con {spec.plan}, a través de {spec.program}.
+                              {t('Con {plan}, a través de {program}.', { plan: spec.plan, program: spec.program })}
                             </span>
                           </span>
                           <span className={`engine-status${st?.installed ? ' ok' : ''}`}>
                             {clis === null || detecting ? (
-                              'Buscando…'
+                              t('Buscando…')
                             ) : st?.installed ? (
-                              <><Check size={12} /> Instalado</>
+                              <><Check size={12} /> {t('Instalado')}</>
                             ) : (
-                              'No instalado'
+                              t('No instalado')
                             )}
                           </span>
                         </button>
@@ -453,21 +452,20 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     {cliStatus?.installed ? (
                       <>
                         <p className="modal-sub">
-                          {cliSpec.program} está instalado
-                          {cliStatus.version ? <> (versión {cliStatus.version})</> : null}. Si todavía no iniciaste
-                          sesión, abrí una terminal y ejecutá:
+                          {cliStatus.version
+                            ? t('{program} está instalado (versión {version}). Si todavía no iniciaste sesión, abrí una terminal y ejecutá:', { program: cliSpec.program, version: cliStatus.version })
+                            : t('{program} está instalado. Si todavía no iniciaste sesión, abrí una terminal y ejecutá:', { program: cliSpec.program })}
                         </p>
                         <CommandRow command={cliSpec.login} />
                       </>
                     ) : (
                       <>
                         <p className="modal-sub">
-                          Para usar {cliSpec.name}, instalá {cliSpec.program} desde una terminal:
+                          {t('Para usar {name}, instalá {program} desde una terminal:', { name: cliSpec.name, program: cliSpec.program })}
                         </p>
                         <CommandRow command={cliSpec.install} />
                         <p className="modal-sub engine-after">
-                          Después ejecutá <code>{cliSpec.login}</code>, iniciá sesión con tu cuenta y volvé
-                          acá.
+                          {tx('Después ejecutá {command}, iniciá sesión con tu cuenta y volvé acá.', { command: <code>{cliSpec.login}</code> })}
                         </p>
                       </>
                     )}
@@ -478,41 +476,40 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                       onSaved={apply}
                     />
                     <p className="hint">
-                      Geode usa el programa oficial: no ve ni guarda tu contraseña ni tus credenciales. El uso
-                      cuenta para los límites de {cliSpec.plan}.
+                      {t('Geode usa el programa oficial: no ve ni guarda tu contraseña ni tus credenciales. El uso cuenta para los límites de {plan}.', { plan: cliSpec.plan })}
                     </p>
                   </div>
                 )}
 
                 {engine === 'openrouter' && (
                   <>
-                    <label className="field-label">API key de OpenRouter</label>
+                    <label className="field-label">{t('API key de OpenRouter')}</label>
                     {keyField}
 
                   <label className="field-label">
-                    Modelo
+                    {t('Modelo')}
                     {config?.model && <span className="model-current">{config.model}</span>}
                   </label>
 
                   {!config?.hasKey ? (
-                    <p className="hint">Guardá una API key para ver los modelos.</p>
+                    <p className="hint">{t('Guardá una API key para ver los modelos.')}</p>
                   ) : (
                     <>
                       <div className="key-row">
                         <input
                           className="text-input"
-                          placeholder="Filtrar modelos…"
+                          placeholder={t('Filtrar modelos…')}
                           value={filter}
                           onChange={(e) => setFilter(e.target.value)}
                         />
-                        <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title="Recargar modelos">
+                        <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title={t('Recargar modelos')}>
                           <RefreshCw size={15} className={loadingModels ? 'spin' : ''} />
                         </button>
                       </div>
 
                       <ul className="model-list">
                         {filtered.length === 0 && !loadingModels && (
-                          <li className="model-empty">Sin resultados</li>
+                          <li className="model-empty">{t('Sin resultados')}</li>
                         )}
                         {filtered.map((m) => (
                           <li
@@ -532,8 +529,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                         ))}
                       </ul>
                       <p className="hint">
-                        Para resumir cambios conviene un modelo rápido y barato (mirá el precio por
-                        millón de tokens).
+                        {t('Para resumir cambios conviene un modelo rápido y barato (mirá el precio por millón de tokens).')}
                       </p>
                     </>
                   )}
@@ -542,15 +538,15 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
                 <div className="key-row engine-test-row">
                   <button onClick={() => void runTest()} disabled={testing || !config?.ready}>
-                    {testing ? 'Probando…' : 'Probar conexión'}
+                    {testing ? t('Probando…') : t('Probar conexión')}
                   </button>
                   {cliSpec && (
                     <button
                       className="icon-btn"
                       onClick={() => void detect()}
                       disabled={detecting}
-                      title="Volver a buscar programas instalados"
-                      aria-label="Volver a buscar programas instalados"
+                      title={t('Volver a buscar programas instalados')}
+                      aria-label={t('Volver a buscar programas instalados')}
                     >
                       <RefreshCw size={15} className={detecting ? 'spin' : ''} />
                     </button>
@@ -576,31 +572,28 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 <h3 className="settings-subtitle"><Mic size={15} /> {t('Dictado por voz')}</h3>
                 <p className="modal-sub">
                   {dictationShortcut ? (
-                    <>
-                      Apretá <kbd>{dictationShortcut}</kbd> desde cualquier lugar para empezar a dictar, y otra
-                      vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se
-                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto). El atajo
-                      se cambia en{' '}<button className="link-btn" onClick={() => setSection('shortcuts')}>Atajos</button>.
-                    </>
+                    tx('Apretá {key} desde cualquier lugar para empezar a dictar, y otra vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto). El atajo se cambia en {link}.', {
+                      key: <kbd>{dictationShortcut}</kbd>,
+                      link: <button className="link-btn" onClick={() => setSection('shortcuts')}>{t('Atajos')}</button>
+                    })
                   ) : (
-                    <>
-                      El atajo global no se pudo registrar (puede que otra app lo use). Elegí otra combinación en{' '}
-                      <button className="link-btn" onClick={() => setSection('shortcuts')}>Ajustes → Atajos</button>, o
-                      dictá desde la paleta de comandos: «Dictar».
-                    </>
+                    tx('El atajo global no se pudo registrar (puede que otra app lo use). Elegí otra combinación en {link}, o dictá desde la paleta de comandos: «Dictar».', {
+                      link: <button className="link-btn" onClick={() => setSection('shortcuts')}>{t('Ajustes → Atajos')}</button>
+                    })
                   )}
                 </p>
                 {engine !== 'openrouter' && (
                   <>
                     <p className="hint">
-                      {cliSpec?.program ?? 'Ese motor'} no entiende audio, así que el dictado sigue usando
-                      OpenRouter.
+                      {cliSpec
+                        ? t('{program} no entiende audio, así que el dictado sigue usando OpenRouter.', { program: cliSpec.program })
+                        : t('Ese motor no entiende audio, así que el dictado sigue usando OpenRouter.')}
                     </p>
-                    <label className="field-label">API key de OpenRouter (para dictar)</label>
+                    <label className="field-label">{t('API key de OpenRouter (para dictar)')}</label>
                     {keyField}
                   </>
                 )}
-                <label className="field-label" htmlFor="dictation-model">Modelo para transcribir</label>
+                <label className="field-label" htmlFor="dictation-model">{t('Modelo para transcribir')}</label>
                 <select
                   id="dictation-model"
                   className="text-input"
@@ -836,8 +829,8 @@ function CommandRow({ command }: { command: string }): JSX.Element {
       <button
         className="icon-btn"
         onClick={() => void copy()}
-        title={copied ? 'Copiado' : 'Copiar comando'}
-        aria-label={copied ? 'Copiado' : 'Copiar comando'}
+        title={copied ? t('Copiado') : t('Copiar comando')}
+        aria-label={copied ? t('Copiado') : t('Copiar comando')}
       >
         {copied ? <Check size={14} /> : <Copy size={14} />}
       </button>
@@ -872,7 +865,7 @@ function CliModelPicker({
     try {
       onSaved(await window.geode.ai.setCliModel(engine, model))
     } catch (e) {
-      setErr(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : 'No se pudo guardar el modelo')
+      setErr(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : t('No se pudo guardar el modelo'))
     }
   }
 
@@ -881,7 +874,7 @@ function CliModelPicker({
 
   return (
     <>
-      <label className="field-label" htmlFor={`cli-model-${engine}`}>Modelo</label>
+      <label className="field-label" htmlFor={`cli-model-${engine}`}>{t('Modelo')}</label>
       <select
         id={`cli-model-${engine}`}
         className="text-input"
@@ -897,20 +890,20 @@ function CliModelPicker({
           void save(v || null)
         }}
       >
-        <option value="">El predeterminado de {spec.program}</option>
+        <option value="">{t('El predeterminado de {program}', { program: spec.program })}</option>
         {spec.models.map((m) => (
           <option key={m.id} value={m.id}>
             {m.label}
           </option>
         ))}
-        <option value={OTRO}>Otro (escribir el nombre)…</option>
+        <option value={OTRO}>{t('Otro (escribir el nombre)…')}</option>
       </select>
       {custom && (
         <div className="key-row cli-model-custom">
           <input
             id={`cli-model-otro-${engine}`}
             className="text-input"
-            placeholder={`p. ej. ${spec.modelExample}`}
+            placeholder={t('p. ej. {example}', { example: spec.modelExample })}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -918,15 +911,15 @@ function CliModelPicker({
             }}
           />
           <button onClick={() => void save(draft.trim())} disabled={!draft.trim() || !dirty}>
-            Guardar
+            {t('Guardar')}
           </button>
         </div>
       )}
       {err && <p className="modal-error">{err}</p>}
       <p className="hint">
         {spec.models.length > 0
-          ? `Los alias apuntan siempre al último modelo de esa familia. ${spec.program} no tiene una lista de modelos para consultar, así que si querés uno puntual, elegí «Otro» y escribí su nombre.`
-          : `${spec.program} no tiene una lista de modelos para consultar: dejá el predeterminado o escribí el nombre exacto (lo ves con /model dentro de ${spec.program}).`}
+          ? t('Los alias apuntan siempre al último modelo de esa familia. {program} no tiene una lista de modelos para consultar, así que si querés uno puntual, elegí «Otro» y escribí su nombre.', { program: spec.program })
+          : t('{program} no tiene una lista de modelos para consultar: dejá el predeterminado o escribí el nombre exacto (lo ves con /model dentro de {program}).', { program: spec.program })}
       </p>
     </>
   )

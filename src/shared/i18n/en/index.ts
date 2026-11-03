@@ -10,6 +10,7 @@ import { main } from './main'
 import { core } from './core'
 import { views } from './views'
 import { panels } from './panels'
+import { merged } from './merged'
 
 export const en: Record<string, string> = {
   ...common,
@@ -18,5 +19,6 @@ export const en: Record<string, string> = {
   ...core,
   ...views,
   ...panels,
+  ...merged,
   ...app
 }

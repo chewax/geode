@@ -626,11 +626,15 @@ export function App(): JSX.Element {
         void refreshGraph()
         if (previewOidRef.current != null) return
         void (async () => {
-          const t = await refreshTree()
-          setPanes((prev) => keepOnly(prev, new Set(flattenPaths(t))))
+          const tree = await refreshTree()
+          setPanes((prev) => keepOnly(prev, new Set(flattenPaths(tree))))
           bumpAll()
-          const names = info.paths.map((p) => `«${displayName(p)}»`).join(', ')
-          setToast(names ? `${info.author} actualizó ${names}.` : `${info.author} actualizó la bóveda.`)
+          const names = info.paths.map((p) => t('«{name}»', { name: displayName(p) })).join(', ')
+          setToast(
+            names
+              ? t('{author} actualizó {names}.', { author: info.author, names })
+              : t('{author} actualizó la bóveda.', { author: info.author })
+          )
         })()
       }),
     [refreshGraph, refreshTree, bumpAll]
@@ -2270,16 +2274,16 @@ export function App(): JSX.Element {
                     <div className="pop-title">
                       <Terminal size={13} /> {CLI_SPECS[aiConfig.engine].name}
                     </div>
-                    <div className="pop-row"><span>Programa</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
-                    <div className="pop-row"><span>Pago</span><b>Tu suscripción</b></div>
+                    <div className="pop-row"><span>{t('Programa')}</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
+                    <div className="pop-row"><span>{t('Pago')}</span><b>{t('Tu suscripción')}</b></div>
                     <div className="pop-row">
-                      <span>Modelo</span>
-                      <b>{aiConfig.cliModels[aiConfig.engine] ?? `El de ${CLI_SPECS[aiConfig.engine].program}`}</b>
+                      <span>{t('Modelo')}</span>
+                      <b>{aiConfig.cliModels[aiConfig.engine] ?? t('El de {program}', { program: CLI_SPECS[aiConfig.engine].program })}</b>
                     </div>
                     {aiConfig.hasKey && (
                       <div className="pop-row">
-                        <span>Dictado (OpenRouter)</span>
-                        <b>{aiUsage ? `${formatUsd(aiUsage.usage)} gastado` : '—'}</b>
+                        <span>{t('Dictado (OpenRouter)')}</span>
+                        <b>{aiUsage ? t('{amount} gastado', { amount: formatUsd(aiUsage.usage) }) : '—'}</b>
                       </div>
                     )}
                   </div>

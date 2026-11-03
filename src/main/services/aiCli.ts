@@ -4,6 +4,7 @@ import { homedir, tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { AiCliStatus, AiEngineTest, CliEngine, NamedVersion } from '@shared/ipc'
 import { CLI_ENGINES, CLI_SPECS, isValidModelName } from '@shared/aiEngines'
+import { t } from '@shared/i18n'
 import {
   NAMED_VERSION_PROMPT,
   SYSTEM_PROMPT,
@@ -103,12 +104,12 @@ export class CliError extends Error {
 
 /** Clasifica un fallo a partir de lo que imprimió el CLI. */
 export function classifyCliOutput(text: string): CliFailure {
-  const t = text.toLowerCase()
-  if (/is not recognized as an internal or external command|command not found|no such file or directory/.test(t)) {
+  const lower = text.toLowerCase()
+  if (/is not recognized as an internal or external command|command not found|no such file or directory/.test(lower)) {
     return 'not-installed'
   }
-  if (/rate.?limit|usage limit|quota|\b429\b|limit reached|too many requests/.test(t)) return 'quota'
-  if (/not logged in|log ?in|sign ?in|unauthori[sz]ed|authenticat|credential|\b401\b|invalid api key|oauth/.test(t)) {
+  if (/rate.?limit|usage limit|quota|\b429\b|limit reached|too many requests/.test(lower)) return 'quota'
+  if (/not logged in|log ?in|sign ?in|unauthori[sz]ed|authenticat|credential|\b401\b|invalid api key|oauth/.test(lower)) {
     return 'not-logged-in'
   }
   return 'failed'
@@ -121,21 +122,32 @@ export function mapCliError(engine: CliEngine, e: unknown): Error {
   switch (kind) {
     case 'not-installed':
       return new Error(
-        `No encontramos ${spec.program} en tu computadora. Instalalo con «${spec.install}» y volvé a probar en Ajustes → IA.`
+        t('No encontramos {program} en tu computadora. Instalalo con «{install}» y volvé a probar en Ajustes → IA.', {
+          program: spec.program,
+          install: spec.install
+        })
       )
     case 'not-logged-in':
       return new Error(
-        `${spec.program} no tiene una sesión iniciada. Abrí una terminal, ejecutá «${spec.login}» e iniciá sesión con tu cuenta de ${spec.name}.`
+        t('{program} no tiene una sesión iniciada. Abrí una terminal, ejecutá «{login}» e iniciá sesión con tu cuenta de {name}.', {
+          program: spec.program,
+          login: spec.login,
+          name: spec.name
+        })
       )
     case 'quota':
       return new Error(
-        `Llegaste al límite de uso de tu suscripción de ${spec.name}. Probá más tarde o elegí otro motor en Ajustes → IA.`
+        t('Llegaste al límite de uso de tu suscripción de {name}. Probá más tarde o elegí otro motor en Ajustes → IA.', {
+          name: spec.name
+        })
       )
     case 'timeout':
-      return new Error(`${spec.program} tardó demasiado en responder. Probá de nuevo en un momento.`)
+      return new Error(t('{program} tardó demasiado en responder. Probá de nuevo en un momento.', { program: spec.program }))
     default:
       return new Error(
-        `${spec.program} no pudo generar la respuesta. Podés escribir el texto a mano o probar otro motor en Ajustes → IA.`
+        t('{program} no pudo generar la respuesta. Podés escribir el texto a mano o probar otro motor en Ajustes → IA.', {
+          program: spec.program
+        })
       )
   }
 }
@@ -395,8 +407,14 @@ export async function testCli(engine: CliEngine, model?: string | null): Promise
     await runCli(engine, 'Respondé exactamente con la palabra OK y nada más.', 'Prueba de conexión desde Geode.', {
       model
     })
-    const con = model ? ` con el modelo ${model}` : ''
-    return { ok: true, message: `${spec.program} respondió${con}. Geode ya puede usar tu suscripción de ${spec.name}.` }
+    const message = model
+      ? t('{program} respondió con el modelo {model}. Geode ya puede usar tu suscripción de {name}.', {
+          program: spec.program,
+          model,
+          name: spec.name
+        })
+      : t('{program} respondió. Geode ya puede usar tu suscripción de {name}.', { program: spec.program, name: spec.name })
+    return { ok: true, message }
   } catch (e) {
     return { ok: false, message: mapCliError(engine, e).message }
   }

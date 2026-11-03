@@ -191,7 +191,7 @@ async function textProvider(): Promise<{ engine: AiEngine; provider: AiTextProvi
     return { engine, provider: new CliProvider(engine, ai?.cliModels?.[engine] ?? null) }
   }
   const key = await getAiKey()
-  if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+  if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
   return { engine, provider: new OpenRouterProvider(key, ai.model) }
 }
 
@@ -1009,10 +1009,10 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.aiSetCliModel, async (_e, engine: unknown, model: unknown) => {
-    if (!isCliEngine(engine)) throw new Error('Motor de IA desconocido')
+    if (!isCliEngine(engine)) throw new Error(t('Motor de IA desconocido'))
     const name = typeof model === 'string' ? model.trim() : ''
     if (name && !isValidModelName(name)) {
-      throw new Error('Ese nombre de modelo no es válido: usá solo letras, números, puntos y guiones.')
+      throw new Error(t('Ese nombre de modelo no es válido: usá solo letras, números, puntos y guiones.'))
     }
     const settings = await loadSettings()
     const cliModels = { ...(settings.ai?.cliModels ?? {}) }
@@ -1035,10 +1035,10 @@ function registerIpcHandlers(): void {
       const key = await getAiKey()
       const { ai } = await loadSettings()
       if (!key || !ai?.model) {
-        return { ok: false, message: 'Guardá una API key y elegí un modelo para probar OpenRouter.' }
+        return { ok: false, message: t('Guardá una API key y elegí un modelo para probar OpenRouter.') }
       }
       await new OpenRouterProvider(key, ai.model).generateText('Respondé solo: OK', 'OK', '')
-      return { ok: true, message: 'OpenRouter respondió con tu API key.' }
+      return { ok: true, message: t('OpenRouter respondió con tu API key.') }
     } catch (e) {
       return { ok: false, message: mapAiError(e).message }
     }
@@ -1110,7 +1110,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle(
     IPC.shortcutsSet,
     async (_e, id: unknown, accelerator: unknown): Promise<ShortcutsState> => {
-      if (typeof id !== 'string' || !isShortcutId(id)) throw new Error('Atajo desconocido.')
+      if (typeof id !== 'string' || !isShortcutId(id)) throw new Error(t('Atajo desconocido.'))
       const def = shortcutDef(id)
       const overrides = await getShortcutOverrides()
       let next: string
@@ -1118,19 +1118,19 @@ function registerIpcHandlers(): void {
         next = def.default
       } else {
         const norm = typeof accelerator === 'string' ? normalizeAccelerator(accelerator) : null
-        if (!norm) throw new Error('Esa combinación no se reconoce.')
+        if (!norm) throw new Error(t('Esa combinación no se reconoce.'))
         const invalid = validateShortcut(norm, def.scope)
         if (invalid) throw new Error(invalid)
         next = norm
       }
       const clash = findConflict(resolveShortcuts(overrides), id, next)
       if (clash) {
-        throw new Error(`Esa combinación ya la usa «${shortcutDef(clash).title}». Cambiá esa primero.`)
+        throw new Error(t('Esa combinación ya la usa «{name}». Cambiá esa primero.', { name: shortcutDef(clash).title }))
       }
       // El global se prueba ANTES de guardar: si el sistema no lo deja (otra app
       // lo tiene tomado), se queda el anterior y no se persiste nada.
       if (def.scope === 'global' && !setDictationAccelerator(next)) {
-        throw new Error('El sistema no dejó usar esa combinación (probablemente la usa otra app). Probá con otra.')
+        throw new Error(t('El sistema no dejó usar esa combinación (probablemente la usa otra app). Probá con otra.'))
       }
       const updated = { ...overrides }
       if (next === def.default) delete updated[id]
@@ -1490,7 +1490,7 @@ function startExternalChangeWatcher(): void {
           const raw = JSON.parse(await readFile(file, 'utf8')) as Partial<ExternalChange>
           change = {
             paths: Array.isArray(raw.paths) ? raw.paths.filter((p): p is string => typeof p === 'string') : [],
-            author: typeof raw.author === 'string' ? raw.author : 'IA'
+            author: typeof raw.author === 'string' ? raw.author : t('IA')
           }
         } catch {
           // Ilegible: igual se avisa (sin rutas = recargar todo).

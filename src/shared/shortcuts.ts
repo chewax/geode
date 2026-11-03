@@ -145,20 +145,20 @@ function split(accel: string): { mods: Modifier[]; key: string } {
 }
 
 /**
- * Valida un atajo para un ámbito. Devuelve un mensaje en español si no sirve,
+ * Valida un atajo para un ámbito. Devuelve un mensaje (traducido) si no sirve,
  * o null si está bien.
  */
 export function validateShortcut(accel: string, scope: ShortcutScope): string | null {
   const norm = normalizeAccelerator(accel)
-  if (!norm) return 'Esa combinación no se reconoce.'
+  if (!norm) return t('Esa combinación no se reconoce.')
   const { mods, key } = split(norm)
   const isFn = /^F\d+$/.test(key)
   const strong = mods.some((m) => m !== 'Shift')
   if (!strong && !isFn) {
-    return 'Usá al menos Ctrl, Alt o Cmd: una tecla sola chocaría con la escritura.'
+    return t('Usá al menos Ctrl, Alt o Cmd: una tecla sola chocaría con la escritura.')
   }
   if (scope === 'global' && !strong) {
-    return 'Un atajo global necesita Ctrl, Alt o Cmd para no robarle teclas a otras apps.'
+    return t('Un atajo global necesita Ctrl, Alt o Cmd para no robarle teclas a otras apps.')
   }
   return null
 }
@@ -267,7 +267,7 @@ export function shortcutLabel(accel: string, isMac: boolean): string {
     ? { CommandOrControl: 'Cmd', Control: 'Ctrl', Alt: 'Option', Shift: 'Shift', Super: 'Cmd' }
     : { CommandOrControl: 'Ctrl', Control: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Super: 'Super' }
   const keyName =
-    key === 'Space' ? 'Espacio'
+    key === 'Space' ? t('Espacio')
       : key === 'Plus' ? '+'
         : key === 'Up' ? '↑' : key === 'Down' ? '↓' : key === 'Left' ? '←' : key === 'Right' ? '→'
           : key === 'Escape' ? 'Esc'

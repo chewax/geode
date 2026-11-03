@@ -86,7 +86,8 @@ Geode es una app de escritorio para tomar notas en **Markdown**, en archivos com
 - **Respaldo en la nube** gratis en un repositorio privado de GitHub, con **sync entre computadoras** que resuelve conflictos sin perder nada.
 - **Plugins** de la comunidad, **aislados** del resto de la app.
 - **Memoria para IA**: conectá Claude, Cursor u otro asistente por **MCP** y usá tu bóveda como su memoria. Cada cambio de la IA queda versionado y se puede deshacer ([más](docs/MCP.md)).
-- **Tema claro y oscuro**, interfaz en español.
+- **Tema claro y oscuro**, interfaz en **español e inglés**.
+- **Fórmulas** LaTeX (`$…$`, `$$…$$`), **notas al pie**, **favoritas** y **exportar a PDF**.
 
 </td>
 </tr>
@@ -168,7 +169,8 @@ npm run dev
 |---|---|
 | `Ctrl+S` | Guardar una versión con nombre |
 | `Ctrl+P` | Paleta de comandos |
-| `Ctrl+Shift+F` | Buscar en todas las notas (`#etiqueta` busca por etiqueta) |
+| `Ctrl+O` | Abrir una nota por su nombre |
+| `Ctrl+Shift+F` | Buscar en todas las notas (`#etiqueta`, `estado:pendiente`, `fecha:>2026-01-01`) |
 | `Ctrl+Shift+D` | Abrir la nota de hoy |
 | `Ctrl+Alt+Espacio` | Dictar (empezar / terminar), desde cualquier app |
 | `Ctrl+\` | Dividir el editor |
@@ -272,7 +274,8 @@ Este proyecto sigue un [**código de conducta**](CODE_OF_CONDUCT.md). Para repor
 - [x] Enlaces, etiquetas, propiedades y compatibilidad con Obsidian
 - [x] Plugins aislados con API pública
 - [x] Dictado por voz
-- [ ] Búsqueda por propiedades (`estado:pendiente`) y vistas en tabla
+- [x] Búsqueda por propiedades (`estado:pendiente`)
+- [ ] Vistas en tabla por propiedades
 - [ ] Live preview (editar viendo el formato)
 - [ ] Permisos de plugins con consentimiento y listado de la comunidad
 - [ ] Instaladores firmados para macOS y Linux

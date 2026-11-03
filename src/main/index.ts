@@ -2,7 +2,7 @@ import { app, dialog, shell, BrowserWindow, ipcMain, Menu, nativeImage, protocol
 import { join, basename } from 'path'
 import { existsSync } from 'node:fs'
 import { stat, writeFile } from 'node:fs/promises'
-import { getLocale, resolveLocale, setLocale, t, type LocalePref } from '@shared/i18n'
+import { getLocale, intlLocale, resolveLocale, setLocale, t, type LocalePref } from '@shared/i18n'
 import iconPng from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
 import {
@@ -145,7 +145,7 @@ async function aiConfig(): Promise<AiConfig> {
 /** Root del vault activo o error uniforme si no hay ninguno. */
 function requireRoot(): string {
   const info = vault.getInfo()
-  if (!info) throw new Error('No hay vault abierto')
+  if (!info) throw new Error(t('No hay vault abierto'))
   return info.root
 }
 
@@ -159,7 +159,7 @@ function autoCommitMessage(): string {
  * NUNCA invoca a la IA (SNAP-04) y se reconoce en la timeline por su etiqueta.
  */
 function snapshotMessage(): string {
-  return 'Instantánea automática — ' + new Date().toLocaleString()
+  return t('Instantánea automática — {date}', { date: new Date().toLocaleString(intlLocale()) })
 }
 
 /**
@@ -373,18 +373,18 @@ let mainWindowRef: BrowserWindow | null = null
 function mapDictationError(e: unknown): Error {
   const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
   if (msg.includes('401') || msg.includes('403') || msg.includes('unauthorized')) {
-    return new Error('No se pudo dictar: la clave de OpenRouter fue rechazada. Revisala en Ajustes → IA.')
+    return new Error(t('No se pudo dictar: la clave de OpenRouter fue rechazada. Revisala en Ajustes → IA.'))
   }
   if (msg.includes('402') || msg.includes('credit') || msg.includes('insufficient')) {
-    return new Error('No se pudo dictar: tu cuenta de OpenRouter no tiene saldo suficiente.')
+    return new Error(t('No se pudo dictar: tu cuenta de OpenRouter no tiene saldo suficiente.'))
   }
   if (msg.includes('aborted') || msg.includes('timeout') || msg.includes('fetch failed') || msg.includes('network')) {
-    return new Error('No se pudo dictar: no hay conexión con OpenRouter. Probá de nuevo en un momento.')
+    return new Error(t('No se pudo dictar: no hay conexión con OpenRouter. Probá de nuevo en un momento.'))
   }
   if (msg.includes('404') || msg.includes('no endpoints')) {
-    return new Error('No se pudo dictar: el modelo de dictado ya no existe. Elegí otro en Ajustes → IA.')
+    return new Error(t('No se pudo dictar: el modelo de dictado ya no existe. Elegí otro en Ajustes → IA.'))
   }
-  return new Error('No se pudo transcribir el audio ahora. Probá de nuevo en un momento.')
+  return new Error(t('No se pudo transcribir el audio ahora. Probá de nuevo en un momento.'))
 }
 
 function createWindow(): void {
@@ -505,7 +505,7 @@ function registerIpcHandlers(): void {
     if (!(await gitService.hasCommits(info.root))) {
       const { isObsidian } = await vault.obsidianConfig()
       const notes = (await vault.listFiles()).filter((p) => p.toLowerCase().endsWith('.md')).length
-      await gitService.commit(info.root, isObsidian ? 'Primera versión (importada de Obsidian)' : 'Primera versión')
+      await gitService.commit(info.root, isObsidian ? t('Primera versión (importada de Obsidian)') : t('Primera versión'))
       result = { ...info, imported: { fromObsidian: isObsidian, notes } }
     }
     await rememberVault(info.root)
@@ -550,7 +550,7 @@ function registerIpcHandlers(): void {
       // SEGURIDAD (mitiga T-07-05-01): solo damos de baja bóvedas conocidas. Nunca
       // pasamos a shell.trashItem una ruta arbitraria que venga del renderer.
       const { knownVaults } = await loadSettings()
-      if (!(knownVaults ?? []).includes(root)) throw new Error('Bóveda desconocida')
+      if (!(knownVaults ?? []).includes(root)) throw new Error(t('Bóveda desconocida'))
 
       const wasActive = vault.getInfo()?.root === root
 
@@ -573,7 +573,7 @@ function registerIpcHandlers(): void {
           const motivo = e instanceof Error ? e.message : String(e)
           // Falló la papelera: NO quitamos nada de knownVaults (T-07-05-04).
           throw new Error(
-            `No se pudo enviar la carpeta a la papelera: ${motivo}. La bóveda sigue en la lista.`
+            t('No se pudo enviar la carpeta a la papelera: {motivo}. La bóveda sigue en la lista.', { motivo })
           )
         }
       }
@@ -598,11 +598,11 @@ function registerIpcHandlers(): void {
     IPC.vaultCloneFromGithub,
     async (_e, cloneUrl: string): Promise<VaultInfo | null> => {
       const token = await getGithubToken()
-      if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
-      const dir = await vault.pickFolder('Elegí una carpeta VACÍA donde clonar el repo')
+      if (!token) throw new Error(t('Conectá tu cuenta de GitHub en Ajustes'))
+      const dir = await vault.pickFolder(t('Elegí una carpeta VACÍA donde clonar el repo'))
       if (!dir) return null
       if (!(await vault.isEmptyDir(dir))) {
-        throw new Error('La carpeta no está vacía. Elegí (o creá) una carpeta vacía para clonar.')
+        throw new Error(t('La carpeta no está vacía. Elegí (o creá) una carpeta vacía para clonar.'))
       }
       const url = normalizeRemoteUrl(cloneUrl)
       await gitService.clone(dir, url, token)
@@ -622,8 +622,8 @@ function registerIpcHandlers(): void {
     IPC.vaultCreateWithRepo,
     async (_e, name: string, isPrivate: boolean): Promise<VaultInfo | null> => {
       const token = await getGithubToken()
-      if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
-      const dir = await vault.pickFolder('Elegí la carpeta para la bóveda nueva')
+      if (!token) throw new Error(t('Conectá tu cuenta de GitHub en Ajustes'))
+      const dir = await vault.pickFolder(t('Elegí la carpeta para la bóveda nueva'))
       if (!dir) return null
       await gitService.ensureRepo(dir) // init repo local (rama main)
       const repo = await createRepo(token, name, isPrivate) // crea el repo en GitHub
@@ -647,7 +647,7 @@ function registerIpcHandlers(): void {
       // el usuario cancela → no-op).
       let baseDir: string
       if (useCustomLocation) {
-        const parent = await vault.pickFolder('Elegí dónde crear tu cuaderno')
+        const parent = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
         if (!parent) return null
         baseDir = parent
       } else {
@@ -670,7 +670,7 @@ function registerIpcHandlers(): void {
         // `.catch` para no enmascararlo, y el catch externo mantiene el mensaje humano).
         try {
           await gitService.ensureRepo(root) // git init (rama main), idempotente
-          await gitService.commit(root, 'Primera versión') // primer commit racy-safe del seed
+          await gitService.commit(root, t('Primera versión')) // primer commit racy-safe del seed
         } catch (e) {
           await vault.discard(root).catch(() => {})
           throw e
@@ -687,7 +687,7 @@ function registerIpcHandlers(): void {
         if (codigo === 'EACCES' || codigo === 'EPERM') {
           // No filtramos el stack crudo al renderer (T-11-05): mensaje humano.
           throw new Error(
-            'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en la carpeta.'
+            t('No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en la carpeta.')
           )
         }
         throw e
@@ -732,7 +732,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.vaultExportPdf, async (e, suggestedName: unknown): Promise<string | null> => {
     const win = BrowserWindow.fromWebContents(e.sender)
     if (!win) return null
-    const base = String(suggestedName ?? 'nota').replace(/[\\/:*?"<>|]/g, '').trim() || 'nota'
+    const base = String(suggestedName ?? t('nota')).replace(/[\\/:*?"<>|]/g, '').trim() || t('nota')
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
       title: t('Exportar a PDF'),
       defaultPath: join(app.getPath('documents'), `${base}.pdf`),
@@ -755,7 +755,7 @@ function registerIpcHandlers(): void {
   // Ruta validada con resolveInside (absPath): nunca una ruta cruda al shell.
   ipcMain.handle(IPC.vaultOpenExternal, async (_e, path: string) => {
     const err = await shell.openPath(vault.absPath(path))
-    if (err) throw new Error('No se pudo abrir el archivo con la aplicación del sistema')
+    if (err) throw new Error(t('No se pudo abrir el archivo con la aplicación del sistema'))
   })
   // Actualizar enlaces tras renombrar/mover. Reescribir notas en masa es justo el
   // tipo de cambio que el usuario podría querer deshacer: si hay algo que tocar,
@@ -845,7 +845,7 @@ function registerIpcHandlers(): void {
   // modelo: el configurado para dictado si acepta audio; si no, uno automático.
   ipcMain.handle(IPC.aiTranscribe, async (_e, wavBase64: string): Promise<string> => {
     const key = await getAiKey()
-    if (!key) throw new Error('Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.')
+    if (!key) throw new Error(t('Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.'))
     if (typeof wavBase64 !== 'string' || wavBase64.length === 0) return ''
     let model: string | null = null
     try {
@@ -854,7 +854,7 @@ function registerIpcHandlers(): void {
     } catch (e) {
       throw mapDictationError(e)
     }
-    if (!model) throw new Error('OpenRouter no ofrece ahora ningún modelo que entienda audio. Probá más tarde.')
+    if (!model) throw new Error(t('OpenRouter no ofrece ahora ningún modelo que entienda audio. Probá más tarde.'))
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 120_000)
@@ -884,7 +884,7 @@ function registerIpcHandlers(): void {
     try {
       const key = await getAiKey()
       const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+      if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
 
       const diff = await gitService.pendingDiff(requireRoot())
       if (!diff) return ''
@@ -901,7 +901,7 @@ function registerIpcHandlers(): void {
     try {
       const key = await getAiKey()
       const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+      if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
 
       // El diff ya viene acotado a notas .md desde pendingDiff.
       const diff = await gitService.pendingDiff(requireRoot())
@@ -920,7 +920,7 @@ function registerIpcHandlers(): void {
       try {
         const key = await getAiKey()
         const { ai } = await loadSettings()
-        if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+        if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
         const provider = new OpenRouterProvider(key, ai.model)
         return await provider.generateText(instruction, selection, before)
       } catch (e) {
@@ -1027,7 +1027,7 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.githubCompleteDeviceFlow, async () => {
-    if (!pendingDeviceCode) throw new Error('No hay un device flow en curso')
+    if (!pendingDeviceCode) throw new Error(t('No hay un device flow en curso'))
     // Igual que el start: el crudo de la API (device flow / getLogin) nunca llega
     // al wizard; se traduce a una de las copies humanas de mapBackupError (BACKUP-05).
     try {
@@ -1067,7 +1067,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.githubListRepos, async () => {
     const token = await getGithubToken()
-    if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
+    if (!token) throw new Error(t('Conectá tu cuenta de GitHub en Ajustes'))
     return listRepos(token)
   })
 
@@ -1084,7 +1084,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.gitPush, async () => {
     const token = await getGithubToken()
-    if (!token) throw new Error('Conectá tu cuenta de GitHub en Ajustes')
+    if (!token) throw new Error(t('Conectá tu cuenta de GitHub en Ajustes'))
 
     const root = requireRoot()
     // INVARIANTE DE SEGURIDAD (CR-01): el destino es el origin propio de ESTA
@@ -1093,7 +1093,7 @@ function registerIpcHandlers(): void {
     // de la bóveda A. Si esta bóveda no tiene origin, no hay respaldo que reintentar.
     const ownRemote = await gitService.getRemote(root)
     if (!ownRemote) {
-      throw new Error('Este cuaderno todavía no tiene respaldo en la nube. Activalo primero.')
+      throw new Error(t('Este cuaderno todavía no tiene respaldo en la nube. Activalo primero.'))
     }
     const url = normalizeRemoteUrl(ownRemote) // arregla URLs SSH ya guardadas
 
@@ -1102,7 +1102,7 @@ function registerIpcHandlers(): void {
     // cuaderno), commiteamos su contenido actual como primera versión ANTES del
     // push. Sin esto, pushear una rama sin nacer falla con "Could not find <rama>".
     if (!(await gitService.hasCommits(root))) {
-      await gitService.commit(root, 'Primera versión')
+      await gitService.commit(root, t('Primera versión'))
     }
 
     // Push manual (reintento del botón persistente): TODO fallo de git/API pasa
@@ -1145,7 +1145,7 @@ function registerIpcHandlers(): void {
 
     const root = requireRoot()
     const info = vault.getInfo()
-    if (!info) throw new Error('No hay cuaderno abierto')
+    if (!info) throw new Error(t('No hay cuaderno abierto'))
 
     // IDEMPOTENCIA + INVARIANTE DE SEGURIDAD (CR-01): la decisión de "ya está
     // respaldada" se toma sobre el origin PROPIO de ESTA bóveda (`git.getRemote`),
@@ -1194,7 +1194,7 @@ function registerIpcHandlers(): void {
     // actual antes del push para que "el push nunca sea vacío" valga para cualquier
     // bóveda, no solo las sembradas — sin esto el push falla con "Could not find".
     if (!(await gitService.hasCommits(root))) {
-      await gitService.commit(root, 'Primera versión')
+      await gitService.commit(root, t('Primera versión'))
     }
 
     // Primer respaldo: push de la primera versión (sembrada o recién commiteada).

@@ -11,6 +11,7 @@ import type {
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
 import { LOCALES, getLocale, t, type LocalePref } from '@shared/i18n'
+import { tx } from './i18n'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 
 interface SettingsModalProps {
@@ -26,7 +27,7 @@ function perMillion(perToken: string | null): string {
   if (perToken == null) return '—'
   const n = Number(perToken)
   if (!Number.isFinite(n)) return '—'
-  if (n === 0) return 'gratis'
+  if (n === 0) return t('gratis')
   const m = n * 1_000_000
   return `$${m < 1 ? m.toFixed(2) : m.toFixed(m < 100 ? 1 : 0)}/M`
 }
@@ -99,7 +100,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       list.sort((a, b) => a.name.localeCompare(b.name))
       setModels(list)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudieron cargar los modelos')
+      setError(e instanceof Error ? e.message : t('No se pudieron cargar los modelos'))
     } finally {
       setLoadingModels(false)
     }
@@ -167,7 +168,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       const cfg = await window.geode.github.completeDeviceFlow() // espera la autorización
       setGithub(cfg)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo conectar con GitHub')
+      setError(e instanceof Error ? e.message : t('No se pudo conectar con GitHub'))
     } finally {
       setConnecting(false)
       setDevice(null)
@@ -215,43 +216,42 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="settings-head">
-          <h2>Ajustes</h2>
+          <h2>{t('Ajustes')}</h2>
         </div>
 
         <div className="settings-body">
           <nav className="settings-nav">
             <button className={section === 'general' ? 'active' : ''} onClick={() => setSection('general')}>
-              <SlidersHorizontal size={15} /> General
+              <SlidersHorizontal size={15} /> {t('General')}
             </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
-              <Sparkles size={15} /> Mensajes por IA
+              <Sparkles size={15} /> {t('Mensajes por IA')}
             </button>
             <button className={section === 'github' ? 'active' : ''} onClick={() => setSection('github')}>
-              <Cloud size={15} /> Respaldo en la nube
+              <Cloud size={15} /> {t('Respaldo en la nube')}
             </button>
             <button className={section === 'snapshots' ? 'active' : ''} onClick={() => setSection('snapshots')}>
-              <Clock size={15} /> Guardado automático
+              <Clock size={15} /> {t('Guardado automático')}
             </button>
             <button className={section === 'plugins' ? 'active' : ''} onClick={() => setSection('plugins')}>
-              <Puzzle size={15} /> Plugins
+              <Puzzle size={15} /> {t('Plugins')}
             </button>
           </nav>
 
           <div className="settings-content">
             {section === 'general' && (
               <section className="settings-section">
-                <h2><SlidersHorizontal size={18} /> General</h2>
+                <h2><SlidersHorizontal size={18} /> {t('General')}</h2>
                 <p className="modal-sub">
-                  Elegí cómo se ve Geode. Modo Avanzado muestra el historial técnico de versiones (ramas, etiquetas y grafo).
-                  Desactivado por defecto.
+                  {t('Elegí cómo se ve Geode. Modo Avanzado muestra el historial técnico de versiones (ramas, etiquetas y grafo). Desactivado por defecto.')}
                 </p>
 
-                <div className="field-label">Apariencia</div>
-                <div className="theme-choices" role="radiogroup" aria-label="Tema">
+                <div className="field-label">{t('Apariencia')}</div>
+                <div className="theme-choices" role="radiogroup" aria-label={t('Tema')}>
                   {([
-                    ['sistema', 'Como el sistema', Monitor],
-                    ['claro', 'Claro', Sun],
-                    ['oscuro', 'Oscuro', Moon]
+                    ['sistema', t('Como el sistema'), Monitor],
+                    ['claro', t('Claro'), Sun],
+                    ['oscuro', t('Oscuro'), Moon]
                   ] as const).map(([value, label, Icon]) => (
                     <button
                       key={value}
@@ -283,7 +283,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   ))}
                 </div>
 
-                <div className="field-label">Barra de formato</div>
+                <div className="field-label">{t('Barra de formato')}</div>
                 <label className="switch-row">
                   <input
                     type="checkbox"
@@ -292,10 +292,10 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     onChange={(e) => setFormatToolbar(e.target.checked)}
                   />
                   <span className="switch-track" aria-hidden="true" />
-                  <span className="switch-text">{formatToolbar ? 'Visible arriba del editor' : 'Oculta (los atajos siguen funcionando)'}</span>
+                  <span className="switch-text">{formatToolbar ? t('Visible arriba del editor') : t('Oculta (los atajos siguen funcionando)')}</span>
                 </label>
 
-                <div className="field-label">Modo Avanzado</div>
+                <div className="field-label">{t('Modo Avanzado')}</div>
                 <label className="switch-row">
                   <input
                     type="checkbox"
@@ -304,24 +304,25 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     onChange={(e) => void changeAdvanced(e.target.checked)}
                   />
                   <span className="switch-track" aria-hidden="true" />
-                  <span className="switch-text">{advanced ? 'Activado' : 'Desactivado'}</span>
+                  <span className="switch-text">{advanced ? t('Activado') : t('Desactivado')}</span>
                 </label>
               </section>
             )}
 
             {section === 'ai' && (
               <section className="settings-section">
-                <h2><Sparkles size={18} /> Mensajes por IA</h2>
+                <h2><Sparkles size={18} /> {t('Mensajes por IA')}</h2>
                 <p className="modal-sub">
-                  Motor: <strong>OpenRouter</strong>. La API key se guarda cifrada en tu equipo, fuera
-                  del repositorio.
+                  {tx('Motor: {engine}. La API key se guarda cifrada en tu equipo, fuera del repositorio.', {
+                    engine: <strong>OpenRouter</strong>
+                  })}
                 </p>
 
-                <label className="field-label">API key de OpenRouter</label>
+                <label className="field-label">{t('API key de OpenRouter')}</label>
                 {config?.hasKey ? (
                   <div className="key-row">
-                    <span className="key-set"><Check size={14} /> Key guardada</span>
-                    <button onClick={() => void clearKey()}>Quitar</button>
+                    <span className="key-set"><Check size={14} /> {t('Key guardada')}</span>
+                    <button onClick={() => void clearKey()}>{t('Quitar')}</button>
                   </div>
                 ) : (
                   <div className="key-row">
@@ -333,35 +334,35 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                       onChange={(e) => setKeyInput(e.target.value)}
                     />
                     <button onClick={() => void saveKey()} disabled={!keyInput.trim()}>
-                      Guardar
+                      {t('Guardar')}
                     </button>
                   </div>
                 )}
 
                 <label className="field-label">
-                  Modelo
+                  {t('Modelo')}
                   {config?.model && <span className="model-current">{config.model}</span>}
                 </label>
 
                 {!config?.hasKey ? (
-                  <p className="hint">Guardá una API key para ver los modelos.</p>
+                  <p className="hint">{t('Guardá una API key para ver los modelos.')}</p>
                 ) : (
                   <>
                     <div className="key-row">
                       <input
                         className="text-input"
-                        placeholder="Filtrar modelos…"
+                        placeholder={t('Filtrar modelos…')}
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
                       />
-                      <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title="Recargar modelos">
+                      <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title={t('Recargar modelos')}>
                         <RefreshCw size={15} className={loadingModels ? 'spin' : ''} />
                       </button>
                     </div>
 
                     <ul className="model-list">
                       {filtered.length === 0 && !loadingModels && (
-                        <li className="model-empty">Sin resultados</li>
+                        <li className="model-empty">{t('Sin resultados')}</li>
                       )}
                       {filtered.map((m) => (
                         <li
@@ -381,8 +382,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                       ))}
                     </ul>
                     <p className="hint">
-                      Para resumir cambios conviene un modelo rápido y barato (mirá el precio por
-                      millón de tokens).
+                      {t('Para resumir cambios conviene un modelo rápido y barato (mirá el precio por millón de tokens).')}
                     </p>
                   </>
                 )}
@@ -394,25 +394,25 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     disabled={!config?.hasKey || !config?.model}
                     onChange={(e) => void toggleEnabled(e.target.checked)}
                   />
-                  Generar resúmenes de versión con IA
+                  {t('Generar resúmenes de versión con IA')}
                 </label>
 
-                <h3 className="settings-subtitle"><Mic size={15} /> Dictado por voz</h3>
+                <h3 className="settings-subtitle"><Mic size={15} /> {t('Dictado por voz')}</h3>
                 <p className="modal-sub">
                   {dictationShortcut ? (
                     <>
-                      Apretá <kbd>{dictationShortcut}</kbd> desde cualquier lugar para empezar a dictar, y otra
-                      vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se
-                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto).
+                      {tx(
+                        'Apretá {key} desde cualquier lugar para empezar a dictar, y otra vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto).',
+                        { key: <kbd>{dictationShortcut}</kbd> }
+                      )}
                     </>
                   ) : (
                     <>
-                      El atajo global no se pudo registrar (puede que otra app lo use). Podés dictar igual desde la
-                      paleta de comandos: «Dictar».
+                      {t('El atajo global no se pudo registrar (puede que otra app lo use). Podés dictar igual desde la paleta de comandos: «Dictar».')}
                     </>
                   )}
                 </p>
-                <label className="field-label" htmlFor="dictation-model">Modelo para transcribir</label>
+                <label className="field-label" htmlFor="dictation-model">{t('Modelo para transcribir')}</label>
                 <select
                   id="dictation-model"
                   className="text-input"
@@ -424,7 +424,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     onConfigChange(next)
                   }}
                 >
-                  <option value="">Automático (recomendado)</option>
+                  <option value="">{t('Automático (recomendado)')}</option>
                   {models
                     .filter((m) => m.audioInput || m.id === config?.dictationModel)
                     .map((m) => (
@@ -438,48 +438,47 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
             {section === 'github' && (
               <section className="settings-section">
-                <h2><Cloud size={18} /> Respaldo en la nube</h2>
+                <h2><Cloud size={18} /> {t('Respaldo en la nube')}</h2>
                 <p className="modal-sub">
-                  Conectá tu cuenta para guardar copias de seguridad de tus cuadernos en la nube.
+                  {t('Conectá tu cuenta para guardar copias de seguridad de tus cuadernos en la nube.')}
                 </p>
 
                 {github?.connected ? (
                   <div className="key-row">
-                    <span className="key-set"><Check size={14} /> Conectado como {github.login}</span>
-                    <button onClick={() => void disconnectGithub()}>Desconectar</button>
+                    <span className="key-set"><Check size={14} /> {t('Conectado como {login}', { login: github.login ?? '' })}</span>
+                    <button onClick={() => void disconnectGithub()}>{t('Desconectar')}</button>
                   </div>
                 ) : device ? (
                   <div className="device-box">
-                    <p>Escribí este código en la página que se abrió para conectar tu cuenta:</p>
+                    <p>{t('Escribí este código en la página que se abrió para conectar tu cuenta:')}</p>
                     <div className="device-code">{device.userCode}</div>
-                    <p className="hint">Esperando que autorices…</p>
+                    <p className="hint">{t('Esperando que autorices…')}</p>
                   </div>
                 ) : (
                   <button onClick={() => void connectGithub()} disabled={connecting}>
-                    {connecting ? 'conectando…' : 'Conectar mi cuenta'}
+                    {connecting ? t('conectando…') : t('Conectar mi cuenta')}
                   </button>
                 )}
 
                 {github?.connected && (
                   <>
                     <details className="advanced-remote">
-                      <summary className="field-label">Dirección del respaldo (avanzado)</summary>
+                      <summary className="field-label">{t('Dirección del respaldo (avanzado)')}</summary>
                       <div className="key-row">
                         <input
                           className="text-input"
-                          placeholder="https://github.com/usuario/mi-cuaderno.git"
+                          placeholder={t('https://github.com/usuario/mi-cuaderno.git')}
                           value={remoteInput}
                           onChange={(e) => setRemoteInput(e.target.value)}
                         />
                         <button onClick={() => void saveRemote()} disabled={remoteInput.trim() === (github.remote ?? '')}>
-                          Guardar
+                          {t('Guardar')}
                         </button>
                       </div>
                     </details>
 
                     <p className="hint">
-                      Tu cuaderno se respalda solo cada vez que guardás. También podés forzar una
-                      copia desde el botón de la barra inferior.
+                      {t('Tu cuaderno se respalda solo cada vez que guardás. También podés forzar una copia desde el botón de la barra inferior.')}
                     </p>
                   </>
                 )}
@@ -488,14 +487,13 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
             {section === 'plugins' && (
               <section className="settings-section">
-                <h2><Puzzle size={18} /> Plugins</h2>
+                <h2><Puzzle size={18} /> {t('Plugins')}</h2>
 
                 <div className="ps-group-head">
-                  <h3>Integrados</h3>
+                  <h3>{t('Integrados')}</h3>
                 </div>
                 <p className="modal-sub">
-                  Vienen incluidos con Geode y están activos por defecto. Al desactivar uno,
-                  el cambio se aplica al reiniciar la app.
+                  {t('Vienen incluidos con Geode y están activos por defecto. Al desactivar uno, el cambio se aplica al reiniciar la app.')}
                 </p>
                 <ul className="plugin-settings-list">
                   {BUILTIN_PLUGINS.map((p) => (
@@ -507,37 +505,38 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                       </div>
                       <label
                         className="ps-toggle"
-                        title={(builtinEnabled[p.id] ?? true) ? 'Activado' : 'Desactivado'}
+                        title={(builtinEnabled[p.id] ?? true) ? t('Activado') : t('Desactivado')}
                       >
                         <input
                           type="checkbox"
                           checked={builtinEnabled[p.id] ?? true}
                           onChange={(e) => void toggleBuiltin(p.id, e.target.checked)}
                         />
-                        {(builtinEnabled[p.id] ?? true) ? 'activado' : 'desactivado'}
+                        {(builtinEnabled[p.id] ?? true) ? t('activado') : t('desactivado')}
                       </label>
                     </li>
                   ))}
                 </ul>
 
                 <div className="ps-group-head">
-                  <h3>Instalados</h3>
+                  <h3>{t('Instalados')}</h3>
                   <div className="ps-actions">
-                    <button className="icon-btn" title="Recargar lista" onClick={() => void refreshPlugins()}>
+                    <button className="icon-btn" title={t('Recargar lista')} onClick={() => void refreshPlugins()}>
                       <RefreshCw size={14} />
                     </button>
                     <button onClick={() => void window.geode.plugins.openDir()}>
-                      <FolderOpen size={14} /> Abrir carpeta
+                      <FolderOpen size={14} /> {t('Abrir carpeta')}
                     </button>
                   </div>
                 </div>
                 <p className="modal-sub">
-                  Poné cada plugin en su propia carpeta dentro de la carpeta de plugins, con un
-                  <code> plugin.json</code>. Los cambios de activación se aplican al reiniciar la app.
+                  {tx('Poné cada plugin en su propia carpeta dentro de la carpeta de plugins, con un {file}. Los cambios de activación se aplican al reiniciar la app.', {
+                    file: <code>plugin.json</code>
+                  })}
                 </p>
 
                 {extPlugins.length === 0 ? (
-                  <p className="plugin-empty">No hay plugins instalados todavía.</p>
+                  <p className="plugin-empty">{t('No hay plugins instalados todavía.')}</p>
                 ) : (
                   <ul className="plugin-settings-list">
                     {extPlugins.map((p) => (
@@ -554,13 +553,13 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                           )}
                         </div>
                         {!p.error && (
-                          <label className="ps-toggle" title={p.enabled ? 'Activado' : 'Desactivado'}>
+                          <label className="ps-toggle" title={p.enabled ? t('Activado') : t('Desactivado')}>
                             <input
                               type="checkbox"
                               checked={p.enabled}
                               onChange={(e) => void togglePlugin(p.manifest.id, e.target.checked)}
                             />
-                            {p.enabled ? 'activado' : 'desactivado'}
+                            {p.enabled ? t('activado') : t('desactivado')}
                           </label>
                         )}
                       </li>
@@ -569,20 +568,19 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 )}
 
                 <p className="hint">
-                  Abrí la paleta de comandos con <b>Ctrl+P</b> para ver lo que aportan.
+                  {tx('Abrí la paleta de comandos con {key} para ver lo que aportan.', { key: <b>Ctrl+P</b> })}
                 </p>
               </section>
             )}
 
             {section === 'snapshots' && (
               <section className="settings-section">
-                <h2><Clock size={18} /> Guardado automático</h2>
+                <h2><Clock size={18} /> {t('Guardado automático')}</h2>
                 <p className="modal-sub">
-                  La bóveda se guarda sola cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente,
-                  la IA puede ponerle un nombre a cada una de esas snapshots automáticas.
+                  {t('La bóveda se guarda sola cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente, la IA puede ponerle un nombre a cada una de esas snapshots automáticas.')}
                 </p>
 
-                <label className="field-label">Cadencia</label>
+                <label className="field-label">{t('Cadencia')}</label>
                 <select
                   className="text-input"
                   value={cadence === null ? 'manual' : String(cadence)}
@@ -590,13 +588,13 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     void changeCadence(e.target.value === 'manual' ? null : Number(e.target.value))
                   }
                 >
-                  <option value="manual">Manual (sólo al guardar)</option>
-                  <option value="5">Cada 5 minutos</option>
-                  <option value="10">Cada 10 minutos</option>
-                  <option value="15">Cada 15 minutos</option>
-                  <option value="30">Cada 30 minutos</option>
+                  <option value="manual">{t('Manual (sólo al guardar)')}</option>
+                  <option value="5">{t('Cada {n} minutos', { n: 5 })}</option>
+                  <option value="10">{t('Cada {n} minutos', { n: 10 })}</option>
+                  <option value="15">{t('Cada {n} minutos', { n: 15 })}</option>
+                  <option value="30">{t('Cada {n} minutos', { n: 30 })}</option>
                 </select>
-                <p className="hint">Por defecto: cada 10 minutos.</p>
+                <p className="hint">{t('Por defecto: cada {n} minutos.', { n: 10 })}</p>
 
                 <label className="toggle-row">
                   <input
@@ -604,11 +602,10 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     checked={aiTitles}
                     onChange={(e) => void changeAiTitles(e.target.checked)}
                   />
-                  Nombrar las snapshots automáticas con IA
+                  {t('Nombrar las snapshots automáticas con IA')}
                 </label>
                 <p className="hint">
-                  Usa tu API key de IA, así que tiene costo. La IA sólo se invoca cuando una snapshot
-                  automática realmente tiene cambios — nunca por el tiempo transcurrido.
+                  {t('Usa tu API key de IA, así que tiene costo. La IA sólo se invoca cuando una snapshot automática realmente tiene cambios — nunca por el tiempo transcurrido.')}
                 </p>
               </section>
             )}
@@ -623,7 +620,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
 
         <div className="modal-actions settings-actions">
           <button className="primary" onClick={onClose}>
-            Listo
+            {t('Listo')}
           </button>
         </div>
       </div>

@@ -8,6 +8,7 @@ import type {
   PluginEntry
 } from './types'
 import { createPluginIframe } from './iframeHost'
+import { t } from '@shared/i18n'
 
 /**
  * ── Puente async del PluginContext para plugins EXTERNOS (Fase 11 → Fase 12) ──
@@ -89,7 +90,7 @@ export function attachHostBridge(
           return new Promise<string>((resolve, reject) => {
             const timer = window.setTimeout(() => {
               pendingRenders.delete(id)
-              reject(new Error('el plugin tardó demasiado en dibujar el bloque'))
+              reject(new Error(t('el plugin tardó demasiado en dibujar el bloque')))
             }, RENDER_TIMEOUT_MS)
             pendingRenders.set(id, {
               resolve: (html) => {
@@ -296,7 +297,7 @@ export function activateExternalViaBridge(
         // sin tumbar a los demás plugins.
         () => {
           hostSide.dispose()
-          host.notify(`El plugin "${entry.pluginId}" no arrancó`)
+          host.notify(t('El plugin «{id}» no arrancó', { id: entry.pluginId }))
         }
       )
       frameEl = frame.iframe

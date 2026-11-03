@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { CloudUpload } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 /**
  * Tarjeta-banner de invitación al respaldo (BACKUP-01). No bloqueante: el
@@ -22,27 +23,31 @@ export function BackupCard({
     <div className="time-banner backup">
       <div className="time-banner-info">
         <CloudUpload size={15} />
-        <span className="time-banner-title">Respaldá tu cuaderno en la nube</span>
+        <span className="time-banner-title">{t('Respaldá tu cuaderno en la nube')}</span>
         <span
           className="time-banner-label"
-          title="Guardá una copia de seguridad para no perder tu cuaderno aunque le pase algo a este dispositivo."
+          title={t(
+            'Guardá una copia de seguridad para no perder tu cuaderno aunque le pase algo a este dispositivo.'
+          )}
         >
           {' '}
-          — Guardá una copia de seguridad para no perder tu cuaderno aunque le pase algo a este
-          dispositivo.
+          —{' '}
+          {t(
+            'Guardá una copia de seguridad para no perder tu cuaderno aunque le pase algo a este dispositivo.'
+          )}
         </span>
       </div>
       <div className="time-banner-actions">
         <button className="link-btn" onClick={onLater}>
-          Hacerlo después
+          {t('Hacerlo después')}
         </button>
         <button
           className="tb-btn cta"
-          title="Respaldar en la nube"
-          aria-label="Respaldar en la nube"
+          title={t('Respaldar en la nube')}
+          aria-label={t('Respaldar en la nube')}
           onClick={onBackup}
         >
-          <CloudUpload size={16} /> Respaldar en la nube
+          <CloudUpload size={16} /> {t('Respaldar en la nube')}
         </button>
       </div>
     </div>

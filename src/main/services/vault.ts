@@ -8,7 +8,7 @@ import { baseName, displayName, isNotePath, parseWikilinks, resolveLink, rewrite
 import { foldQuery, searchText } from '@shared/search'
 import { matchesFilters, parseQuery, propertyLine } from '@shared/query'
 import { atomicWrite } from '../fs/atomic'
-import { sanitizeVaultName, SEED_BIENVENIDA } from '../fs/vaultName'
+import { sanitizeVaultName, seedBienvenida } from '../fs/vaultName'
 
 /** Carpetas que nunca se muestran en el árbol. */
 const IGNORED_DIRS = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
@@ -29,7 +29,7 @@ export class VaultService {
   async setRoot(root: string): Promise<VaultInfo> {
     const abs = resolve(root)
     const st = await stat(abs)
-    if (!st.isDirectory()) throw new Error(`No es una carpeta: ${abs}`)
+    if (!st.isDirectory()) throw new Error(t('No es una carpeta: {path}', { path: abs }))
     this.root = abs
     return this.getInfo()!
   }
@@ -41,7 +41,7 @@ export class VaultService {
 
   async openDialog(): Promise<VaultInfo | null> {
     const res = await dialog.showOpenDialog({
-      title: 'Elegí una carpeta como vault',
+      title: t('Elegí una carpeta como vault'),
       properties: ['openDirectory', 'createDirectory']
     })
     if (res.canceled || res.filePaths.length === 0) return null
@@ -72,11 +72,11 @@ export class VaultService {
    * vault. Bloquea path traversal (`../`) — clave para no leer/escribir fuera.
    */
   private resolveInside(relPath: string): string {
-    if (!this.root) throw new Error('No hay vault abierto')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
     const abs = resolve(this.root, relPath)
     const rel = relative(this.root, abs)
     if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`)) {
-      throw new Error(`Ruta fuera del vault: ${relPath}`)
+      throw new Error(t('Ruta fuera del vault: {path}', { path: relPath }))
     }
     return abs
   }
@@ -125,7 +125,7 @@ export class VaultService {
 
   /** Crea una nota nueva con nombre libre en `relDir` ('' = raíz). */
   async createNote(relDir = ''): Promise<TreeNode> {
-    if (!this.root) throw new Error('No hay vault abierto')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
     const base = 'Nueva nota'
 
     let name = `${base}.md`
@@ -141,7 +141,7 @@ export class VaultService {
 
   /** Crea una carpeta con nombre libre en `relDir` ('' = raíz). */
   async createFolder(relDir = ''): Promise<TreeNode> {
-    if (!this.root) throw new Error('No hay vault abierto')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
     const base = 'Nueva carpeta'
 
     let name = base
@@ -199,7 +199,7 @@ export class VaultService {
     // Si la siembra falla (p.ej. disco lleno), se limpia la carpeta recién creada
     // para no dejar un directorio vacío que fuerce el sufijo " (2)" en el reintento.
     try {
-      await atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)
+      await atomicWrite(join(dir, 'Bienvenida.md'), seedBienvenida())
     } catch (e) {
       await rm(dir, { recursive: true, force: true }).catch(() => {})
       throw e
@@ -232,7 +232,7 @@ export class VaultService {
     // ("Ya existe" sería falso positivo) — se hace el rename para aplicar el nuevo case.
     const sameFileDifferentCase = from.toLowerCase() === to.toLowerCase()
     if (!sameFileDifferentCase && (await this.exists(toRel))) {
-      throw new Error(`Ya existe: ${toRel}`)
+      throw new Error(t('Ya existe: {path}', { path: toRel }))
     }
     await rename(from, to)
   }
@@ -425,8 +425,8 @@ export class VaultService {
   }
 
   async setBookmarks(paths: unknown): Promise<void> {
-    if (!this.root) throw new Error('No hay vault abierto')
-    if (!Array.isArray(paths) || !paths.every((p) => typeof p === 'string')) throw new Error('Lista de marcadores inválida')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!Array.isArray(paths) || !paths.every((p) => typeof p === 'string')) throw new Error(t('Lista de marcadores inválida'))
     // Sólo rutas dentro de la bóveda (resolveInside lanza si alguna sale).
     for (const p of paths) this.resolveInside(p)
     const unique = [...new Set(paths as string[])].slice(0, 500)
@@ -536,7 +536,7 @@ export class VaultService {
   async createNoteAt(relPath: string, content: string): Promise<TreeNode> {
     const clean = relPath.replace(/\\/g, '/').replace(/^\/+/, '')
     const rel = isNotePath(clean) ? clean : `${clean}.md`
-    if (await this.exists(rel)) throw new Error(`Ya existe: ${rel}`)
+    if (await this.exists(rel)) throw new Error(t('Ya existe: {path}', { path: rel }))
     await atomicWrite(this.resolveInside(rel), content)
     return { name: baseName(rel), path: rel, isDir: false }
   }
@@ -547,9 +547,9 @@ export class VaultService {
    * caracteres ilegales se quitan y una colisión agrega sufijo (nunca pisa).
    */
   async saveAttachment(name: string, data: Uint8Array, notePath: string | null = null): Promise<string> {
-    if (!this.root) throw new Error('No hay vault abierto')
-    if (!isImagePath(name)) throw new Error('Solo se pueden adjuntar imágenes')
-    if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('La imagen es demasiado grande (máximo 25 MB)')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!isImagePath(name)) throw new Error(t('Solo se pueden adjuntar imágenes'))
+    if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error(t('La imagen es demasiado grande (máximo 25 MB)'))
     const ext = extOf(name)
     let stem = baseName(name).slice(0, -(ext.length + 1))
     stem = stem.replace(/[<>:"/\\|?*\u0000-\u001f#^[\]]/g, '').trim()

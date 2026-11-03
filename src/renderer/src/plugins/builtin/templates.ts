@@ -1,4 +1,5 @@
 import type { TreeNode } from '@shared/ipc'
+import { t } from '@shared/i18n'
 import { displayName } from '@shared/links'
 import type { GeodePlugin, PluginContext } from '../types'
 import { TEMPLATES_DIR, applyTemplate } from './templating'
@@ -21,12 +22,12 @@ function templatePaths(tree: TreeNode[]): string[] {
 async function chooseTemplate(ctx: PluginContext): Promise<string | null> {
   const paths = templatePaths(await ctx.vault.tree())
   if (paths.length === 0) {
-    ctx.notify(`Creá notas dentro de la carpeta «${TEMPLATES_DIR}» para usarlas como plantillas.`)
+    ctx.notify(t('Creá notas dentro de la carpeta «{dir}» para usarlas como plantillas.', { dir: TEMPLATES_DIR }))
     return null
   }
   return ctx.ui.pick(
     paths.map((p) => ({ label: displayName(p), value: p })),
-    'Elegí una plantilla…'
+    t('Elegí una plantilla…')
   )
 }
 
@@ -36,13 +37,22 @@ async function chooseTemplate(ctx: PluginContext): Promise<string | null> {
  */
 export const templatesPlugin: GeodePlugin = {
   id: 'templates',
-  name: 'Plantillas',
-  description: 'Inserta notas de la carpeta «Plantillas» con {{fecha}}, {{hora}} y {{titulo}}',
+  get name() {
+    return t('Plantillas')
+  },
+  get description() {
+    return t('Inserta notas de la carpeta «{dir}» con {fecha}, {hora} y {titulo}', {
+      dir: TEMPLATES_DIR,
+      fecha: '{{fecha}}',
+      hora: '{{hora}}',
+      titulo: '{{titulo}}'
+    })
+  },
   activate(ctx) {
     ctx.commands.register({
       id: 'templates.insert',
-      title: 'Insertar plantilla…',
-      category: 'Editor',
+      title: t('Insertar plantilla…'),
+      category: t('Editor'),
       isEnabled: () => ctx.activeNote() !== null,
       run: async () => {
         const note = ctx.activeNote()
@@ -53,14 +63,14 @@ export const templatesPlugin: GeodePlugin = {
           const text = await ctx.vault.readNote(path)
           ctx.editor.insertAtCursor(applyTemplate(text, { title: displayName(note.path) }))
         } catch (e) {
-          ctx.notify(e instanceof Error ? e.message : 'No se pudo leer la plantilla')
+          ctx.notify(e instanceof Error ? e.message : t('No se pudo leer la plantilla'))
         }
       }
     })
     ctx.commands.register({
       id: 'templates.newFromTemplate',
-      title: 'Nueva nota desde plantilla…',
-      category: 'Notas',
+      title: t('Nueva nota desde plantilla…'),
+      category: t('Notas'),
       run: async () => {
         const path = await chooseTemplate(ctx)
         if (!path) return
@@ -73,7 +83,7 @@ export const templatesPlugin: GeodePlugin = {
           await ctx.vault.createNote(`${name}.md`, text)
           await ctx.openNote(`${name}.md`)
         } catch (e) {
-          ctx.notify(e instanceof Error ? e.message : 'No se pudo crear la nota')
+          ctx.notify(e instanceof Error ? e.message : t('No se pudo crear la nota'))
         }
       }
     })

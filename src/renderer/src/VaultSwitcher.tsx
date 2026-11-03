@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { ChevronRight, ChevronDown, Check, FolderOpen, Cloud, Trash2 } from 'lucide-react'
 import type { VaultInfo } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 export interface VaultSwitcherProps {
   /** Bóveda activa (para marcarla con el check). */
@@ -50,7 +51,7 @@ export function VaultSwitcher({
     <div className="vault-header">
       <button
         className="vault-trigger"
-        title="Gestionar bóvedas"
+        title={t('Gestionar bóvedas')}
         onClick={() => setOpen((v) => !v)}
       >
         {open ? (
@@ -58,7 +59,7 @@ export function VaultSwitcher({
         ) : (
           <ChevronRight size={14} className="twisty" />
         )}
-        <span className="vault-trigger-name">Bóvedas</span>
+        <span className="vault-trigger-name">{t('Bóvedas')}</span>
       </button>
 
       {open && (
@@ -77,7 +78,7 @@ export function VaultSwitcher({
               {v.root === current.root && <Check size={14} />}
               <button
                 className="icon-btn vault-menu-remove"
-                title="Quitar bóveda…"
+                title={t('Quitar bóveda…')}
                 onClick={(e) => {
                   e.stopPropagation()
                   setOpen(false)
@@ -96,7 +97,7 @@ export function VaultSwitcher({
               onManage()
             }}
           >
-            <FolderOpen size={14} /> Abrir carpeta…
+            <FolderOpen size={14} /> {t('Abrir carpeta…')}
           </li>
           <li
             className="vault-menu-manage"
@@ -105,7 +106,7 @@ export function VaultSwitcher({
               onNew()
             }}
           >
-            <Cloud size={14} /> Clonar o crear en GitHub…
+            <Cloud size={14} /> {t('Clonar o crear en GitHub…')}
           </li>
         </ul>
       )}

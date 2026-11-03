@@ -166,13 +166,19 @@ const CALLOUT_KIND: Record<string, string> = {
   error: 'danger', bug: 'danger', example: 'example', quote: 'quote', cite: 'quote'
 }
 
-/** Nombres en español para los callouts sin título propio. */
-const CALLOUT_TITLE: Record<string, string> = {
-  note: 'Nota', info: 'Info', todo: 'Pendiente', abstract: 'Resumen', summary: 'Resumen', tldr: 'Resumen',
-  tip: 'Consejo', hint: 'Consejo', important: 'Importante', success: 'Listo', check: 'Listo', done: 'Listo',
-  question: 'Pregunta', help: 'Ayuda', faq: 'Preguntas', warning: 'Atención', caution: 'Cuidado',
-  attention: 'Atención', failure: 'Falló', fail: 'Falló', missing: 'Falta', danger: 'Peligro',
-  error: 'Error', bug: 'Error', example: 'Ejemplo', quote: 'Cita', cite: 'Cita'
+/**
+ * Nombres para los callouts sin título propio. Es una función (no una constante
+ * del módulo) para que se traduzca con el idioma ya elegido.
+ */
+function calloutTitle(type: string): string | undefined {
+  const titles: Record<string, string> = {
+    note: t('Nota'), info: t('Info'), todo: t('Pendiente'), abstract: t('Resumen'), summary: t('Resumen'), tldr: t('Resumen'),
+    tip: t('Consejo'), hint: t('Consejo'), important: t('Importante'), success: t('Listo'), check: t('Listo'), done: t('Listo'),
+    question: t('Pregunta'), help: t('Ayuda'), faq: t('Preguntas'), warning: t('Atención'), caution: t('Cuidado'),
+    attention: t('Atención'), failure: t('Falló'), fail: t('Falló'), missing: t('Falta'), danger: t('Peligro'),
+    error: t('Error'), bug: t('Error'), example: t('Ejemplo'), quote: t('Cita'), cite: t('Cita')
+  }
+  return titles[type]
 }
 
 /**
@@ -194,7 +200,7 @@ function renderCallouts(root: DocumentFragment): void {
     if (!m) return
     const type = m[1].toLowerCase()
     const kind = CALLOUT_KIND[type] ?? 'note'
-    const title = m[3].trim() || CALLOUT_TITLE[type] || m[1]
+    const title = m[3].trim() || calloutTitle(type) || m[1]
     const doc = bq.ownerDocument
     const box = doc.createElement(m[2] ? 'details' : 'div')
     box.className = `callout callout-${kind}`
@@ -417,7 +423,7 @@ export function MarkdownPreview({
         const target = a.getAttribute('data-wikilink') ?? ''
         if (!resolveLink(target, all, from)) {
           a.classList.add('missing')
-          a.setAttribute('title', `«${target}» todavía no existe — click para crearla`)
+          a.setAttribute('title', t('«{target}» todavía no existe — click para crearla', { target }))
         }
       })
 
@@ -570,10 +576,10 @@ function replaceCodeBlocks(
     if (state?.html !== undefined) box.innerHTML = state.html
     else if (state?.error !== undefined) {
       box.classList.add('plugin-block-error')
-      box.textContent = `No se pudo dibujar el bloque «${lang}»: ${state.error}`
+      box.textContent = t('No se pudo dibujar el bloque «{lang}»: {error}', { lang, error: state.error })
     } else {
       box.classList.add('plugin-block-pending')
-      box.textContent = 'Dibujando…'
+      box.textContent = t('Dibujando…')
     }
     code.parentElement?.replaceWith(box)
   })

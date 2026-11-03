@@ -3,6 +3,7 @@ import type { DragEvent, JSX, KeyboardEvent } from 'react'
 import { Triangle, Trash2, Image as ImageIcon } from 'lucide-react'
 import { isImagePath } from '@shared/attachments'
 import type { TreeNode } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 export interface FileTreeProps {
   nodes: TreeNode[]
@@ -121,8 +122,8 @@ function TreeItem({
   const delBtn = editing ? null : (
     <button
       className="node-del"
-      title="Eliminar"
-      aria-label="Eliminar"
+      title={t('Eliminar')}
+      aria-label={t('Eliminar')}
       onClick={(e) => {
         e.stopPropagation()
         onDelete(node)
@@ -224,7 +225,7 @@ function TreeItem({
       {/* Espaciador del ancho del triángulo, para que el nombre del archivo
           quede alineado con el de las carpetas del mismo nivel (que sí lo llevan). */}
       {isImagePath(node.path) ? (
-        <ImageIcon className="tree-file-icon" size={13} aria-label="Imagen" />
+        <ImageIcon className="tree-file-icon" size={13} aria-label={t('Imagen')} />
       ) : (
         <span className="twisty-spacer" />
       )}

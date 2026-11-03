@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { ChevronLeft, ChevronRight, ChevronsRight, History } from 'lucide-react'
 import type { GitGraph } from '@shared/ipc'
+import { t } from '@shared/i18n'
 import { entryLabel, relativeDate, changedSummary } from './time/labels'
 
 /**
@@ -67,8 +68,8 @@ export function Timeline({
     return (
       <div className="tree-empty">
         <History size={16} />
-        <p className="tree-empty-title">Todavía no hay versiones</p>
-        <p>Guardá una versión para empezar tu línea de tiempo.</p>
+        <p className="tree-empty-title">{t('Todavía no hay versiones')}</p>
+        <p>{t('Guardá una versión para empezar tu línea de tiempo.')}</p>
       </div>
     )
   }
@@ -79,8 +80,8 @@ export function Timeline({
       <div className="tl-transport">
         <button
           className="icon-btn"
-          title="Un paso atrás"
-          aria-label="Un paso atrás"
+          title={t('Un paso atrás')}
+          aria-label={t('Un paso atrás')}
           disabled={atOldest}
           onClick={() => onStep('back')}
         >
@@ -88,8 +89,8 @@ export function Timeline({
         </button>
         <button
           className="icon-btn"
-          title="Un paso adelante"
-          aria-label="Un paso adelante"
+          title={t('Un paso adelante')}
+          aria-label={t('Un paso adelante')}
           disabled={atPresent}
           onClick={() => onStep('forward')}
         >
@@ -97,8 +98,8 @@ export function Timeline({
         </button>
         <button
           className="icon-btn"
-          title="Saltar al presente"
-          aria-label="Saltar al presente"
+          title={t('Saltar al presente')}
+          aria-label={t('Saltar al presente')}
           disabled={atPresent}
           onClick={onJumpToPresent}
         >
@@ -106,7 +107,7 @@ export function Timeline({
         </button>
         <span className={`tl-pos${atPresent ? '' : ' viewing'}`}>
           {/* idx < 0: el oid en preview ya no está en el grafo (refresco): sin crash. */}
-          {atPresent || idx < 0 ? 'en el presente' : relativeDate(commits[idx].timestamp)}
+          {atPresent || idx < 0 ? t('en el presente') : relativeDate(commits[idx].timestamp)}
         </span>
       </div>
 
@@ -142,8 +143,8 @@ export function Timeline({
                 </span>
                 <span className="tl-entry-chips">
                   {/* TIME-06: ambos marcadores visibles a la vez durante el viaje. */}
-                  {isNewest && <span className="chip current">presente</span>}
-                  {isViewing && <span className="chip head-chip">viendo</span>}
+                  {isNewest && <span className="chip current">{t('presente')}</span>}
+                  {isViewing && <span className="chip head-chip">{t('viendo')}</span>}
                 </span>
               </div>
               <div className="tl-entry-sub">{secondary}</div>

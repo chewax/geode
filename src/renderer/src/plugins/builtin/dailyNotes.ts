@@ -1,4 +1,5 @@
 import type { GeodePlugin, PluginContext } from '../types'
+import { t } from '@shared/i18n'
 import { TEMPLATES_DIR, applyTemplate, localDate } from './templating'
 
 /** Carpeta de las notas diarias. */
@@ -28,7 +29,7 @@ async function openDay(ctx: PluginContext, day: Date): Promise<void> {
     }
     await ctx.openNote(path)
   } catch (e) {
-    ctx.notify(e instanceof Error ? e.message : 'No se pudo abrir la nota del día')
+    ctx.notify(e instanceof Error ? e.message : t('No se pudo abrir la nota del día'))
   }
 }
 
@@ -46,26 +47,30 @@ function shift(delta: number): Date {
  */
 export const dailyNotesPlugin: GeodePlugin = {
   id: 'daily-notes',
-  name: 'Notas diarias',
-  description: 'Una nota por día en la carpeta «Diario», con plantilla opcional',
+  get name() {
+    return t('Notas diarias')
+  },
+  get description() {
+    return t('Una nota por día en la carpeta «Diario», con plantilla opcional')
+  },
   activate(ctx) {
     ctx.commands.register({
       id: 'daily-notes.today',
-      title: 'Abrir la nota de hoy',
-      category: 'Notas',
+      title: t('Abrir la nota de hoy'),
+      category: t('Notas'),
       shortcut: 'Ctrl+Shift+D',
       run: () => openDay(ctx, new Date())
     })
     ctx.commands.register({
       id: 'daily-notes.yesterday',
-      title: 'Abrir la nota de ayer',
-      category: 'Notas',
+      title: t('Abrir la nota de ayer'),
+      category: t('Notas'),
       run: () => openDay(ctx, shift(-1))
     })
     ctx.commands.register({
       id: 'daily-notes.tomorrow',
-      title: 'Abrir la nota de mañana',
-      category: 'Notas',
+      title: t('Abrir la nota de mañana'),
+      category: t('Notas'),
       run: () => openDay(ctx, shift(1))
     })
   }

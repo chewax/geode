@@ -1,4 +1,5 @@
 import type { GeodePlugin } from '../types'
+import { t } from '@shared/i18n'
 import { getTheme } from '../../theme'
 
 /**
@@ -39,8 +40,12 @@ async function mermaid(): Promise<MermaidApi> {
 
 export const mermaidPlugin: GeodePlugin = {
   id: 'mermaid',
-  name: 'Diagramas Mermaid',
-  description: 'Dibuja bloques ```mermaid (flujos, secuencias, Gantt…) en la vista previa',
+  get name() {
+    return t('Diagramas Mermaid')
+  },
+  get description() {
+    return t('Dibuja bloques ```mermaid (flujos, secuencias, Gantt…) en la vista previa')
+  },
   activate(ctx) {
     ctx.markdown.registerCodeBlock('mermaid', async (source) => {
       const api = await mermaid()
@@ -51,7 +56,7 @@ export const mermaidPlugin: GeodePlugin = {
         // Mermaid deja nodos de error sueltos en el body al fallar: se limpian.
         document.querySelectorAll(`[id^="dgeode-mermaid-"]`).forEach((n) => n.remove())
         const msg = e instanceof Error ? e.message : String(e)
-        throw new Error(`el diagrama tiene un error de sintaxis (${msg.split('\n')[0]})`)
+        throw new Error(t('el diagrama tiene un error de sintaxis ({msg})', { msg: msg.split('\n')[0] }))
       }
     })
   }

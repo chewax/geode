@@ -1,4 +1,5 @@
 import type { Extension } from '@codemirror/state'
+import { t } from '@shared/i18n'
 import type {
   CodeBlockRenderer,
   Command,
@@ -247,7 +248,7 @@ export class PluginHost {
 
   // ── Selector rápido ─────────────────────────────────────────────────────────
   /** Muestra un selector; si ya había uno abierto, se cancela (resuelve null). */
-  pick<T>(items: PickItem<T>[], placeholder = 'Elegí una opción…'): Promise<T | null> {
+  pick<T>(items: PickItem<T>[], placeholder = t('Elegí una opción…')): Promise<T | null> {
     this.pickRequest?.resolve(null)
     return new Promise<T | null>((resolve) => {
       this.pickRequest = {

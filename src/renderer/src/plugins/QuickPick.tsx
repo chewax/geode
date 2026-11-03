@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import type { JSX, KeyboardEvent } from 'react'
 import { Search } from 'lucide-react'
 import type { PluginHost, PickRequest } from './host'
+import { t } from '@shared/i18n'
 
 /**
  * Selector rápido genérico (mismo look que la paleta de comandos). Lo abren los
@@ -54,7 +55,7 @@ function QuickPickInner({ req }: { req: PickRequest }): JSX.Element {
         </div>
         <ul className="palette-list">
           {results.length === 0 ? (
-            <li className="palette-empty">Sin resultados para "{query}"</li>
+            <li className="palette-empty">{t('Sin resultados para «{query}»', { query })}</li>
           ) : (
             results.map((item, i) => (
               <li

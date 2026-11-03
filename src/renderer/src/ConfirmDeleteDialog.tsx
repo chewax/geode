@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { TreeNode } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 interface ConfirmDeleteDialogProps {
   /** Nodo (nota o carpeta) que se va a borrar. */
@@ -36,18 +37,20 @@ export function ConfirmDeleteDialog({ node, onConfirm, onClose }: ConfirmDeleteD
         }}
       >
         <h2>
-          <Trash2 size={18} /> {esCarpeta ? `¿Eliminar la carpeta "${nombre}"?` : `¿Eliminar la nota "${nombre}"?`}
+          <Trash2 size={18} /> {esCarpeta
+            ? t('¿Eliminar la carpeta "{name}"?', { name: nombre })
+            : t('¿Eliminar la nota "{name}"?', { name: nombre })}
         </h2>
         <p className="modal-sub">
-          Se elimina del disco, pero podés recuperarla desde una versión anterior en el historial.
+          {t('Se elimina del disco, pero podés recuperarla desde una versión anterior en el historial.')}
         </p>
         {esCarpeta && (
-          <p className="modal-sub">Se eliminarán también las notas que contiene.</p>
+          <p className="modal-sub">{t('Se eliminarán también las notas que contiene.')}</p>
         )}
         <div className="modal-actions">
           {/* Foco por defecto en la acción no destructiva. */}
-          <button autoFocus onClick={onClose}>Cancelar</button>
-          <button className="danger" onClick={onConfirm}>Eliminar</button>
+          <button autoFocus onClick={onClose}>{t('Cancelar')}</button>
+          <button className="danger" onClick={onConfirm}>{t('Eliminar')}</button>
         </div>
       </div>
     </div>

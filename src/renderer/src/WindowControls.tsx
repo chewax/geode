@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
+import { t } from '@shared/i18n'
 
 /**
  * Controles de la ventana (minimizar / maximizar-restaurar / cerrar) para la
@@ -18,8 +19,8 @@ export function WindowControls(): JSX.Element {
     <div className="win-controls">
       <button
         className="win-btn"
-        title="Minimizar"
-        aria-label="Minimizar"
+        title={t('Minimizar')}
+        aria-label={t('Minimizar')}
         onClick={() => window.geode.window.minimize()}
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
@@ -29,8 +30,8 @@ export function WindowControls(): JSX.Element {
 
       <button
         className="win-btn"
-        title={maximized ? 'Restaurar' : 'Maximizar'}
-        aria-label={maximized ? 'Restaurar' : 'Maximizar'}
+        title={maximized ? t('Restaurar') : t('Maximizar')}
+        aria-label={maximized ? t('Restaurar') : t('Maximizar')}
         onClick={() => window.geode.window.toggleMaximize()}
       >
         {maximized ? (
@@ -47,8 +48,8 @@ export function WindowControls(): JSX.Element {
 
       <button
         className="win-btn win-close"
-        title="Cerrar"
-        aria-label="Cerrar"
+        title={t('Cerrar')}
+        aria-label={t('Cerrar')}
         onClick={() => window.geode.window.close()}
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">

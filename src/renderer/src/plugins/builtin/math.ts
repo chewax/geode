@@ -1,4 +1,5 @@
 import type { GeodePlugin } from '../types'
+import { t } from '@shared/i18n'
 
 /**
  * Plugin interno: fórmulas matemáticas con KaTeX en la vista previa.
@@ -30,14 +31,18 @@ async function render(source: string, displayMode: boolean): Promise<string> {
     return api.renderToString(source, { displayMode, output: 'html', throwOnError: true, trust: false, strict: 'ignore' })
   } catch (e) {
     const msg = e instanceof Error ? e.message.replace(/^KaTeX parse error:\s*/, '') : String(e)
-    throw new Error(`la fórmula tiene un error (${msg})`)
+    throw new Error(t('la fórmula tiene un error ({msg})', { msg }))
   }
 }
 
 export const mathPlugin: GeodePlugin = {
   id: 'math',
-  name: 'Fórmulas matemáticas',
-  description: 'Dibuja fórmulas LaTeX ($…$ y $$…$$) con KaTeX en la vista previa',
+  get name() {
+    return t('Fórmulas matemáticas')
+  },
+  get description() {
+    return t('Dibuja fórmulas LaTeX ($…$ y $$…$$) con KaTeX en la vista previa')
+  },
   activate(ctx) {
     const block = ctx.markdown.registerCodeBlock('math', (s) => render(s, true))
     const inline = ctx.markdown.registerCodeBlock('math-inline', (s) => render(s, false))

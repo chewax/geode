@@ -27,6 +27,8 @@ export const IPC = {
   vaultCloneFromGithub: 'geode:vault-clone-from-github',
   vaultCreateWithRepo: 'geode:vault-create-with-repo',
   vaultCreateLocal: 'geode:vault-create-local',
+  vaultDefaultLocation: 'geode:vault-default-location',
+  vaultPickLocation: 'geode:vault-pick-location',
   vaultTree: 'geode:vault-tree',
   vaultReadNote: 'geode:vault-read-note',
   vaultWriteNote: 'geode:vault-write-note',
@@ -205,24 +207,24 @@ export interface VaultApi {
    */
   cloneFromGithub(cloneUrl: string): Promise<VaultInfo | null>
   /**
-   * Crea un cuaderno nuevo en una ubicación elegida por diálogo (carpeta vacía →
-   * se usa tal cual; con contenido → subcarpeta con el nombre), siembra
-   * `Bienvenida.md` con su primera versión, crea un repo en GitHub y lo enlaza
-   * como remoto. null si el usuario cancela.
+   * Crea un cuaderno nuevo como subcarpeta `<location>/<nombre>` (sin `location`,
+   * en Documentos/Geode), siembra `Bienvenida.md` con su primera versión, crea un
+   * repo en GitHub y lo enlaza como remoto.
    */
-  createWithRepo(name: string, isPrivate: boolean): Promise<VaultInfo | null>
+  createWithRepo(name: string, isPrivate: boolean, location?: string): Promise<VaultInfo | null>
   /**
-   * Crea un cuaderno LOCAL nuevo (sin GitHub, sin cuenta): arma la ruta, sanitiza
-   * el nombre, resuelve colisión, siembra `Bienvenida.md` y la commitea como
-   * primera versión, y fija el cuaderno como activo.
-   *
-   * Por defecto crea bajo `~/Documents/Geode/<nombre>` y NUNCA devuelve null: un
-   * nombre vacío o ilegal cae al fallback "Cuaderno". Con `useCustomLocation`
-   * abre un picker: si la carpeta elegida está vacía se usa tal cual; si no, se
-   * crea adentro una subcarpeta con el nombre. Sólo devuelve null cuando el
-   * usuario cancela ese picker.
+   * Crea un cuaderno LOCAL nuevo (sin GitHub, sin cuenta) como subcarpeta
+   * `<location>/<nombre>`: sanitiza el nombre, resuelve colisión con " (2)",
+   * siembra `Bienvenida.md`, la commitea como primera versión y fija el cuaderno
+   * como activo. Sin `location` usa Documentos/Geode. `location` tiene que venir
+   * de `pickLocation` (el main rechaza rutas que no eligió el usuario). Un nombre
+   * vacío o ilegal cae al fallback "Cuaderno".
    */
-  createLocal(name: string, useCustomLocation?: boolean): Promise<VaultInfo | null>
+  createLocal(name: string, location?: string): Promise<VaultInfo | null>
+  /** Carpeta por defecto donde se crean los cuadernos nuevos (Documentos/Geode). */
+  defaultLocation(): Promise<string>
+  /** Abre el selector nativo para elegir DÓNDE crear un cuaderno (no lo crea). null si se cancela. */
+  pickLocation(): Promise<string | null>
   /** Árbol de carpetas y notas .md del vault activo. */
   tree(): Promise<TreeNode[]>
   /** Lee una nota por su ruta relativa. */

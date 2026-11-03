@@ -10,6 +10,7 @@ export const main: Record<string, string> = {
     'That folder isn’t empty. Choose (or create) an empty folder to clone into.',
   'Elegí la carpeta para el cuaderno nuevo': 'Choose the folder for the new notebook',
   'Elegí dónde crear tu cuaderno': 'Choose where to create your notebook',
+  'Elegí de nuevo la ubicación del cuaderno.': 'Choose the notebook location again.',
   'Elegí una carpeta para abrir como cuaderno': 'Choose a folder to use as a notebook',
   'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en la carpeta.':
     "Couldn't create the notebook. Check that you have permission to write to that folder.",

@@ -259,6 +259,26 @@ async function aiSnapshotMessage(root: string): Promise<string | null> {
   }
 }
 
+/** Carpeta por defecto donde nacen los cuadernos nuevos: ~/Documents/Geode. */
+function defaultVaultLocation(): string {
+  return join(app.getPath('documents'), 'Geode')
+}
+
+/**
+ * Ubicaciones elegidas por el usuario en el picker nativo durante esta sesión.
+ * SEGURIDAD: el renderer solo puede pedir crear un cuaderno en la ubicación por
+ * defecto o en una de éstas — nunca en una ruta arbitraria que no pasó por el
+ * diálogo del sistema (un plugin no puede sembrar carpetas donde quiera).
+ */
+const pickedVaultLocations = new Set<string>()
+
+/** Resuelve la base de un cuaderno nuevo; lanza si la ruta no fue elegida por el usuario. */
+function resolveNewVaultLocation(location?: string): string {
+  if (!location) return defaultVaultLocation()
+  if (location === defaultVaultLocation() || pickedVaultLocations.has(location)) return location
+  throw new Error(t('Elegí de nuevo la ubicación del cuaderno.'))
+}
+
 /**
  * Toma un snapshot del vault activo SOLO si hay cambios. Centraliza el "si cambió,
  * commiteá" reusado por el timer (cadencia), el cambio/baja de bóveda y el cierre.
@@ -682,18 +702,28 @@ function registerIpcHandlers(): void {
     }
   )
 
+  // Ubicación por defecto de los cuadernos nuevos (se crea al primer uso).
+  ipcMain.handle(IPC.vaultDefaultLocation, (): string => defaultVaultLocation())
+
+  // Elige DÓNDE crear un cuaderno nuevo, sin crearlo todavía: el diálogo muestra
+  // la ruta y recién "Crear y abrir" crea `<ubicación>/<nombre>`. La ruta queda
+  // en la lista blanca que valida resolveNewVaultLocation.
+  ipcMain.handle(IPC.vaultPickLocation, async (): Promise<string | null> => {
+    const picked = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
+    if (picked) pickedVaultLocations.add(picked)
+    return picked
+  })
+
   ipcMain.handle(
     IPC.vaultCreateWithRepo,
-    async (_e, name: string, isPrivate: boolean): Promise<VaultInfo | null> => {
+    async (_e, name: string, isPrivate: boolean, location?: string): Promise<VaultInfo | null> => {
       const token = await getGithubToken()
       if (!token) throw new Error(t('Conectá tu cuenta de GitHub en Ajustes'))
-      const picked = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
-      if (!picked) return null
-      // Mismo camino que un cuaderno local: carpeta vacía → se usa tal cual; con
-      // contenido → subcarpeta con el nombre. Se siembra Bienvenida.md y se guarda
-      // la primera versión ANTES de crear el repo, así el cuaderno nunca queda
-      // vacío ni sin historia, y el primer push ya lleva contenido.
-      const { root, reused } = await vault.createInPicked(name, picked)
+      // Mismo camino que un cuaderno local: subcarpeta con el nombre dentro de la
+      // ubicación. Se siembra Bienvenida.md y se guarda la primera versión ANTES de
+      // crear el repo, así el cuaderno nunca queda vacío ni sin historia, y el
+      // primer push ya lleva contenido.
+      const { root } = await vault.createLocal(name, resolveNewVaultLocation(location))
       let repo: GithubRepoInfo
       try {
         await gitService.ensureRepo(root) // init repo local (rama main)
@@ -703,7 +733,7 @@ function registerIpcHandlers(): void {
       } catch (e) {
         // Falla parcial (p.ej. el nombre ya existe en GitHub): no dejamos un
         // cuaderno a medias en disco, así el reintento no choca con él.
-        await vault.discardNew(root, reused).catch(() => {})
+        await vault.discard(root).catch(() => {})
         throw e
       }
       const info = await vault.setRoot(root)
@@ -721,15 +751,11 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(
     IPC.vaultCreateLocal,
-    async (_e, name: string, useCustomLocation?: boolean): Promise<VaultInfo | null> => {
-      // Base del cuaderno: por defecto ~/Documents/Geode; con el escape "Elegir otra
-      // ubicación" se usa la carpeta elegida como PADRE (el picker devuelve null si
-      // el usuario cancela → no-op).
-      let picked: string | null = null
-      if (useCustomLocation) {
-        picked = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
-        if (!picked) return null
-      }
+    async (_e, name: string, location?: string): Promise<VaultInfo | null> => {
+      // Base del cuaderno: la ubicación elegida en el diálogo (ver
+      // vaultPickLocation) o, si no se eligió ninguna, ~/Documents/Geode. El
+      // cuaderno SIEMPRE es una subcarpeta con su nombre dentro de esa base.
+      const baseDir = resolveNewVaultLocation(location)
 
       try {
         // ORDEN LOAD-BEARING (RESEARCH Pitfall #1): sembrar la nota (dentro de
@@ -738,11 +764,7 @@ function registerIpcHandlers(): void {
         // versión. Con el seed ya en disco, este primer commit NUNCA es null.
         // El mensaje es texto fijo en español; NO se invoca IA (la creación y los
         // auto-snapshots no invocan IA — CLAUDE.md).
-        // Ubicación elegida: si la carpeta está vacía se usa tal cual (el usuario la
-        // creó para esto); si no, se crea adentro una subcarpeta con el nombre.
-        const { root, reused } = picked
-          ? await vault.createInPicked(name, picked)
-          : { ...(await vault.createLocal(name, join(app.getPath('documents'), 'Geode'))), reused: false }
+        const { root } = await vault.createLocal(name, baseDir)
         // ensureRepo/commit viven FUERA del try/catch de createLocal (que solo cubre
         // mkdir→seed), así que su falla no limpiaba la carpeta ya sembrada: quedaba un
         // cuaderno huérfano sin repo que forzaba el sufijo " (2)" en cada reintento
@@ -753,7 +775,7 @@ function registerIpcHandlers(): void {
           await gitService.ensureRepo(root) // git init (rama main), idempotente
           await gitService.commit(root, t('Primera versión')) // primer commit racy-safe del seed
         } catch (e) {
-          await vault.discardNew(root, reused).catch(() => {})
+          await vault.discard(root).catch(() => {})
           throw e
         }
         // setRoot recién ACÁ: el cuaderno se vuelve "activo" solo tras init+commit OK,
@@ -765,6 +787,7 @@ function registerIpcHandlers(): void {
         return info
       } catch (e) {
         const codigo = (e as NodeJS.ErrnoException)?.code
+        console.warn('[cuaderno] no se pudo crear en', baseDir, '-', codigo ?? (e as Error)?.message)
         if (codigo === 'EACCES' || codigo === 'EPERM') {
           // No filtramos el stack crudo al renderer (T-11-05): mensaje humano.
           throw new Error(

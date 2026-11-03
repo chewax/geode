@@ -123,7 +123,7 @@ const SYNC_INTERVAL_MS = 5 * 60_000
 function pullMessage(cloudCopies: string[]): string {
   if (cloudCopies.length === 0) return t('Se trajeron cambios de tus otras computadoras.')
   if (cloudCopies.length === 1) {
-    const name = displayName(cloudCopies[0]).replace(/ \(versión de la nube( \d+)?\)/, '')
+    const name = displayName(cloudCopies[0]).replace(/ \((?:versión de la nube|cloud version)( \d+)?\)/, '')
     return t('«{name}» se editó en dos computadoras: quedó tu versión y la de la nube se guardó al lado.', { name })
   }
   return t('{n} notas se editaron en dos computadoras: quedó tu versión y la de la nube se guardó al lado de cada una.', { n: cloudCopies.length })

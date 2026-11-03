@@ -495,7 +495,7 @@ export function MarkdownPreview({
   return (
     <div className="md-preview" onClick={onClick}>
       {props && props.length > 0 && <PropertiesView props={props} onOpenTag={onOpenTag} />}
-      {props === null && <p className="props-error">Las propiedades de esta nota tienen un formato inválido.</p>}
+      {props === null && <p className="props-error">{t('Las propiedades de esta nota tienen un formato inválido.')}</p>}
       <div dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   )

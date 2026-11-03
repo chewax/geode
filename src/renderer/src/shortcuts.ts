@@ -62,6 +62,8 @@ export function labelOf(id: ShortcutId, bindings: ShortcutMap = state.bindings):
 export const COMMAND_SHORTCUTS: Record<string, ShortcutId> = {
   'core.saveVersion': 'saveVersion',
   'core.quickOpen': 'quickOpen',
+  'core.newNote': 'newNote',
+  'core.newFolder': 'newFolder',
   'core.search': 'search',
   'core.dictate': 'dictation',
   'core.splitRight': 'splitRight',

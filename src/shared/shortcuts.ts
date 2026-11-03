@@ -19,6 +19,8 @@ export type ShortcutId =
   | 'saveVersion'
   | 'commandPalette'
   | 'quickOpen'
+  | 'newNote'
+  | 'newFolder'
   | 'search'
   | 'dailyNote'
   | 'splitRight'
@@ -46,6 +48,8 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   { id: 'saveVersion', get title() { return t('Guardar versión') }, scope: 'app', default: 'CommandOrControl+S' },
   { id: 'commandPalette', get title() { return t('Paleta de comandos') }, scope: 'app', default: 'CommandOrControl+P' },
   { id: 'quickOpen', get title() { return t('Abrir nota por nombre') }, scope: 'app', default: 'CommandOrControl+O' },
+  { id: 'newNote', get title() { return t('Nueva nota') }, scope: 'app', default: 'CommandOrControl+N' },
+  { id: 'newFolder', get title() { return t('Nueva carpeta') }, scope: 'app', default: 'CommandOrControl+Shift+N' },
   { id: 'search', get title() { return t('Buscar en todas las notas') }, scope: 'app', default: 'CommandOrControl+Shift+F' },
   { id: 'dailyNote', get title() { return t('Abrir la nota de hoy') }, scope: 'app', default: 'CommandOrControl+Shift+D' },
   { id: 'splitRight', get title() { return t('Dividir editor a la derecha') }, scope: 'app', default: 'CommandOrControl+\\' },

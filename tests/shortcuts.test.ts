@@ -6,6 +6,7 @@ import {
   normalizeAccelerator,
   resolveShortcuts,
   shortcutLabel,
+  SHORTCUTS,
   toCodeMirrorKey,
   validateShortcut,
   type KeyLike
@@ -89,5 +90,17 @@ describe('toCodeMirrorKey / shortcutLabel', () => {
   it('muestra nombres humanos según la plataforma', () => {
     expect(shortcutLabel('CommandOrControl+Alt+Space', false)).toBe('Ctrl+Alt+Espacio')
     expect(shortcutLabel('CommandOrControl+Alt+Space', true)).toBe('Cmd+Option+Espacio')
+  })
+})
+
+describe('catálogo', () => {
+  it('los atajos de fábrica no chocan entre sí y son válidos', () => {
+    const map = resolveShortcuts(null)
+    for (const s of SHORTCUTS) {
+      expect(findConflict(map, s.id, s.default)).toBeNull()
+      expect(validateShortcut(s.default, s.scope)).toBeNull()
+    }
+    expect(map.newNote).toBe('CommandOrControl+N')
+    expect(map.newFolder).toBe('CommandOrControl+Shift+N')
   })
 })

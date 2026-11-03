@@ -262,6 +262,20 @@ export function App(): JSX.Element {
     return t
   }, [previewOid, refreshLineStat])
 
+  /** Tras traer cambios de la nube (sync): el disco cambió por debajo, así que
+   *  se relee el árbol, se cierran pestañas de notas que ya no existen y se
+   *  recargan los editores (cada panel persiste lo pendiente antes de releer). */
+  const reloadAfterPull = useCallback(async () => {
+    const t = await refreshTree()
+    setPanes((prev) => keepOnly(prev, new Set(flattenPaths(t))))
+    bumpAll()
+    setToast('Se trajeron cambios de la nube')
+  }, [refreshTree, bumpAll])
+
+  // El auto-respaldo corre en el main tras cada snapshot; si trajo cambios de la
+  // nube al disco, avisa por acá para que la UI no muestre notas desactualizadas.
+  useEffect(() => window.geode.git.onPulled(() => void reloadAfterPull()), [reloadAfterPull])
+
   const refreshGraph = useCallback(async () => {
     setGraph(await window.geode.git.graph())
   }, [])
@@ -362,7 +376,11 @@ export function App(): JSX.Element {
     setBackupFailed(false) // reintentamos: limpiamos el error previo
     setBackupFailMsg(null)
     try {
+      await flushAll() // lo tipeado se versiona antes de integrar lo de la nube
       const res = await window.geode.git.push()
+      // El respaldo trae e integra lo de la nube antes de subir: si el disco
+      // cambió, recargar árbol y notas para no mostrar contenido viejo.
+      if (res.pulled) await reloadAfterPull()
       host.emit('sync:after', { branch: res.branch, oid: res.oid })
     } catch (e) {
       // El respaldo falló: el botón lo refleja de forma efímera ("No se pudo
@@ -376,7 +394,7 @@ export function App(): JSX.Element {
       await refreshGithub()
       await refreshGraph() // mover el chip "en GitHub" al commit recién pusheado
     }
-  }, [refreshGithub, refreshGraph, host])
+  }, [flushAll, reloadAfterPull, refreshGithub, refreshGraph, host])
 
   /** Abre (o activa) una nota en el panel enfocado. Sin `pinned` = preview (un
    *  click en el árbol); `{ pinned: true }` = tab permanente (doble click). */

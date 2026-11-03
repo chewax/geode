@@ -15,14 +15,15 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
-/** Claves literales usadas en `t('…')`, `t("…")` y `t(`…`)` sin `${}`. */
+/** Claves literales usadas en `t('…')` / `tx('…')` (comillas simples, dobles o backticks sin `${}`). */
 function usedKeys(): Map<string, string> {
   const keys = new Map<string, string>()
-  const re = /(?<![\w.$])t\(\s*('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\$]|\\.)*`)/g
+  const re = /(?<![\w.$])tx?\(\s*('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\$]|\\.)*`)/g
   for (const file of sourceFiles('src')) {
-    if (file.includes(join('shared', 'i18n'))) continue
+    // El módulo de i18n y el helper tx traen ejemplos en sus comentarios.
+    if (file.includes(join('shared', 'i18n')) || file.endsWith(join('src', 'i18n.tsx'))) continue
     const src = readFileSync(file, 'utf8')
-    if (!/from '@shared\/i18n'|from '\.\.?\/(?:\.\.\/)*i18n'/.test(src)) continue
+    if (!/from '@shared\/i18n'|from '(?:\.\.?\/)+i18n'/.test(src)) continue
     for (const m of src.matchAll(re)) {
       const key = new Function(`return ${m[1]}`)() as string
       keys.set(key, file)

@@ -84,6 +84,7 @@ export const IPC = {
   aiSetDictationModel: 'geode:ai-set-dictation-model',
   aiTranscribe: 'geode:ai-transcribe',
   aiSetEngine: 'geode:ai-set-engine',
+  aiSetCliModel: 'geode:ai-set-cli-model',
   aiDetectClis: 'geode:ai-detect-clis',
   aiTestEngine: 'geode:ai-test-engine',
   dictationCommand: 'geode:dictation-command',
@@ -519,6 +520,11 @@ export interface AiConfig {
    * error se informa al usarlo).
    */
   ready: boolean
+  /**
+   * Modelo elegido para cada CLI. Ausente = el predeterminado de ese programa
+   * (el que el usuario tenga configurado en él).
+   */
+  cliModels: Partial<Record<CliEngine, string>>
   model: string | null
   /** Modelo para el dictado por voz; null = Geode elige uno que acepte audio. */
   dictationModel: string | null
@@ -569,6 +575,8 @@ export interface AiApi {
   transcribe(wavBase64: string): Promise<string>
   /** Elige el motor de IA (OpenRouter o un CLI con suscripción). */
   setEngine(engine: AiEngine): Promise<AiConfig>
+  /** Modelo para un CLI (null = el predeterminado del programa). */
+  setCliModel(engine: CliEngine, model: string | null): Promise<AiConfig>
   /** Qué CLIs de IA (Claude Code, Codex, Gemini CLI) están instalados. */
   detectClis(): Promise<AiCliStatus[]>
   /** Hace una consulta mínima con el motor para verificar que responde. */

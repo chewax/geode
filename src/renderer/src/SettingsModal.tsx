@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, KeyRound, Terminal, Copy, Keyboard } from 'lucide-react'
 import type {
   AiCliStatus,
+  CliEngine,
   AiConfig,
   AiEngine,
   AiEngineTest,
@@ -438,10 +439,15 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                         </p>
                       </>
                     )}
+                    <CliModelPicker
+                      key={engine}
+                      engine={engine as CliEngine}
+                      current={config?.cliModels[engine as CliEngine] ?? null}
+                      onSaved={apply}
+                    />
                     <p className="hint">
-                      Geode usa el programa oficial: no ve ni guarda tu contraseña ni tus credenciales. Responde
-                      el modelo que tengas configurado en {cliSpec.program}, y el uso cuenta para los límites de{' '}
-                      {cliSpec.plan}.
+                      Geode usa el programa oficial: no ve ni guarda tu contraseña ni tus credenciales. El uso
+                      cuenta para los límites de {cliSpec.plan}.
                     </p>
                   </div>
                 )}
@@ -807,3 +813,91 @@ function CommandRow({ command }: { command: string }): JSX.Element {
     </div>
   )
 }
+
+const OTRO = '__otro'
+
+/**
+ * Modelo de un CLI: el predeterminado del programa, uno de los alias sugeridos
+ * o cualquier otro que el usuario escriba (los CLIs no tienen un comando para
+ * listar sus modelos).
+ */
+function CliModelPicker({
+  engine,
+  current,
+  onSaved
+}: {
+  engine: CliEngine
+  current: string | null
+  onSaved: (config: AiConfig) => void
+}): JSX.Element {
+  const spec = CLI_SPECS[engine]
+  const suggested = spec.models.some((m) => m.id === current)
+  const [custom, setCustom] = useState(!!current && !suggested)
+  const [draft, setDraft] = useState(current && !suggested ? current : '')
+  const [err, setErr] = useState<string | null>(null)
+
+  const save = async (model: string | null): Promise<void> => {
+    setErr(null)
+    try {
+      onSaved(await window.geode.ai.setCliModel(engine, model))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : 'No se pudo guardar el modelo')
+    }
+  }
+
+  const value = custom ? OTRO : current ?? ''
+  const dirty = draft.trim() !== (current ?? '')
+
+  return (
+    <>
+      <label className="field-label" htmlFor={`cli-model-${engine}`}>Modelo</label>
+      <select
+        id={`cli-model-${engine}`}
+        className="text-input"
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value
+          if (v === OTRO) {
+            setCustom(true)
+            return
+          }
+          setCustom(false)
+          setDraft('')
+          void save(v || null)
+        }}
+      >
+        <option value="">El predeterminado de {spec.program}</option>
+        {spec.models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label}
+          </option>
+        ))}
+        <option value={OTRO}>Otro (escribir el nombre)…</option>
+      </select>
+      {custom && (
+        <div className="key-row cli-model-custom">
+          <input
+            id={`cli-model-otro-${engine}`}
+            className="text-input"
+            placeholder={`p. ej. ${spec.modelExample}`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && draft.trim() && dirty) void save(draft.trim())
+            }}
+          />
+          <button onClick={() => void save(draft.trim())} disabled={!draft.trim() || !dirty}>
+            Guardar
+          </button>
+        </div>
+      )}
+      {err && <p className="modal-error">{err}</p>}
+      <p className="hint">
+        {spec.models.length > 0
+          ? `Los alias apuntan siempre al último modelo de esa familia. ${spec.program} no tiene una lista de modelos para consultar, así que si querés uno puntual, elegí «Otro» y escribí su nombre.`
+          : `${spec.program} no tiene una lista de modelos para consultar: dejá el predeterminado o escribí el nombre exacto (lo ves con /model dentro de ${spec.program}).`}
+      </p>
+    </>
+  )
+}
+

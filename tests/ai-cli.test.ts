@@ -2,6 +2,7 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { isValidModelName } from '../src/shared/aiEngines'
 import {
   CliError,
   buildCliPrompt,
@@ -34,6 +35,26 @@ describe('aiCli: piezas puras', () => {
     expect(parseVersion('2.1.317 (Claude Code)\n')).toBe('2.1.317')
     expect(parseVersion('codex-cli 0.46.0')).toBe('0.46.0')
     expect(parseVersion('sin número')).toBe('sin número')
+  })
+
+  it('pasa el modelo elegido a cada CLI', () => {
+    expect(cliArgs('claude', '/tmp/x', 'opus')).toEqual(['-p', '--output-format', 'text', '--model', 'opus'])
+    const codex = cliArgs('codex', '/tmp/o', 'gpt-5.5')
+    expect(codex.slice(0, 3)).toEqual(['exec', '--model', 'gpt-5.5'])
+    expect(codex[codex.length - 1]).toBe('-') // stdin sigue siendo el último argumento
+    expect(cliArgs('gemini', '/tmp/x', 'flash').slice(0, 2)).toEqual(['--model', 'flash'])
+    // Sin modelo: el predeterminado del programa.
+    expect(cliArgs('claude', '/tmp/x', null)).not.toContain('--model')
+  })
+
+  it('nunca pasa un nombre de modelo con caracteres del shell', () => {
+    expect(isValidModelName('claude-sonnet-5-5')).toBe(true)
+    expect(isValidModelName('gemini-2.5-pro')).toBe(true)
+    expect(isValidModelName('opus[1m]')).toBe(true)
+    expect(isValidModelName('x & calc')).toBe(false)
+    expect(isValidModelName('a"b')).toBe(false)
+    expect(isValidModelName('')).toBe(false)
+    expect(cliArgs('claude', '/tmp/x', 'x & calc')).not.toContain('--model')
   })
 
   it('reconoce los motores CLI', () => {
@@ -93,6 +114,13 @@ describe.skipIf(process.platform === 'win32')('aiCli: ejecución', () => {
 
   afterAll(async () => {
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it('le pasa el modelo elegido al CLI', async () => {
+    // Imprime sus argumentos: así vemos que llegó el --model.
+    const bin = await fakeCli('args', 'cat > /dev/null; echo "$@"')
+    const out = await runCli('claude', 's', 'u', { bin, model: 'haiku' })
+    expect(out).toContain('--model haiku')
   })
 
   it('devuelve lo que el CLI imprime, leyendo el pedido por stdin', async () => {

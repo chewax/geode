@@ -14,6 +14,7 @@ import {
   GitBranchPlus,
   Cloud,
   Coins,
+  Terminal,
   ArrowDownUp,
   RefreshCw,
   FoldVertical,
@@ -93,6 +94,7 @@ import type { DictationStatus, DictationTarget } from '@shared/ipc'
 import { isShortcut, labelOf, useShortcuts } from './shortcuts'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf } from '@shared/attachments'
+import { CLI_SPECS } from '@shared/aiEngines'
 import {
   PluginHost,
   GeodeProvider,
@@ -2098,7 +2100,36 @@ export function App(): JSX.Element {
                 onForcePush={() => void doPush()}
               />
 
-              {aiConfig?.hasKey && (
+              {aiConfig && aiConfig.engine !== 'openrouter' && (
+                <div
+                  className="status-item"
+                  onMouseEnter={() => {
+                    if (aiConfig.hasKey) void refreshAiUsage()
+                  }}
+                >
+                  <Terminal size={14} className="st-ok" />
+                  <span>{CLI_SPECS[aiConfig.engine].name}</span>
+                  <div className="status-pop">
+                    <div className="pop-title">
+                      <Terminal size={13} /> {CLI_SPECS[aiConfig.engine].name}
+                    </div>
+                    <div className="pop-row"><span>Programa</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
+                    <div className="pop-row"><span>Pago</span><b>Tu suscripción</b></div>
+                    <div className="pop-row">
+                      <span>Modelo</span>
+                      <b>{aiConfig.cliModels[aiConfig.engine] ?? `El de ${CLI_SPECS[aiConfig.engine].program}`}</b>
+                    </div>
+                    {aiConfig.hasKey && (
+                      <div className="pop-row">
+                        <span>Dictado (OpenRouter)</span>
+                        <b>{aiUsage ? `${formatUsd(aiUsage.usage)} gastado` : '—'}</b>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {aiConfig?.hasKey && aiConfig.engine === 'openrouter' && (
                 <div
                   className="status-item"
                   onMouseEnter={() => void refreshAiUsage()}

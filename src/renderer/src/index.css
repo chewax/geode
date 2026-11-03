@@ -1823,6 +1823,10 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   white-space: nowrap;
 }
 
+.cli-model-custom {
+  margin-top: 8px;
+}
+
 .engine-test-row {
   margin-top: 14px;
 }

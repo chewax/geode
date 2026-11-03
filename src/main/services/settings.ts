@@ -2,7 +2,7 @@ import { app, safeStorage } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWrite } from '../fs/atomic'
-import type { AiEngine, TourState } from '@shared/ipc'
+import type { AiEngine, CliEngine, TourState } from '@shared/ipc'
 import type { ShortcutOverrides } from '@shared/shortcuts'
 
 /**
@@ -18,6 +18,8 @@ export interface Settings {
     enabled?: boolean
     /** Motor de IA. Ausente = OpenRouter (compatibilidad con ajustes previos). */
     engine?: AiEngine
+    /** Modelo por CLI. Ausente = el predeterminado de ese programa. */
+    cliModels?: Partial<Record<CliEngine, string>>
     model?: string
     /** Modelo para el dictado por voz (debe aceptar audio). Ausente = automático. */
     dictationModel?: string

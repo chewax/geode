@@ -109,6 +109,7 @@ const api: GeodeApi = {
     setDictationModel: (model) => ipcRenderer.invoke(IPC.aiSetDictationModel, model),
     transcribe: (wav) => ipcRenderer.invoke(IPC.aiTranscribe, wav),
     setEngine: (engine) => ipcRenderer.invoke(IPC.aiSetEngine, engine),
+    setCliModel: (engine, model) => ipcRenderer.invoke(IPC.aiSetCliModel, engine, model),
     detectClis: () => ipcRenderer.invoke(IPC.aiDetectClis),
     testEngine: (engine) => ipcRenderer.invoke(IPC.aiTestEngine, engine)
   },

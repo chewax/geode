@@ -32,6 +32,10 @@ export default defineConfig({
   },
   renderer: {
     root: 'src/renderer',
+    // El runtime del iframe de plugins es un IIFE AUTOCONTENIDO compilado aparte
+    // (`build:iframe`, vite.iframe.config.ts). Se marca como ASSET para importarlo
+    // con `?url` y leer su texto (se inyecta inline en el srcdoc del iframe).
+    assetsInclude: ['**/iframe-runtime/runtime.iife.js'],
     resolve: {
       alias: {
         '@shared': resolve('src/shared'),

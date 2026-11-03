@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { JSX, MouseEvent } from 'react'
 import { Marked, type TokenizerAndRendererExtension } from 'marked'
 import DOMPurify from 'dompurify'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf, isImagePath, resolveRelativeSrc, vaultFileUrl } from '@shared/attachments'
 import { readProperties, splitFrontmatter, stripComments, type Property } from '@shared/obsidian'
+import { usePluginHost } from './plugins'
+import type { PluginHost } from './plugins'
+import { useTheme } from './theme'
 
 /** Escapa texto para meterlo en HTML/atributos. */
 function esc(s: string): string {
@@ -207,6 +210,16 @@ export function MarkdownPreview({
 }: MarkdownPreviewProps): JSX.Element {
   /** Contenido de las notas incrustadas (ruta → texto), cargado a demanda. */
   const [embedded, setEmbedded] = useState<Record<string, string>>({})
+  /** HTML ya dibujado de bloques de plugins (```mermaid…), por lenguaje+texto. */
+  const [blocks, setBlocks] = useState<Record<string, { html?: string; error?: string }>>({})
+  const host = usePluginHost()
+  // Cambio de tema: los diagramas se vuelven a dibujar con los colores nuevos.
+  const theme = useTheme()
+  useEffect(() => setBlocks({}), [theme])
+  /** Bloques con un render en curso (para no pedirlo dos veces). */
+  const inflight = useRef(new Set<string>())
+  // Re-dibujar cuando un plugin registra/quita un renderizador de bloques.
+  const registryVersion = useSyncExternalStore(host?.subscribe ?? noopSubscribe, host?.getVersion ?? zero)
   const props: Property[] | null = useMemo(() => readProperties(source), [source])
 
   const all = files ?? []
@@ -335,9 +348,32 @@ export function MarkdownPreview({
     }
 
     fix(tpl.content, 0)
+    replaceCodeBlocks(tpl.content, host, blocks)
     return tpl.innerHTML
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, notePath, files, previewOid, embedded])
+  }, [source, notePath, files, previewOid, embedded, blocks, registryVersion])
+
+  // Dibuja (async) los bloques con renderizador de plugin que todavía no estén.
+  useEffect(() => {
+    if (!host) return
+    const wantedBlocks = collectBlocks(source, host).filter((b) => !(b.key in blocks) && !inflight.current.has(b.key))
+    for (const b of wantedBlocks) {
+      const render = host.codeBlockRenderer(b.lang)
+      if (!render) continue
+      inflight.current.add(b.key)
+      const done = (state: { html?: string; error?: string }): void => {
+        inflight.current.delete(b.key)
+        setBlocks((prev) => ({ ...prev, [b.key]: state }))
+      }
+      Promise.resolve()
+        .then(() => render(b.source))
+        .then(
+          (out) => done({ html: sanitizeBlock(String(out ?? '')) }),
+          (e) => done({ error: e instanceof Error ? e.message : String(e) })
+        )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, registryVersion, blocks])
 
   const onClick = (e: MouseEvent<HTMLDivElement>): void => {
     const a = (e.target as HTMLElement).closest('a')
@@ -373,6 +409,62 @@ export function MarkdownPreview({
       <div dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   )
+}
+
+const noopSubscribe = (): (() => void) => () => {}
+const zero = (): number => 0
+
+/** Bloques ```lang del texto que tienen renderizador registrado por un plugin. */
+function collectBlocks(source: string, host: PluginHost): { lang: string; source: string; key: string }[] {
+  const out: { lang: string; source: string; key: string }[] = []
+  const re = /^(```|~~~)[ \t]*([\w-]+)[^\n]*\n([\s\S]*?)^\1[ \t]*$/gm
+  let m: RegExpExecArray | null
+  while ((m = re.exec(source)) !== null) {
+    const lang = m[2].toLowerCase()
+    if (!host.codeBlockRenderer(lang)) continue
+    const text = m[3].replace(/\n$/, '')
+    out.push({ lang, source: text, key: `${lang}\n${text}` })
+  }
+  return out
+}
+
+/** HTML/SVG devuelto por un plugin, saneado (sin scripts, handlers ni URLs peligrosas). */
+function sanitizeBlock(html: string): string {
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+    ADD_TAGS: ['style'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button']
+  })
+}
+
+/**
+ * Reemplaza los `<pre><code class="language-x">` con renderizador de plugin por
+ * su dibujo (ya saneado), o por un aviso mientras se dibuja / si falló.
+ */
+function replaceCodeBlocks(
+  root: DocumentFragment,
+  host: PluginHost | null,
+  rendered: Record<string, { html?: string; error?: string }>
+): void {
+  if (!host) return
+  root.querySelectorAll('pre > code[class*="language-"]').forEach((code) => {
+    const lang = /language-([\w-]+)/.exec(code.className)?.[1]?.toLowerCase()
+    if (!lang || !host.codeBlockRenderer(lang)) return
+    const text = (code.textContent ?? '').replace(/\n$/, '')
+    const state = rendered[`${lang}\n${text}`]
+    const doc = code.ownerDocument
+    const box = doc.createElement('div')
+    box.className = `plugin-block plugin-block-${lang}`
+    if (state?.html !== undefined) box.innerHTML = state.html
+    else if (state?.error !== undefined) {
+      box.classList.add('plugin-block-error')
+      box.textContent = `No se pudo dibujar el bloque «${lang}»: ${state.error}`
+    } else {
+      box.classList.add('plugin-block-pending')
+      box.textContent = 'Dibujando…'
+    }
+    code.parentElement?.replaceWith(box)
+  })
 }
 
 /** Propiedades de la nota (frontmatter) como tabla de solo lectura. */

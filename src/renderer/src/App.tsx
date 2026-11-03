@@ -29,6 +29,10 @@ import {
   X
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
+// URL del bundle IIFE del runtime del iframe de plugins (build:iframe). Se lee su
+// texto con fetch same-origin y se inyecta inline en el srcdoc de cada iframe; el
+// iframe conserva connect-src 'none' (los plugins de terceros no tienen red).
+import iframeRuntimeUrl from '../iframe-runtime/runtime.iife.js?url'
 import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, ObsidianConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { suppressNextEditorAutoFocus } from './editor/focusControl'
@@ -91,6 +95,7 @@ import {
   PluginPanels,
   PluginStatusItems,
   activatePlugins,
+  activateExternalViaBridge,
   loadExternalPlugins,
   BUILTIN_PLUGINS
 } from './plugins'
@@ -1379,9 +1384,20 @@ export function App(): JSX.Element {
     // así que se activan aparte y se limpian en el unmount aunque lleguen tarde.
     let offExternal: { dispose: () => void } | null = null
     void (async () => {
-      const { plugins, errors } = await loadExternalPlugins()
+      const { entries, errors } = await loadExternalPlugins()
       if (cancelled) return
-      offExternal = activatePlugins(host, plugins)
+      if (entries.length > 0) {
+        // Plugins de terceros: cada uno corre AISLADO en su iframe sandbox (origen
+        // opaco, sin red ni acceso a window.geode) y habla por un puente async.
+        try {
+          const runtimeSource = await fetch(iframeRuntimeUrl).then((r) => r.text())
+          if (cancelled) return
+          offExternal = activateExternalViaBridge(host, entries, runtimeSource)
+        } catch (e) {
+          console.error('[plugins] no se pudo cargar el runtime del sandbox:', e)
+          setToast('No se pudieron cargar los plugins instalados.')
+        }
+      }
       if (errors.length > 0) {
         setToast(`Plugins con error: ${errors.map((e) => e.id).join(', ')}`)
       }

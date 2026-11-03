@@ -3696,3 +3696,16 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   white-space: nowrap;
 }
 .tag-row .search-count { margin-right: 6px; }
+
+/* ── Bloques dibujados por plugins (```mermaid, ```progreso…) ──────────────── */
+.md-preview .plugin-block { margin: 0.8em 0; overflow-x: auto; }
+.md-preview .plugin-block svg { max-width: 100%; height: auto; }
+.md-preview .plugin-block-pending,
+.md-preview .plugin-block-error {
+  font-size: 0.88em;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.md-preview .plugin-block-error { border-color: color-mix(in srgb, #e53e3e 50%, transparent); }

@@ -1,0 +1,11 @@
+{
+  "id": "hola-mundo-async",
+  "name": "Hola Mundo (async)",
+  "version": "1.0.0",
+  "description": "Ejemplo de la API v2 async (Fase B): un comando que lee la selección/nota y la inserta a través del puente.",
+  "author": "Geode",
+  "main": "main.js",
+  "apiVersion": 2,
+  "minAppVersion": "0.4.0",
+  "permissions": ["editor:read", "editor:write", "notes:read"]
+}

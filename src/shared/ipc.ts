@@ -548,7 +548,15 @@ export interface AdvancedApi {
   set(enabled: boolean): Promise<AdvancedConfig>
 }
 
-// ── Plugins externos (Fase A: locales confiables, cargados en runtime) ──────
+// ── Plugins externos (aislados en iframe sandbox) ───────────────────────────
+
+/**
+ * Versión de la API de plugins que la app soporta hoy. Un plugin cuyo
+ * `apiVersion` sea mayor que este número es incompatible y se rechaza al listar.
+ * v2 (aditiva sobre v1): bloques de código (`markdown.registerCodeBlock`),
+ * `vault.exists/createNote`, `openNote` y `ui.pick`. Los plugins v1 siguen andando.
+ */
+export const HOST_API_VERSION = 2
 
 /**
  * Manifiesto de un plugin externo (`plugin.json` en su carpeta). El campo
@@ -565,6 +573,8 @@ export interface PluginManifest {
   main: string
   /** Versión mínima de Geode requerida (semver). */
   minAppVersion?: string
+  /** Versión de la API de plugins que el plugin espera; ausente ⇒ v1. */
+  apiVersion?: number
   /** Permisos declarados. Reservado para el sandbox; hoy informativo. */
   permissions?: string[]
 }

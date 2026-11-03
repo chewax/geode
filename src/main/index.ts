@@ -71,6 +71,7 @@ import {
 } from './services/settings'
 import { listPlugins, openPluginsDir, readPluginSource } from './services/plugins'
 import { VAULT_SCHEME, mimeFor } from '@shared/attachments'
+import { PLUGIN_SCHEME_PRIVILEGES, registerPluginSandboxProtocol } from './pluginSandbox'
 
 // OAuth App de Geode (client IDs son públicos; device flow no usa secret).
 const GITHUB_CLIENT_ID = 'Ov23liOW1wfZr6QhxLVY'
@@ -78,7 +79,8 @@ const GITHUB_CLIENT_ID = 'Ov23liOW1wfZr6QhxLVY'
 // Protocolo propio para servir imágenes de la bóveda al renderer sandboxeado
 // (que no puede leer disco). Debe registrarse como privilegiado ANTES de `ready`.
 protocol.registerSchemesAsPrivileged([
-  { scheme: VAULT_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
+  { scheme: VAULT_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+  PLUGIN_SCHEME_PRIVILEGES
 ])
 
 const vault = new VaultService()
@@ -1192,6 +1194,7 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers()
   registerVaultProtocol()
+  registerPluginSandboxProtocol()
   await restoreLastVault()
   createWindow()
 

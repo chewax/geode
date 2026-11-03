@@ -8,8 +8,9 @@
   "main": "./out/main/index.js",
   "type": "module",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "npm run typecheck && electron-vite build",
+    "build:iframe": "vite build --config vite.iframe.config.ts",
+    "dev": "npm run build:iframe && electron-vite dev",
+    "build": "npm run typecheck && npm run build:iframe && electron-vite build",
     "start": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
@@ -34,6 +35,7 @@
     "isomorphic-git": "^1.38.6",
     "lucide-react": "^1.23.0",
     "marked": "^18.0.5",
+    "mermaid": "^11.17.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "yaml": "^2.9.1"

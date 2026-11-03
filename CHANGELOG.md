@@ -6,11 +6,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [1.0.1] - 2026-11-03
+
 ### Cambiado
 - **Nuevo cuaderno sin cuenta**: el selector de cuadernos ahora tiene "Nuevo cuaderno…", que crea un cuaderno local versionado sin conectar GitHub. El respaldo en la nube queda como opción en las otras pestañas del diálogo.
-- Al crear un cuaderno (local o respaldado) se abre automáticamente con su nota de bienvenida. Si la carpeta elegida está vacía se usa tal cual; si no, se crea una subcarpeta con el nombre.
+- El diálogo "Nuevo cuaderno" muestra la **ubicación** y la ruta final antes de crear; "Cambiar…" solo elige la carpeta y el cuaderno se crea adentro, como subcarpeta con su nombre.
+- Al crear un cuaderno (local o respaldado) se abre automáticamente con su nota de bienvenida.
 - Los cuadernos creados con respaldo en GitHub ya nacen con su primera versión y se suben enseguida.
 - La interfaz habla siempre de "cuadernos" (antes mezclaba "bóveda" y "vault").
+
+### Corregido
+- Crear un cuaderno en la raíz de una unidad de Windows (p. ej. `D:\`) fallaba con un falso error de permisos.
+- "Crear y abrir" ignoraba la ubicación elegida y siempre creaba el cuaderno en Documentos/Geode.
 
 ## [1.0.0] - 2026-11-03
 
@@ -102,7 +109,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ### Agregado
 - Primera versión: notas Markdown locales con versionado automático sobre isomorphic-git.
 
-[Sin publicar]: https://github.com/chewax/geode/compare/v1.0.0...HEAD
+[Sin publicar]: https://github.com/chewax/geode/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/chewax/geode/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/chewax/geode/compare/v0.8.0...v1.0.0
 [0.8.1]: https://github.com/chewax/geode/compare/v0.6.0...v0.8.0
 [0.6.0]: https://github.com/chewax/geode/compare/v0.5.0...v0.6.0

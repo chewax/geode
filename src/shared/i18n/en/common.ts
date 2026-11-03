@@ -8,5 +8,7 @@ export const common: Record<string, string> = {
   'hace {n} día': '{n} day ago',
   'hace {n} días': '{n} days ago',
   'hace {n} semana': '{n} week ago',
-  'hace {n} semanas': '{n} weeks ago'
+  'hace {n} semanas': '{n} weeks ago',
+  '{n} nota cambiada': '{n} note changed',
+  '{n} notas cambiadas': '{n} notes changed'
 }

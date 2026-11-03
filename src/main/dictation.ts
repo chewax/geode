@@ -1,5 +1,6 @@
 import { BrowserWindow, globalShortcut, ipcMain, screen, session } from 'electron'
 import { IPC, type DictationCommand, type DictationStatus } from '@shared/ipc'
+import { getLocale, t } from '@shared/i18n'
 
 /**
  * Dictado por voz con atajo GLOBAL (funciona aunque Geode no esté al frente).
@@ -13,8 +14,14 @@ import { IPC, type DictationCommand, type DictationStatus } from '@shared/ipc'
  * nota abierta; si no → al final de la nota de hoy (Diario/AAAA-MM-DD.md).
  */
 export const DICTATION_ACCELERATOR = 'CommandOrControl+Alt+Space'
-/** Texto humano del atajo para mostrar en la UI. */
-const ACCELERATOR_LABEL = process.platform === 'darwin' ? 'Cmd+Option+Espacio' : 'Ctrl+Alt+Espacio'
+/**
+ * Texto humano del atajo para mostrar en la UI. Es función (no constante) porque
+ * el nombre de la tecla depende del idioma, que se elige después de importar.
+ */
+function acceleratorLabel(): string {
+  const space = getLocale() === 'en' ? 'Space' : 'Espacio'
+  return process.platform === 'darwin' ? `Cmd+Option+${space}` : `Ctrl+Alt+${space}`
+}
 
 let overlay: BrowserWindow | null = null
 let recording = false
@@ -115,26 +122,30 @@ export function setupDictation(getMainWindow: () => BrowserWindow | null): void 
   })
   if (!registered) console.warn(`[dictado] no se pudo registrar el atajo global ${DICTATION_ACCELERATOR} (¿lo usa otra app?)`)
 
-  ipcMain.handle(IPC.dictationGetShortcut, () => (registered ? ACCELERATOR_LABEL : null))
+  ipcMain.handle(IPC.dictationGetShortcut, () => (registered ? acceleratorLabel() : null))
 
   // El renderer informa en qué etapa está; la ventanita lo refleja.
   ipcMain.on(IPC.dictationStatus, (_e, status: DictationStatus) => {
     switch (status?.state) {
       case 'listening':
         recording = true
-        showOverlay('listening', status.message || 'Escuchando…', `${ACCELERATOR_LABEL} para terminar`)
+        showOverlay(
+          'listening',
+          status.message || t('Escuchando…'),
+          t('{shortcut} para terminar', { shortcut: acceleratorLabel() })
+        )
         break
       case 'transcribing':
         recording = false
-        showOverlay('transcribing', status.message || 'Transcribiendo…')
+        showOverlay('transcribing', status.message || t('Transcribiendo…'))
         break
       case 'done':
         recording = false
-        showOverlay('done', status.message || 'Listo', '', 2200)
+        showOverlay('done', status.message || t('Listo'), '', 2200)
         break
       case 'error':
         recording = false
-        showOverlay('error', status.message || 'No se pudo dictar', '', 4500)
+        showOverlay('error', status.message || t('No se pudo dictar'), '', 4500)
         break
       default:
         recording = false

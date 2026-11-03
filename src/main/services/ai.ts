@@ -145,7 +145,7 @@ export class OpenRouterProvider implements AiMessageProvider {
     const res = await fetch(`${OPENROUTER}/models`, {
       headers: this.key ? { Authorization: `Bearer ${this.key}` } : {}
     })
-    if (!res.ok) throw new Error(`OpenRouter /models devolvió ${res.status}`)
+    if (!res.ok) throw new Error(t('OpenRouter /models devolvió {status}', { status: res.status }))
     const json = (await res.json()) as {
       data?: {
         id: string
@@ -374,7 +374,9 @@ export async function getOpenRouterUsage(key: string): Promise<AiUsage> {
     clearTimeout(timer)
   }
   if (!res.ok) {
-    throw new Error(`OpenRouter /auth/key devolvió ${res.status}: ${await res.text()}`)
+    throw new Error(
+      t('OpenRouter /auth/key devolvió {status}: {body}', { status: res.status, body: await res.text() })
+    )
   }
   const j = (await res.json()) as {
     data?: { label?: string; usage?: number; limit?: number | null }

@@ -45,5 +45,5 @@ export function relativeDate(ts: number, now = Date.now()): string {
  */
 export function changedSummary(names: string[]): string {
   const n = names.length
-  return `${n} ${n === 1 ? 'nota cambiada' : 'notas cambiadas'}`
+  return (n === 1 ? t('{n} nota cambiada', { n }) : t('{n} notas cambiadas', { n }))
 }

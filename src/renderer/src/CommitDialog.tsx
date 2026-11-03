@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { changedSummary } from './time/labels'
 import { friendlyAiError } from './ai/friendlyError'
+import { t } from '@shared/i18n'
 
 interface CommitDialogProps {
   /** Rutas que se van a versionar. */
@@ -32,7 +33,9 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
   const summary =
     noteNames.length > 0
       ? changedSummary(noteNames)
-      : `${changes.length} ${changes.length === 1 ? 'archivo cambiado' : 'archivos cambiados'}`
+      : changes.length === 1
+        ? t('{n} archivo cambiado', { n: changes.length })
+        : t('{n} archivos cambiados', { n: changes.length })
 
   const generate = useCallback(async () => {
     setGenerating(true)
@@ -45,7 +48,7 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
       setError(
         friendlyAiError(
           e,
-          'No se pudo generar la sugerencia de IA. Podés escribir el nombre y la descripción a mano.'
+          t('No se pudo generar la sugerencia de IA. Podés escribir el nombre y la descripción a mano.')
         )
       )
     } finally {
@@ -72,28 +75,28 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Guardar versión</h2>
+        <h2>{t('Guardar versión')}</h2>
 
-        <p className="modal-sub">Ponle un nombre a este momento.</p>
+        <p className="modal-sub">{t('Ponle un nombre a este momento.')}</p>
         <p className="modal-sub">{summary}</p>
 
-        <label className="field-label">Nombre</label>
+        <label className="field-label">{t('Nombre')}</label>
         {/* Deshabilitado mientras la IA genera: si no, el texto tipeado acá se
             perdería al llegar la sugerencia (el campo está autofocused). */}
         <input
           className="text-input"
           value={generating ? '' : name}
-          placeholder={generating ? 'Generando nombre con IA…' : 'Dale un nombre a este momento (opcional)'}
+          placeholder={generating ? t('Generando nombre con IA…') : t('Dale un nombre a este momento (opcional)')}
           onChange={(e) => setName(e.target.value)}
           disabled={generating}
           autoFocus
         />
 
         <label className="field-label">
-          Descripción
+          {t('Descripción')}
           {aiReady && (
             <button className="link-btn" disabled={generating} onClick={() => void generate()}>
-              <RefreshCw size={12} /> {generating ? 'generando…' : 'regenerar con IA'}
+              <RefreshCw size={12} /> {generating ? t('generando…') : t('regenerar con IA')}
             </button>
           )}
         </label>
@@ -102,10 +105,10 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
           value={generating ? '' : description}
           placeholder={
             generating
-              ? 'Generando descripción con IA…'
+              ? t('Generando descripción con IA…')
               : aiReady
-                ? 'Descripción sugerida por IA (editable)'
-                : 'Describí qué cambió (o configurá la IA en Ajustes)'
+                ? t('Descripción sugerida por IA (editable)')
+                : t('Describí qué cambió (o configurá la IA en Ajustes)')
           }
           onChange={(e) => setDescription(e.target.value)}
           disabled={generating}
@@ -119,9 +122,9 @@ export function CommitDialog({ changes, aiReady, onConfirm, onClose }: CommitDia
         )}
 
         <div className="modal-actions">
-          <button onClick={onClose} disabled={committing}>Cancelar</button>
+          <button onClick={onClose} disabled={committing}>{t('Cancelar')}</button>
           <button className="primary" onClick={() => void confirm()} disabled={committing || generating}>
-            {committing ? 'Guardando…' : 'Guardar versión'}
+            {committing ? t('Guardando…') : t('Guardar versión')}
           </button>
         </div>
       </div>

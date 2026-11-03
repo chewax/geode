@@ -91,19 +91,23 @@ export const views: Record<string, string> = {
   'Esta rama tiene versiones que no están en su base. Si la borrás, esas versiones se pierden.':
     "This branch has versions that aren't in its base. If you delete it, those versions are lost.",
   'Borrar rama': 'Delete branch',
-  '¿Quitar la bóveda "{name}" de la lista?': 'Remove the vault “{name}” from the list?',
-  'Se saca del selector de bóvedas. Tus archivos y todo el historial quedan intactos en el disco.':
-    'It’s removed from the vault switcher. Your files and all their history stay untouched on disk.',
+  '¿Quitar el cuaderno "{name}" de la lista?': 'Remove the notebook “{name}” from the list?',
+  'Se saca del selector de cuadernos. Tus archivos y todo el historial quedan intactos en el disco.':
+    'It’s removed from the notebook switcher. Your files and all their history stay untouched on disk.',
   'Eliminar también los archivos del disco': 'Also delete the files from disk',
   'Se mueve a la papelera del sistema (recuperable). Se borra la carpeta completa, incluido el historial de versiones.':
     'It’s moved to the system trash (recoverable). The whole folder is deleted, including its version history.',
   'Quitar y enviar a la papelera': 'Remove and move to trash',
   'Quitar de la lista': 'Remove from list',
 
-  // Traer o crear un cuaderno respaldado
-  'Traer un cuaderno respaldado': 'Get a backed-up notebook',
-  'Para traer un cuaderno de la nube, conectá tu cuenta.':
-    'To get a notebook from the cloud, connect your account.',
+  // Nuevo cuaderno (local o respaldado)
+  'Nuevo cuaderno': 'New notebook',
+  'En este equipo': 'On this computer',
+  'Elegir ubicación…': 'Choose location…',
+  'Se guarda en Documentos/Geode, con todo su historial en tu equipo. No hace falta ninguna cuenta: podés respaldarlo en la nube cuando quieras.':
+    'It’s saved in Documents/Geode, with its full history on your computer. No account needed: you can back it up to the cloud whenever you want.',
+  'Para respaldar o traer cuadernos de la nube, conectá tu cuenta.':
+    'To back up or get notebooks from the cloud, connect your account.',
   'Escribí este código en la página que se abrió:': 'Enter this code on the page that opened:',
   'Esperando autorización…': 'Waiting for authorization…',
   'Conectar mi cuenta': 'Connect my account',
@@ -121,15 +125,16 @@ export const views: Record<string, string> = {
   'mi-cuaderno': 'my-notebook',
   'Privado (solo vos lo ves)': 'Private (only you can see it)',
   'Crear y abrir': 'Create and open',
-  'Vas a elegir dónde guardar el cuaderno en tu equipo.':
-    "You'll choose where to store the notebook on your computer.",
+  'Vas a elegir dónde guardarlo: si la carpeta está vacía se usa tal cual; si no, se crea una subcarpeta con el nombre.':
+    "You'll choose where to store it: an empty folder is used as is; otherwise a subfolder with the name is created.",
 
-  // Selector de bóvedas
-  'Gestionar bóvedas': 'Manage vaults',
-  Bóvedas: 'Vaults',
-  'Quitar bóveda…': 'Remove vault…',
+  // Selector de cuadernos
+  'Gestionar cuadernos': 'Manage notebooks',
+  'Cuadernos': 'Notebooks',
+  'Quitar cuaderno…': 'Remove notebook…',
   'Abrir carpeta…': 'Open folder…',
-  'Clonar o crear en GitHub…': 'Clone or create on GitHub…',
+  'Nuevo cuaderno…': 'New notebook…',
+  'Traer de GitHub…': 'Get from GitHub…',
 
   // Respaldo en la nube
   'Respaldando…': 'Backing up…',

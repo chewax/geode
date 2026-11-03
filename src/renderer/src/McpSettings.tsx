@@ -61,14 +61,14 @@ export function McpSettings(): JSX.Element {
         <Brain size={18} /> {t('Memoria para IA')}
       </h2>
       <p className="modal-sub">
-        {t('Conectá Claude, Cursor u otro asistente compatible con MCP a esta bóveda para que la use como su memoria de largo plazo: puede buscar y leer tus notas, y guardar lo que valga la pena recordar.')}
+        {t('Conectá Claude, Cursor u otro asistente compatible con MCP a este cuaderno para que lo use como su memoria de largo plazo: puede buscar y leer tus notas, y guardar lo que valga la pena recordar.')}
       </p>
       <p className="hint">
         {t('Todo lo que escribe la IA queda como una versión más en la línea de tiempo, con su nombre como autor: lo ves y lo deshacés como cualquier otro cambio. Si el respaldo en la nube está activo, se sube solo a GitHub y llega a tus otras computadoras. No usa tu API key de IA: no tiene costo.')}
       </p>
 
       {info === undefined && <p className="hint">{t('Cargando…')}</p>}
-      {info === null && <p className="hint">{t('Abrí una bóveda para ver cómo conectarla.')}</p>}
+      {info === null && <p className="hint">{t('Abrí un cuaderno para ver cómo conectarlo.')}</p>}
       {info && (
         <>
           <label className="field-label">{t('Claude Code (terminal)')}</label>
@@ -83,7 +83,7 @@ export function McpSettings(): JSX.Element {
             })}
           </p>
           <p className="hint">
-            {tx('Sirve la bóveda {vault}. Para otra bóveda, abrila y volvé a copiar.', { vault: <b>{info.vault}</b> })}
+            {tx('Sirve el cuaderno {vault}. Para otro cuaderno, abrilo y volvé a copiar.', { vault: <b>{info.vault}</b> })}
           </p>
         </>
       )}

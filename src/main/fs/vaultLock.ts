@@ -121,7 +121,7 @@ export async function withVaultLock<T>(
     }
     if (Date.now() > deadline) {
       if (opts.onTimeout === 'proceed') break
-      throw new Error(t('La bóveda está ocupada por otra operación; probá de nuevo en unos segundos'))
+      throw new Error(t('El cuaderno está ocupado por otra operación; probá de nuevo en unos segundos'))
     }
     await new Promise((r) => setTimeout(r, POLL_MS))
   }

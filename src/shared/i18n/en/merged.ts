@@ -16,7 +16,7 @@ export const merged: Record<string, string> = {
   'Código ({key})': 'Code ({key})',
   '«{name}»': '“{name}”',
   '{author} actualizó {names}.': '{author} updated {names}.',
-  '{author} actualizó la bóveda.': '{author} updated the vault.',
+  '{author} actualizó el cuaderno.': '{author} updated the notebook.',
   IA: 'AI',
   Programa: 'Program',
   Pago: 'Billing',
@@ -105,8 +105,8 @@ export const merged: Record<string, string> = {
     '{program} answered with the model {model}. Geode can now use your {name} subscription.',
   '{program} respondió. Geode ya puede usar tu suscripción de {name}.':
     '{program} answered. Geode can now use your {name} subscription.',
-  'La bóveda está ocupada por otra operación; probá de nuevo en unos segundos':
-    'The vault is busy with another operation; try again in a few seconds',
+  'El cuaderno está ocupado por otra operación; probá de nuevo en unos segundos':
+    'The notebook is busy with another operation; try again in a few seconds',
 
   // ── Ajustes → Atajos ──────────────────────────────────────────────────────
   'Atajos de teclado': 'Keyboard shortcuts',
@@ -145,18 +145,18 @@ export const merged: Record<string, string> = {
   // ── Ajustes → Memoria para IA (MCP) ───────────────────────────────────────
   Copiar: 'Copy',
   'Memoria para IA': 'Memory for AI',
-  'Conectá Claude, Cursor u otro asistente compatible con MCP a esta bóveda para que la use como su memoria de largo plazo: puede buscar y leer tus notas, y guardar lo que valga la pena recordar.':
-    'Connect Claude, Cursor or another MCP-compatible assistant to this vault so it can use it as its long-term memory: it can search and read your notes, and save what’s worth remembering.',
+  'Conectá Claude, Cursor u otro asistente compatible con MCP a este cuaderno para que lo use como su memoria de largo plazo: puede buscar y leer tus notas, y guardar lo que valga la pena recordar.':
+    'Connect Claude, Cursor or another MCP-compatible assistant to this notebook so it can use it as its long-term memory: it can search and read your notes, and save what’s worth remembering.',
   'Todo lo que escribe la IA queda como una versión más en la línea de tiempo, con su nombre como autor: lo ves y lo deshacés como cualquier otro cambio. Si el respaldo en la nube está activo, se sube solo a GitHub y llega a tus otras computadoras. No usa tu API key de IA: no tiene costo.':
     'Everything the AI writes is saved as one more version in the timeline, with its name as the author: you can see it and undo it like any other change. If cloud backup is on, it’s uploaded to GitHub automatically and reaches your other computers. It doesn’t use your AI API key: it’s free.',
   'Cargando…': 'Loading…',
-  'Abrí una bóveda para ver cómo conectarla.': 'Open a vault to see how to connect it.',
+  'Abrí un cuaderno para ver cómo conectarlo.': 'Open a notebook to see how to connect it.',
   'Claude Code (terminal)': 'Claude Code (terminal)',
   'Claude Desktop, Cursor y otros (JSON de configuración)': 'Claude Desktop, Cursor and others (configuration JSON)',
   'En Claude Desktop: Ajustes → Desarrollador → Editar configuración, y pegá el bloque {name} dentro de {key}. Reiniciá el asistente después.':
     'In Claude Desktop: Settings → Developer → Edit Config, and paste the {name} block inside {key}. Restart the assistant afterwards.',
-  'Sirve la bóveda {vault}. Para otra bóveda, abrila y volvé a copiar.':
-    'Serves the vault {vault}. For another vault, open it and copy again.',
+  'Sirve el cuaderno {vault}. Para otro cuaderno, abrilo y volvé a copiar.':
+    'Serves the notebook {vault}. For another notebook, open it and copy again.',
   // Menú contextual del editor y notas enlazadas
   'Enlazado a «{name}», que ya existía.': 'Linked to “{name}”, which already existed.',
   'Crear nota enlazada': 'Create linked note',

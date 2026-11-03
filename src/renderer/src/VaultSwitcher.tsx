@@ -1,31 +1,32 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import { ChevronRight, ChevronDown, Check, FolderOpen, Cloud, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, Check, FolderOpen, CloudDownload, Plus, Trash2 } from 'lucide-react'
 import type { VaultInfo } from '@shared/ipc'
 import { t } from '@shared/i18n'
 
 export interface VaultSwitcherProps {
-  /** Bóveda activa (para marcarla con el check). */
+  /** Cuaderno activo (para marcarlo con el check). */
   current: VaultInfo
-  /** Bóvedas conocidas a listar. */
+  /** Cuadernos conocidos a listar. */
   vaults: VaultInfo[]
-  /** Cambiar a una bóveda ya conocida por su ruta. */
+  /** Cambiar a un cuaderno ya conocido por su ruta. */
   onSwitch: (root: string) => void
-  /** "Gestionar bóvedas…": abre el diálogo de carpeta. */
+  /** "Abrir carpeta…": abre una carpeta existente como cuaderno. */
   onManage: () => void
-  /** "Clonar o crear en GitHub…": abre el diálogo de nueva bóveda. */
-  onNew: () => void
-  /** Da de baja una bóveda: abre el diálogo de confirmación de baja. */
+  /** "Nuevo cuaderno…" / "Traer de GitHub…": abre el diálogo de cuaderno nuevo en esa pestaña. */
+  onNew: (mode: 'local' | 'clone') => void
+  /** Da de baja un cuaderno: abre el diálogo de confirmación de baja. */
   onRemove: (vault: VaultInfo) => void
 }
 
 /**
- * Selector de bóvedas: vive ABAJO del sidebar y muestra la etiqueta fija
- * "Bóvedas" (es el lugar donde se gestionan las bóvedas, no el nombre de la
- * activa). Al hacer click revela un disclosure en flujo que se despliega hacia
+ * Selector de cuadernos: vive ABAJO del sidebar y muestra la etiqueta fija
+ * "Cuadernos" (es el lugar donde se gestionan los cuadernos, no el nombre del
+ * activo). Al hacer click revela un disclosure en flujo que se despliega hacia
  * arriba (empuja la sección de notas, sin overlay ni popover flotante) con la
- * lista de bóvedas (check en la activa) y las acciones "Abrir carpeta…" /
- * "Clonar o crear en GitHub…". Se cierra con Escape; su estado no se persiste.
+ * lista de cuadernos (check en el activo) y las acciones "Nuevo cuaderno…" (local,
+ * sin cuenta), "Abrir carpeta…" y "Traer de GitHub…". Se cierra con Escape; su
+ * estado no se persiste.
  */
 export function VaultSwitcher({
   current,
@@ -51,7 +52,7 @@ export function VaultSwitcher({
     <div className="vault-header">
       <button
         className="vault-trigger"
-        title={t('Gestionar bóvedas')}
+        title={t('Gestionar cuadernos')}
         onClick={() => setOpen((v) => !v)}
       >
         {open ? (
@@ -59,7 +60,7 @@ export function VaultSwitcher({
         ) : (
           <ChevronRight size={14} className="twisty" />
         )}
-        <span className="vault-trigger-name">{t('Bóvedas')}</span>
+        <span className="vault-trigger-name">{t('Cuadernos')}</span>
       </button>
 
       {open && (
@@ -78,7 +79,7 @@ export function VaultSwitcher({
               {v.root === current.root && <Check size={14} />}
               <button
                 className="icon-btn vault-menu-remove"
-                title={t('Quitar bóveda…')}
+                title={t('Quitar cuaderno…')}
                 onClick={(e) => {
                   e.stopPropagation()
                   setOpen(false)
@@ -94,6 +95,15 @@ export function VaultSwitcher({
             className="vault-menu-manage"
             onClick={() => {
               setOpen(false)
+              onNew('local')
+            }}
+          >
+            <Plus size={14} /> {t('Nuevo cuaderno…')}
+          </li>
+          <li
+            className="vault-menu-manage"
+            onClick={() => {
+              setOpen(false)
               onManage()
             }}
           >
@@ -103,10 +113,10 @@ export function VaultSwitcher({
             className="vault-menu-manage"
             onClick={() => {
               setOpen(false)
-              onNew()
+              onNew('clone')
             }}
           >
-            <Cloud size={14} /> {t('Clonar o crear en GitHub…')}
+            <CloudDownload size={14} /> {t('Traer de GitHub…')}
           </li>
         </ul>
       )}

@@ -18,6 +18,7 @@ import {
   type ExternalChange,
   type McpInfo,
   type VaultInfo,
+  type GithubRepoInfo,
   type BackupOnboarding,
   type BackupOnboardingState,
   type TourSnapshot,
@@ -203,7 +204,7 @@ function mapEngineError(engine: AiEngine, e: unknown): Error {
 /** Root del vault activo o error uniforme si no hay ninguno. */
 function requireRoot(): string {
   const info = vault.getInfo()
-  if (!info) throw new Error(t('No hay vault abierto'))
+  if (!info) throw new Error(t('No hay cuaderno abierto'))
   return info.root
 }
 
@@ -613,7 +614,7 @@ function registerIpcHandlers(): void {
       // SEGURIDAD (mitiga T-07-05-01): solo damos de baja bóvedas conocidas. Nunca
       // pasamos a shell.trashItem una ruta arbitraria que venga del renderer.
       const { knownVaults } = await loadSettings()
-      if (!(knownVaults ?? []).includes(root)) throw new Error(t('Bóveda desconocida'))
+      if (!(knownVaults ?? []).includes(root)) throw new Error(t('Cuaderno desconocido'))
 
       const wasActive = vault.getInfo()?.root === root
 
@@ -636,7 +637,7 @@ function registerIpcHandlers(): void {
           const motivo = e instanceof Error ? e.message : String(e)
           // Falló la papelera: NO quitamos nada de knownVaults (T-07-05-04).
           throw new Error(
-            t('No se pudo enviar la carpeta a la papelera: {motivo}. La bóveda sigue en la lista.', { motivo })
+            t('No se pudo enviar la carpeta a la papelera: {motivo}. El cuaderno sigue en la lista.', { motivo })
           )
         }
       }
@@ -686,18 +687,34 @@ function registerIpcHandlers(): void {
     async (_e, name: string, isPrivate: boolean): Promise<VaultInfo | null> => {
       const token = await getGithubToken()
       if (!token) throw new Error(t('Conectá tu cuenta de GitHub en Ajustes'))
-      const dir = await vault.pickFolder(t('Elegí la carpeta para la bóveda nueva'))
-      if (!dir) return null
-      await gitService.ensureRepo(dir) // init repo local (rama main)
-      const repo = await createRepo(token, name, isPrivate) // crea el repo en GitHub
-      const info = await vault.setRoot(dir)
-      await gitService.setRemote(dir, repo.cloneUrl) // destino REAL de push: origin per-vault (CR-01)
+      const picked = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
+      if (!picked) return null
+      // Mismo camino que un cuaderno local: carpeta vacía → se usa tal cual; con
+      // contenido → subcarpeta con el nombre. Se siembra Bienvenida.md y se guarda
+      // la primera versión ANTES de crear el repo, así el cuaderno nunca queda
+      // vacío ni sin historia, y el primer push ya lleva contenido.
+      const { root, reused } = await vault.createInPicked(name, picked)
+      let repo: GithubRepoInfo
+      try {
+        await gitService.ensureRepo(root) // init repo local (rama main)
+        await gitService.commit(root, t('Primera versión'))
+        repo = await createRepo(token, name, isPrivate) // crea el repo en GitHub
+        await gitService.setRemote(root, repo.cloneUrl) // destino REAL de push: origin per-vault (CR-01)
+      } catch (e) {
+        // Falla parcial (p.ej. el nombre ya existe en GitHub): no dejamos un
+        // cuaderno a medias en disco, así el reintento no choca con él.
+        await vault.discardNew(root, reused).catch(() => {})
+        throw e
+      }
+      const info = await vault.setRoot(root)
       const settings = await loadSettings()
       // Compat: `github.remote` está @deprecated (ver settings.ts); ya NO es la
       // fuente del destino de push. Se sigue escribiendo sólo por retro-compat.
       settings.github = { ...settings.github, remote: repo.cloneUrl }
       await saveSettings(settings)
-      await rememberVault(dir)
+      await rememberVault(root)
+      await restartSnapshotTimer() // rebind el timer de snapshots al nuevo cuaderno
+      void autoPushAfterCommit(root) // primer respaldo sin bloquear la UI (nunca lanza)
       return info
     }
   )
@@ -708,13 +725,10 @@ function registerIpcHandlers(): void {
       // Base del cuaderno: por defecto ~/Documents/Geode; con el escape "Elegir otra
       // ubicación" se usa la carpeta elegida como PADRE (el picker devuelve null si
       // el usuario cancela → no-op).
-      let baseDir: string
+      let picked: string | null = null
       if (useCustomLocation) {
-        const parent = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
-        if (!parent) return null
-        baseDir = parent
-      } else {
-        baseDir = join(app.getPath('documents'), 'Geode')
+        picked = await vault.pickFolder(t('Elegí dónde crear tu cuaderno'))
+        if (!picked) return null
       }
 
       try {
@@ -724,7 +738,11 @@ function registerIpcHandlers(): void {
         // versión. Con el seed ya en disco, este primer commit NUNCA es null.
         // El mensaje es texto fijo en español; NO se invoca IA (la creación y los
         // auto-snapshots no invocan IA — CLAUDE.md).
-        const { root } = await vault.createLocal(name, baseDir)
+        // Ubicación elegida: si la carpeta está vacía se usa tal cual (el usuario la
+        // creó para esto); si no, se crea adentro una subcarpeta con el nombre.
+        const { root, reused } = picked
+          ? await vault.createInPicked(name, picked)
+          : { ...(await vault.createLocal(name, join(app.getPath('documents'), 'Geode'))), reused: false }
         // ensureRepo/commit viven FUERA del try/catch de createLocal (que solo cubre
         // mkdir→seed), así que su falla no limpiaba la carpeta ya sembrada: quedaba un
         // cuaderno huérfano sin repo que forzaba el sufijo " (2)" en cada reintento
@@ -735,7 +753,7 @@ function registerIpcHandlers(): void {
           await gitService.ensureRepo(root) // git init (rama main), idempotente
           await gitService.commit(root, t('Primera versión')) // primer commit racy-safe del seed
         } catch (e) {
-          await vault.discard(root).catch(() => {})
+          await vault.discardNew(root, reused).catch(() => {})
           throw e
         }
         // setRoot recién ACÁ: el cuaderno se vuelve "activo" solo tras init+commit OK,

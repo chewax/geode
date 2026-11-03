@@ -205,8 +205,10 @@ export interface VaultApi {
    */
   cloneFromGithub(cloneUrl: string): Promise<VaultInfo | null>
   /**
-   * Crea una bóveda nueva en una carpeta local (elegida por diálogo), crea un repo
-   * en GitHub y lo enlaza como remoto. null si el usuario cancela.
+   * Crea un cuaderno nuevo en una ubicación elegida por diálogo (carpeta vacía →
+   * se usa tal cual; con contenido → subcarpeta con el nombre), siembra
+   * `Bienvenida.md` con su primera versión, crea un repo en GitHub y lo enlaza
+   * como remoto. null si el usuario cancela.
    */
   createWithRepo(name: string, isPrivate: boolean): Promise<VaultInfo | null>
   /**
@@ -215,9 +217,10 @@ export interface VaultApi {
    * primera versión, y fija el cuaderno como activo.
    *
    * Por defecto crea bajo `~/Documents/Geode/<nombre>` y NUNCA devuelve null: un
-   * nombre vacío o ilegal cae al fallback "Cuaderno". Sólo devuelve null cuando
-   * `useCustomLocation` es true y el usuario cancela el picker de "Elegir otra
-   * ubicación".
+   * nombre vacío o ilegal cae al fallback "Cuaderno". Con `useCustomLocation`
+   * abre un picker: si la carpeta elegida está vacía se usa tal cual; si no, se
+   * crea adentro una subcarpeta con el nombre. Sólo devuelve null cuando el
+   * usuario cancela ese picker.
    */
   createLocal(name: string, useCustomLocation?: boolean): Promise<VaultInfo | null>
   /** Árbol de carpetas y notas .md del vault activo. */

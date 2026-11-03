@@ -20,7 +20,7 @@ export const app: Record<string, string> = {
   'No se pudo crear el cuaderno': "Couldn't create the notebook",
   'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.':
     "Couldn't create the notebook. Check that you can write to your Documents folder and try again.",
-  'No se pudo quitar la bóveda': "Couldn't remove the vault",
+  'No se pudo quitar el cuaderno': "Couldn't remove the notebook",
   'El puente con el sistema (preload) no cargó. Reiniciá la app; si persiste, revisá la consola del proceso principal.':
     "The system bridge (preload) didn't load. Restart the app; if it keeps happening, check the main process console.",
   'Abriste tu bóveda de Obsidian ({n} nota). Guardamos una primera versión de todo: enlaces, imágenes, etiquetas y propiedades funcionan igual.':
@@ -53,7 +53,7 @@ export const app: Record<string, string> = {
   'Orden Z→A (click: A→Z)': 'Sort Z→A (click: A→Z)',
   'Colapsar todo': 'Collapse all',
   'Expandir todo': 'Expand all',
-  'Bóveda vacía': 'Empty vault',
+  'Cuaderno vacío': 'Empty notebook',
   'Creá una nota o una carpeta con las acciones de la cabecera de esta sección.':
     'Create a note or a folder with the actions in this section’s header.',
   'Mostrar en el explorador': 'Show in file explorer',

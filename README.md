@@ -87,7 +87,7 @@ Geode es una app de escritorio para tomar notas en **Markdown**, en archivos com
 - **Plugins** de la comunidad, **aislados** del resto de la app.
 - **Memoria para IA**: conectá Claude, Cursor u otro asistente por **MCP** y usá tu bóveda como su memoria. Cada cambio de la IA queda versionado y se puede deshacer ([más](docs/MCP.md)).
 - **Tema claro y oscuro**, interfaz en **español e inglés**.
-- **Fórmulas** LaTeX (`$…$`, `$$…$$`), **notas al pie**, **favoritas** y **exportar a PDF**.
+- **Fórmulas LaTeX** (`$…$`, `$$…$$`) con KaTeX incluido, con botones en la barra de formato; **notas al pie**, **favoritas** y **exportar a PDF**.
 
 </td>
 </tr>

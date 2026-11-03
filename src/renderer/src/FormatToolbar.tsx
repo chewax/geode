@@ -19,13 +19,17 @@ import {
   TableProperties,
   Minus,
   SquareCode,
-  ListPlus
+  ListPlus,
+  Sigma,
+  SquareSigma
 } from 'lucide-react'
 import { t } from '@shared/i18n'
 import type { EditorHandle } from './editor/CodeMirrorEditor'
 import { labelOf, useShortcuts } from './shortcuts'
 import {
   insertCodeBlock,
+  insertInlineMath,
+  insertMathBlock,
   insertLink,
   insertRule,
   insertTable,
@@ -206,6 +210,8 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddPrope
       </span>
       <span className="fmt-sep" />
       {btn(t('Bloque de código'), <SquareCode size={15} />, insertCodeBlock)}
+      {btn(t('Fórmula LaTeX en el texto ($…$)'), <Sigma size={15} />, insertInlineMath)}
+      {btn(t('Bloque de fórmula LaTeX ($$…$$)'), <SquareSigma size={15} />, insertMathBlock)}
       {btn(t('Línea separadora'), <Minus size={15} />, insertRule)}
       <span className="fmt-sep" />
       <button

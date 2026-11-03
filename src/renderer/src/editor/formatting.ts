@@ -187,6 +187,50 @@ export const insertCodeBlock: Command = (view) => {
   return true
 }
 
+/**
+ * Bloque de fórmula LaTeX (`$$…$$`, centrado en la vista previa). La selección,
+ * si hay, queda adentro; si no, se inserta una fórmula de ejemplo seleccionada
+ * para escribir encima.
+ */
+export const insertMathBlock: Command = (view) => {
+  if (view.state.readOnly) return false
+  const { from, to } = view.state.selection.main
+  const sel = view.state.sliceDoc(from, to)
+  const body = sel || 'x^2'
+  const line = view.state.doc.lineAt(from)
+  const lead = from === line.from ? '' : '\n'
+  const start = from + lead.length + 3
+  view.dispatch({
+    changes: { from, to, insert: `${lead}$$\n${body}\n$$\n` },
+    selection: EditorSelection.range(start, start + body.length),
+    userEvent: 'input.format'
+  })
+  view.focus()
+  return true
+}
+
+/**
+ * Fórmula LaTeX dentro del texto (`$…$`). Con selección (o palabra bajo el
+ * cursor) la envuelve o desenvuelve; sin nada, inserta `$x$` con la `x`
+ * seleccionada. Una selección de varias líneas pasa a bloque `$$…$$`.
+ */
+export const insertInlineMath: Command = (view) => {
+  if (view.state.readOnly) return false
+  const { from, to, empty } = view.state.selection.main
+  const doc = view.state.doc
+  if (doc.lineAt(from).number !== doc.lineAt(to).number) return insertMathBlock(view)
+  if (empty && !view.state.wordAt(from)) {
+    view.dispatch({
+      changes: { from, insert: '$x$' },
+      selection: EditorSelection.range(from + 1, from + 2),
+      userEvent: 'input.format'
+    })
+    view.focus()
+    return true
+  }
+  return toggleWrap('$')(view)
+}
+
 // ── Tablas ───────────────────────────────────────────────────────────────────
 
 /** Tabla bajo el cursor: rango en el documento + su contenido leído. */

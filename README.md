@@ -164,7 +164,12 @@ npm run dev
 
 ### IA (opcional)
 
-Geode puede usar [OpenRouter](https://openrouter.ai) con **tu propia clave** para describir versiones, ayudarte a escribir y transcribir dictados. Está apagada por defecto, el gasto se ve en la barra de estado, y nada se manda a la IA sin que lo pidas.
+Geode puede usar IA para describir versiones, ayudarte a escribir y transcribir dictados. Está apagada por defecto y nada se manda a la IA sin que lo pidas. En **Ajustes → Inteligencia artificial** elegís el motor:
+
+- **OpenRouter** con **tu propia clave**: pagás por uso, elegís entre cientos de modelos y el gasto se ve en la barra de estado.
+- **Tu suscripción** a Claude, ChatGPT o Gemini, a través de su programa oficial ([Claude Code](https://docs.anthropic.com/claude-code), [Codex CLI](https://github.com/openai/codex) o [Gemini CLI](https://github.com/google-gemini/gemini-cli)) instalado y con la sesión iniciada en tu computadora. Geode no ve ni guarda tus credenciales: ejecuta ese programa con el pedido y lee la respuesta.
+
+El dictado por voz necesita OpenRouter, porque esos programas no entienden audio.
 
 ## Plugins
 
@@ -194,7 +199,7 @@ flowchart LR
   subgraph Main["Proceso main (Node)"]
     Vault[VaultService<br/>archivos]
     Git[GitService<br/>isomorphic-git]
-    AI[AiService<br/>OpenRouter]
+    AI[AiService<br/>OpenRouter o CLI]
     GH[GithubService<br/>respaldo]
   end
   UI -- IPC tipado<br/>window.geode --> Main

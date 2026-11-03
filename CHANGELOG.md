@@ -21,6 +21,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - **Plugins de la comunidad** aislados en iframes (API v2 asíncrona) con **bloques de código propios** en la vista previa.
 - **Mermaid** integrado.
 - **Dictado por voz** con atajo global (Ctrl+Alt+Espacio) y transcripción con OpenRouter.
+- **Atajos de teclado reasignables** en Ajustes → Atajos: el global del dictado, guardar versión, paleta, búsqueda, nota de hoy, dividir, IA y formato. Si el sistema no deja registrar un atajo global (otra app lo usa), se avisa y se puede elegir otro sin reiniciar.
+- **IA con tu suscripción**: además de OpenRouter con tu clave, Geode puede usar Claude, ChatGPT o Gemini a través de su programa oficial (Claude Code, Codex CLI o Gemini CLI) ya instalado y con sesión iniciada.
 - **Vista previa en vivo** sincronizada entre paneles.
 - Nuevo **logo**: una geoda low poly.
 - Tests automáticos con Vitest.

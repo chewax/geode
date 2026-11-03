@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, Brain } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, KeyRound, Terminal, Copy, Keyboard, Brain } from 'lucide-react'
 import type {
+  AiCliStatus,
   AiConfig,
+  AiEngine,
+  AiEngineTest,
   AiModel,
   DeviceFlowStart,
   GithubConfig,
   InstalledPlugin
 } from '@shared/ipc'
+import { CLI_ENGINES, CLI_SPECS } from '@shared/aiEngines'
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 import { McpSettings } from './McpSettings'
+import { ShortcutsSettings } from './ShortcutsSettings'
+import { labelOf, useShortcuts } from './shortcuts'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -19,7 +25,7 @@ interface SettingsModalProps {
 }
 
 /** Secciones del panel de ajustes (aside izquierdo). */
-type Section = 'general' | 'ai' | 'mcp' | 'github' | 'plugins' | 'snapshots'
+type Section = 'general' | 'shortcuts' | 'ai' | 'mcp' | 'github' | 'plugins' | 'snapshots'
 
 /** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
 function perMillion(perToken: string | null): string {
@@ -37,16 +43,19 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref)
   const [formatToolbar, setFormatToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
   /** Atajo global del dictado (null si no se pudo registrar). */
-  const [dictationShortcut, setDictationShortcut] = useState<string | null>(null)
-  useEffect(() => {
-    window.geode.dictation.getShortcut().then(setDictationShortcut).catch(() => setDictationShortcut(null))
-  }, [])
+  const shortcuts = useShortcuts()
+  const dictationShortcut = shortcuts.globalRegistered ? labelOf('dictation', shortcuts.bindings) : null
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [models, setModels] = useState<AiModel[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
   const [filter, setFilter] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /** CLIs de IA detectados (null = todavía buscando). */
+  const [clis, setClis] = useState<AiCliStatus[] | null>(null)
+  const [detecting, setDetecting] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [test, setTest] = useState<AiEngineTest | null>(null)
 
   // GitHub
   const [github, setGithub] = useState<GithubConfig | null>(null)
@@ -79,6 +88,18 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     [onConfigChange]
   )
 
+  /** Busca qué CLIs de IA (Claude Code, Codex, Gemini CLI) están instalados. */
+  const detect = useCallback(async () => {
+    setDetecting(true)
+    try {
+      setClis(await window.geode.ai.detectClis())
+    } catch {
+      setClis([])
+    } finally {
+      setDetecting(false)
+    }
+  }, [])
+
   const loadModels = useCallback(async () => {
     setLoadingModels(true)
     setError(null)
@@ -99,6 +120,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       const c = await window.geode.ai.getConfig()
       apply(c)
       if (c.hasKey) void loadModels()
+      void detect()
       const g = await window.geode.github.getConfig()
       setGithub(g)
       setRemoteInput(g.remote ?? '')
@@ -118,7 +140,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
       }
       void refreshPlugins()
     })()
-  }, [apply, loadModels, refreshPlugins])
+  }, [apply, loadModels, detect, refreshPlugins])
 
   const togglePlugin = async (id: string, enabled: boolean): Promise<void> => {
     setExtPlugins(await window.geode.plugins.setEnabled(id, enabled))
@@ -189,9 +211,52 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
     apply(await window.geode.ai.setModel(model))
   }
 
+  const selectEngine = async (next: AiEngine): Promise<void> => {
+    setTest(null)
+    apply(await window.geode.ai.setEngine(next))
+  }
+
+  const runTest = async (): Promise<void> => {
+    if (!config) return
+    setTesting(true)
+    setTest(null)
+    try {
+      setTest(await window.geode.ai.testEngine(config.engine))
+    } catch (e) {
+      setTest({ ok: false, message: e instanceof Error ? e.message : 'No se pudo probar la conexión' })
+    } finally {
+      setTesting(false)
+    }
+  }
+
   const toggleEnabled = async (enabled: boolean): Promise<void> => {
     apply(await window.geode.ai.setEnabled(enabled))
   }
+
+  const engine: AiEngine = config?.engine ?? 'openrouter'
+  const cliSpec = engine === 'openrouter' ? null : CLI_SPECS[engine]
+  const cliStatus = clis?.find((c) => c.engine === engine) ?? null
+
+  /** Campo de la API key de OpenRouter (motor principal o solo para dictar). */
+  const keyField = config?.hasKey ? (
+    <div className="key-row">
+      <span className="key-set"><Check size={14} /> Key guardada</span>
+      <button onClick={() => void clearKey()}>Quitar</button>
+    </div>
+  ) : (
+    <div className="key-row">
+      <input
+        type="password"
+        className="text-input"
+        placeholder="sk-or-…"
+        value={keyInput}
+        onChange={(e) => setKeyInput(e.target.value)}
+      />
+      <button onClick={() => void saveKey()} disabled={!keyInput.trim()}>
+        Guardar
+      </button>
+    </div>
+  )
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -211,8 +276,11 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             <button className={section === 'general' ? 'active' : ''} onClick={() => setSection('general')}>
               <SlidersHorizontal size={15} /> General
             </button>
+            <button className={section === 'shortcuts' ? 'active' : ''} onClick={() => setSection('shortcuts')}>
+              <Keyboard size={15} /> Atajos
+            </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
-              <Sparkles size={15} /> Mensajes por IA
+              <Sparkles size={15} /> Inteligencia artificial
             </button>
             <button className={section === 'mcp' ? 'active' : ''} onClick={() => setSection('mcp')}>
               <Brain size={15} /> Memoria para IA
@@ -285,89 +353,187 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               </section>
             )}
 
+            {section === 'shortcuts' && <ShortcutsSettings />}
+
             {section === 'ai' && (
               <section className="settings-section">
-                <h2><Sparkles size={18} /> Mensajes por IA</h2>
+                <h2><Sparkles size={18} /> Inteligencia artificial</h2>
                 <p className="modal-sub">
-                  Motor: <strong>OpenRouter</strong>. La API key se guarda cifrada en tu equipo, fuera
-                  del repositorio.
+                  Geode usa IA para nombrar tus versiones y en el asistente de escritura (Ctrl+K). Elegí con
+                  qué IA trabajar.
                 </p>
 
-                <label className="field-label">API key de OpenRouter</label>
-                {config?.hasKey ? (
-                  <div className="key-row">
-                    <span className="key-set"><Check size={14} /> Key guardada</span>
-                    <button onClick={() => void clearKey()}>Quitar</button>
-                  </div>
-                ) : (
-                  <div className="key-row">
-                    <input
-                      type="password"
-                      className="text-input"
-                      placeholder="sk-or-…"
-                      value={keyInput}
-                      onChange={(e) => setKeyInput(e.target.value)}
-                    />
-                    <button onClick={() => void saveKey()} disabled={!keyInput.trim()}>
-                      Guardar
+                <label className="field-label">Motor</label>
+                <ul className="engine-list" role="radiogroup" aria-label="Motor de IA">
+                  <li>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={engine === 'openrouter'}
+                      className={`engine-row${engine === 'openrouter' ? ' sel' : ''}`}
+                      onClick={() => void selectEngine('openrouter')}
+                    >
+                      <KeyRound size={16} className="engine-icon" />
+                      <span className="engine-text">
+                        <span className="engine-name">OpenRouter</span>
+                        <span className="engine-desc">
+                          Con tu API key. Pagás por uso y elegís entre cientos de modelos.
+                        </span>
+                      </span>
+                      {config?.hasKey && (
+                        <span className="engine-status ok"><Check size={12} /> Key guardada</span>
+                      )}
                     </button>
+                  </li>
+                  {CLI_ENGINES.map((id) => {
+                    const spec = CLI_SPECS[id]
+                    const st = clis?.find((c) => c.engine === id)
+                    return (
+                      <li key={id}>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={engine === id}
+                          className={`engine-row${engine === id ? ' sel' : ''}`}
+                          onClick={() => void selectEngine(id)}
+                        >
+                          <Terminal size={16} className="engine-icon" />
+                          <span className="engine-text">
+                            <span className="engine-name">{spec.name}</span>
+                            <span className="engine-desc">
+                              Con {spec.plan}, a través de {spec.program}.
+                            </span>
+                          </span>
+                          <span className={`engine-status${st?.installed ? ' ok' : ''}`}>
+                            {clis === null || detecting ? (
+                              'Buscando…'
+                            ) : st?.installed ? (
+                              <><Check size={12} /> Instalado</>
+                            ) : (
+                              'No instalado'
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                {cliSpec && (
+                  <div className="engine-panel">
+                    {cliStatus?.installed ? (
+                      <>
+                        <p className="modal-sub">
+                          {cliSpec.program} está instalado
+                          {cliStatus.version ? <> (versión {cliStatus.version})</> : null}. Si todavía no iniciaste
+                          sesión, abrí una terminal y ejecutá:
+                        </p>
+                        <CommandRow command={cliSpec.login} />
+                      </>
+                    ) : (
+                      <>
+                        <p className="modal-sub">
+                          Para usar {cliSpec.name}, instalá {cliSpec.program} desde una terminal:
+                        </p>
+                        <CommandRow command={cliSpec.install} />
+                        <p className="modal-sub engine-after">
+                          Después ejecutá <code>{cliSpec.login}</code>, iniciá sesión con tu cuenta y volvé
+                          acá.
+                        </p>
+                      </>
+                    )}
+                    <p className="hint">
+                      Geode usa el programa oficial: no ve ni guarda tu contraseña ni tus credenciales. Responde
+                      el modelo que tengas configurado en {cliSpec.program}, y el uso cuenta para los límites de{' '}
+                      {cliSpec.plan}.
+                    </p>
                   </div>
                 )}
 
-                <label className="field-label">
-                  Modelo
-                  {config?.model && <span className="model-current">{config.model}</span>}
-                </label>
-
-                {!config?.hasKey ? (
-                  <p className="hint">Guardá una API key para ver los modelos.</p>
-                ) : (
+                {engine === 'openrouter' && (
                   <>
-                    <div className="key-row">
-                      <input
-                        className="text-input"
-                        placeholder="Filtrar modelos…"
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                      />
-                      <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title="Recargar modelos">
-                        <RefreshCw size={15} className={loadingModels ? 'spin' : ''} />
-                      </button>
-                    </div>
+                    <label className="field-label">API key de OpenRouter</label>
+                    {keyField}
 
-                    <ul className="model-list">
-                      {filtered.length === 0 && !loadingModels && (
-                        <li className="model-empty">Sin resultados</li>
-                      )}
-                      {filtered.map((m) => (
-                        <li
-                          key={m.id}
-                          className={`model-row${m.id === config?.model ? ' sel' : ''}`}
-                          onClick={() => void selectModel(m.id)}
-                          title={m.id}
-                        >
-                          <div className="m-name">{m.name}</div>
-                          <div className="m-meta">
-                            <span className="m-id">{m.id}</span>
-                            <span className="m-price">
-                              in {perMillion(m.promptPrice)} · out {perMillion(m.completionPrice)}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="hint">
-                      Para resumir cambios conviene un modelo rápido y barato (mirá el precio por
-                      millón de tokens).
-                    </p>
+                  <label className="field-label">
+                    Modelo
+                    {config?.model && <span className="model-current">{config.model}</span>}
+                  </label>
+
+                  {!config?.hasKey ? (
+                    <p className="hint">Guardá una API key para ver los modelos.</p>
+                  ) : (
+                    <>
+                      <div className="key-row">
+                        <input
+                          className="text-input"
+                          placeholder="Filtrar modelos…"
+                          value={filter}
+                          onChange={(e) => setFilter(e.target.value)}
+                        />
+                        <button className="icon-btn" onClick={() => void loadModels()} disabled={loadingModels} title="Recargar modelos">
+                          <RefreshCw size={15} className={loadingModels ? 'spin' : ''} />
+                        </button>
+                      </div>
+
+                      <ul className="model-list">
+                        {filtered.length === 0 && !loadingModels && (
+                          <li className="model-empty">Sin resultados</li>
+                        )}
+                        {filtered.map((m) => (
+                          <li
+                            key={m.id}
+                            className={`model-row${m.id === config?.model ? ' sel' : ''}`}
+                            onClick={() => void selectModel(m.id)}
+                            title={m.id}
+                          >
+                            <div className="m-name">{m.name}</div>
+                            <div className="m-meta">
+                              <span className="m-id">{m.id}</span>
+                              <span className="m-price">
+                                in {perMillion(m.promptPrice)} · out {perMillion(m.completionPrice)}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="hint">
+                        Para resumir cambios conviene un modelo rápido y barato (mirá el precio por
+                        millón de tokens).
+                      </p>
+                    </>
+                  )}
                   </>
+                )}
+
+                <div className="key-row engine-test-row">
+                  <button onClick={() => void runTest()} disabled={testing || !config?.ready}>
+                    {testing ? 'Probando…' : 'Probar conexión'}
+                  </button>
+                  {cliSpec && (
+                    <button
+                      className="icon-btn"
+                      onClick={() => void detect()}
+                      disabled={detecting}
+                      title="Volver a buscar programas instalados"
+                      aria-label="Volver a buscar programas instalados"
+                    >
+                      <RefreshCw size={15} className={detecting ? 'spin' : ''} />
+                    </button>
+                  )}
+                </div>
+                {test && (
+                  <p className={`engine-test ${test.ok ? 'ok' : 'error'}`} role="status">
+                    {test.ok ? <Check size={14} /> : <AlertTriangle size={14} />}
+                    <span>{test.message}</span>
+                  </p>
                 )}
 
                 <label className="toggle-row">
                   <input
                     type="checkbox"
                     checked={config?.enabled ?? false}
-                    disabled={!config?.hasKey || !config?.model}
+                    disabled={!config?.ready}
                     onChange={(e) => void toggleEnabled(e.target.checked)}
                   />
                   Generar resúmenes de versión con IA
@@ -379,15 +545,27 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     <>
                       Apretá <kbd>{dictationShortcut}</kbd> desde cualquier lugar para empezar a dictar, y otra
                       vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se
-                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto).
+                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto). El atajo
+                      se cambia en{' '}<button className="link-btn" onClick={() => setSection('shortcuts')}>Atajos</button>.
                     </>
                   ) : (
                     <>
-                      El atajo global no se pudo registrar (puede que otra app lo use). Podés dictar igual desde la
-                      paleta de comandos: «Dictar».
+                      El atajo global no se pudo registrar (puede que otra app lo use). Elegí otra combinación en{' '}
+                      <button className="link-btn" onClick={() => setSection('shortcuts')}>Ajustes → Atajos</button>, o
+                      dictá desde la paleta de comandos: «Dictar».
                     </>
                   )}
                 </p>
+                {engine !== 'openrouter' && (
+                  <>
+                    <p className="hint">
+                      {cliSpec?.program ?? 'Ese motor'} no entiende audio, así que el dictado sigue usando
+                      OpenRouter.
+                    </p>
+                    <label className="field-label">API key de OpenRouter (para dictar)</label>
+                    {keyField}
+                  </>
+                )}
                 <label className="field-label" htmlFor="dictation-model">Modelo para transcribir</label>
                 <select
                   id="dictation-model"
@@ -605,6 +783,33 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Comando para pegar en la terminal, con botón de copiar. */
+function CommandRow({ command }: { command: string }): JSX.Element {
+  const [copied, setCopied] = useState(false)
+  const copy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
+  return (
+    <div className="cmd-row">
+      <code>{command}</code>
+      <button
+        className="icon-btn"
+        onClick={() => void copy()}
+        title={copied ? 'Copiado' : 'Copiar comando'}
+        aria-label={copied ? 'Copiado' : 'Copiar comando'}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
     </div>
   )
 }

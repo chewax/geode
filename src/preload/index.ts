@@ -115,7 +115,10 @@ const api: GeodeApi = {
       ipcRenderer.invoke(IPC.aiGenerateText, instruction, selection, before),
     usage: () => ipcRenderer.invoke(IPC.aiUsage),
     setDictationModel: (model) => ipcRenderer.invoke(IPC.aiSetDictationModel, model),
-    transcribe: (wav) => ipcRenderer.invoke(IPC.aiTranscribe, wav)
+    transcribe: (wav) => ipcRenderer.invoke(IPC.aiTranscribe, wav),
+    setEngine: (engine) => ipcRenderer.invoke(IPC.aiSetEngine, engine),
+    detectClis: () => ipcRenderer.invoke(IPC.aiDetectClis),
+    testEngine: (engine) => ipcRenderer.invoke(IPC.aiTestEngine, engine)
   },
   snapshots: {
     get: () => ipcRenderer.invoke(IPC.snapshotsGet),
@@ -134,6 +137,15 @@ const api: GeodeApi = {
     },
     reportStatus: (status) => ipcRenderer.send(IPC.dictationStatus, status),
     getShortcut: () => ipcRenderer.invoke(IPC.dictationGetShortcut)
+  },
+  shortcuts: {
+    get: () => ipcRenderer.invoke(IPC.shortcutsGet),
+    set: (id, accelerator) => ipcRenderer.invoke(IPC.shortcutsSet, id, accelerator),
+    onChange: (cb) => {
+      const handler = (_e: IpcRendererEvent, state: Parameters<typeof cb>[0]): void => cb(state)
+      ipcRenderer.on(IPC.shortcutsChanged, handler)
+      return () => ipcRenderer.removeListener(IPC.shortcutsChanged, handler)
+    }
   },
   plugins: {
     list: () => ipcRenderer.invoke(IPC.pluginsList),

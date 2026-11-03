@@ -156,5 +156,13 @@ export const merged: Record<string, string> = {
   'En Claude Desktop: Ajustes → Desarrollador → Editar configuración, y pegá el bloque {name} dentro de {key}. Reiniciá el asistente después.':
     'In Claude Desktop: Settings → Developer → Edit Config, and paste the {name} block inside {key}. Restart the assistant afterwards.',
   'Sirve la bóveda {vault}. Para otra bóveda, abrila y volvé a copiar.':
-    'Serves the vault {vault}. For another vault, open it and copy again.'
+    'Serves the vault {vault}. For another vault, open it and copy again.',
+  // Menú contextual del editor y notas enlazadas
+  'Enlazado a «{name}», que ya existía.': 'Linked to “{name}”, which already existed.',
+  'Crear nota enlazada': 'Create linked note',
+  'Convierte la selección en un enlace [[…]] y crea esa nota': 'Turns the selection into a [[…]] link and creates that note',
+  'Seleccioná una palabra o frase (de una sola línea) para crear una nota enlazada': 'Select a word or phrase (on a single line) to create a linked note',
+  Cortar: 'Cut',
+  Pegar: 'Paste',
+  'Seleccionar todo': 'Select all'
 }

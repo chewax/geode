@@ -14,6 +14,8 @@ export interface LinkEnv {
   open(target: string): void
   /** Ctrl+click sobre un `#tag`: buscar las notas con esa etiqueta. */
   openTag?(tag: string): void
+  /** Crea (sin abrirla) la nota de un enlace recién hecho desde el menú contextual. */
+  create?(target: string): void
 }
 
 /** Autocompletado al tipear `[[`: lista notas (e imágenes) por nombre. */

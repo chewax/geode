@@ -892,6 +892,22 @@ body.resizing-col {
   background: var(--border);
 }
 
+.ctx-menu .ctx-kbd {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--muted, #888);
+}
+
+.ctx-menu .ctx-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ctx-menu .ctx-disabled:hover {
+  background: transparent;
+}
+
 .ctx-menu .ctx-danger:hover {
   background: rgba(255, 107, 107, 0.16);
   color: #ff6b6b;

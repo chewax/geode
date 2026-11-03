@@ -670,6 +670,25 @@ export function App(): JSX.Element {
   }, [openNote, revealIn])
 
   /**
+   * Crea la nota destino de un enlace `[[destino]]` (en la raíz, o en la ruta si
+   * el enlace trae carpetas) y avisa. Devuelve su ruta, o null si falló.
+   */
+  const createLinkTarget = useCallback(async (target: string): Promise<string | null> => {
+    const clean = target.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/[<>:"|?*]/g, '')
+    if (!clean) return null
+    try {
+      const rel = isNotePath(clean) ? clean : `${clean}.md`
+      const node = await window.geode.vault.createNoteAt(rel, `# ${displayName(rel)}\n\n`)
+      await refreshTree()
+      setToast(t('Nota «{name}» creada.', { name: displayName(node.path) }))
+      return node.path
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t('No se pudo crear la nota'))
+      return null
+    }
+  }, [refreshTree])
+
+  /**
    * Sigue un enlace `[[destino]]` escrito en `fromPath`. Si la nota existe, la
    * abre; si no, la crea (como Obsidian) — en la raíz, o en la ruta si el enlace
    * trae carpetas. Durante el viaje en el tiempo sólo abre lo que existía.
@@ -684,18 +703,24 @@ export function App(): JSX.Element {
       setToast(t('«{name}» no existía en ese momento.', { name: target }))
       return
     }
-    const clean = target.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/[<>:"|?*]/g, '')
-    if (!clean) return
-    try {
-      const rel = isNotePath(clean) ? clean : `${clean}.md`
-      const node = await window.geode.vault.createNoteAt(rel, `# ${displayName(rel)}\n\n`)
-      await refreshTree()
-      setToast(t('Nota «{name}» creada.', { name: displayName(node.path) }))
-      await openNoteAt(node.path)
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : t('No se pudo crear la nota'))
+    const created = await createLinkTarget(target)
+    if (created) await openNoteAt(created)
+  }, [openNoteAt, previewOid, createLinkTarget])
+
+  /**
+   * «Crear nota enlazada» desde el menú del editor: el texto seleccionado ya se
+   * convirtió en `[[destino]]`; acá se crea la nota si todavía no existe, sin
+   * abrirla (el usuario sigue escribiendo; Ctrl+clic en el enlace la abre).
+   */
+  const createLinkedNote = useCallback(async (target: string, fromPath: string) => {
+    if (previewOid != null) return
+    const existing = resolveLink(target, allFilesRef.current, fromPath)
+    if (existing) {
+      setToast(t('Enlazado a «{name}», que ya existía.', { name: displayName(existing) }))
+      return
     }
-  }, [openNoteAt, previewOid, refreshTree])
+    await createLinkTarget(target)
+  }, [createLinkTarget, previewOid])
 
   /**
    * Tras renombrar/mover, reescribe los `[[enlaces]]` que apuntaban al nombre
@@ -2177,6 +2202,7 @@ export function App(): JSX.Element {
               onResize={onPaneResize}
               files={allFiles}
               onOpenLink={(t, from) => void openLink(t, from)}
+              onCreateLinkedNote={(t, from) => void createLinkedNote(t, from)}
               onNotify={setToast}
               onOpenTag={(t) => commandApiRef.current.openTag(t)}
               useWikilinks={!!obsidianCfg?.useWikilinks}

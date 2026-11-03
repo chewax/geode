@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { FileText, Loader2, Search, X } from 'lucide-react'
 import type { SearchResult } from '@shared/ipc'
@@ -28,11 +28,33 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose }: SearchPan
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const seqRef = useRef(0)
+  /**
+   * Resultados descartados por el usuario (estilo VSCode): claves `ruta` para una
+   * nota entera o `ruta:línea:col` para una coincidencia. Sólo ocultan de la
+   * lista; se olvidan al cambiar la consulta.
+   */
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [focusNonce])
+
+  useEffect(() => {
+    setDismissed(new Set())
+  }, [query])
+
+  const dismiss = (key: string): void => setDismissed((prev) => new Set(prev).add(key))
+
+  /** Resultados visibles: sin las notas ni coincidencias descartadas. */
+  const visible = useMemo(() => {
+    if (!results) return null
+    return results
+      .filter((r) => !dismissed.has(r.path))
+      .map((r) => ({ ...r, matches: r.matches.filter((m) => !dismissed.has(`${r.path}:${m.line}:${m.col}`)) }))
+      // Una nota que sólo coincidía por contenido y perdió todas sus coincidencias, se va.
+      .filter((r) => r.nameMatch || r.matches.length > 0)
+  }, [results, dismissed])
 
   useEffect(() => {
     const q = query.trim()
@@ -59,7 +81,7 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose }: SearchPan
     return () => window.clearTimeout(id)
   }, [query, disabled])
 
-  const total = results?.reduce((n, r) => n + r.matches.length, 0) ?? 0
+  const total = visible?.reduce((n, r) => n + r.matches.length, 0) ?? 0
 
   return (
     <div className="search-panel">
@@ -77,8 +99,8 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose }: SearchPan
               e.preventDefault()
               if (query) setQuery('')
               else onClose()
-            } else if (e.key === 'Enter' && results && results[0]) {
-              const r = results[0]
+            } else if (e.key === 'Enter' && visible && visible[0]) {
+              const r = visible[0]
               onOpen(r.path, r.matches[0])
             }
           }}
@@ -94,32 +116,57 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose }: SearchPan
 
       {error && <p className="modal-error">{error}</p>}
 
-      {results && (
+      {visible && (
         <div className="search-summary">
-          {results.length === 0
-            ? 'Sin resultados'
-            : `${total} ${total === 1 ? 'coincidencia' : 'coincidencias'} en ${results.length} ${results.length === 1 ? 'nota' : 'notas'}`}
+          <span>
+            {visible.length === 0
+              ? 'Sin resultados'
+              : `${total} ${total === 1 ? 'coincidencia' : 'coincidencias'} en ${visible.length} ${visible.length === 1 ? 'nota' : 'notas'}`}
+          </span>
+          {dismissed.size > 0 && (
+            <button className="link-btn search-restore" onClick={() => setDismissed(new Set())}>
+              Mostrar descartados
+            </button>
+          )}
         </div>
       )}
 
-      {results && results.length > 0 && (
+      {visible && visible.length > 0 && (
         <ul className="search-results">
-          {results.map((r) => (
+          {visible.map((r) => (
             <li key={r.path} className="search-file">
-              <button className="search-file-head" title={r.path} onClick={() => onOpen(r.path, r.matches[0])}>
-                <FileText size={13} />
-                <span className="search-file-name">{displayName(r.path)}</span>
-                {dirName(r.path) && <span className="search-file-dir">{dirName(r.path)}</span>}
-                {r.matches.length > 0 && <span className="search-count">{r.matches.length}</span>}
-              </button>
+              <div className="search-row">
+                <button className="search-file-head" title={r.path} onClick={() => onOpen(r.path, r.matches[0])}>
+                  <FileText size={13} />
+                  <span className="search-file-name">{displayName(r.path)}</span>
+                  {dirName(r.path) && <span className="search-file-dir">{dirName(r.path)}</span>}
+                  {r.matches.length > 0 && <span className="search-count">{r.matches.length}</span>}
+                </button>
+                <button
+                  className="icon-btn search-dismiss"
+                  title="Descartar esta nota de los resultados"
+                  aria-label={`Descartar ${displayName(r.path)} de los resultados`}
+                  onClick={() => dismiss(r.path)}
+                >
+                  <X size={12} />
+                </button>
+              </div>
               {r.matches.length > 0 && (
                 <ul className="search-matches">
                   {r.matches.map((m) => (
-                    <li key={`${m.line}:${m.col}`}>
+                    <li key={`${m.line}:${m.col}`} className="search-row">
                       <button className="search-match" onClick={() => onOpen(r.path, m)}>
                         <span>{m.before}</span>
                         <mark>{m.text}</mark>
                         <span>{m.after}</span>
+                      </button>
+                      <button
+                        className="icon-btn search-dismiss"
+                        title="Descartar esta coincidencia"
+                        aria-label="Descartar esta coincidencia"
+                        onClick={() => dismiss(`${r.path}:${m.line}:${m.col}`)}
+                      >
+                        <X size={12} />
                       </button>
                     </li>
                   ))}

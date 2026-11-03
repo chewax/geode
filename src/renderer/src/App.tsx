@@ -230,6 +230,11 @@ export function App(): JSX.Element {
   const allFiles = useMemo(() => flattenPaths(tree), [tree])
   const allFilesRef = useRef(allFiles)
   allFilesRef.current = allFiles
+  // Cambió el árbol (crear/borrar/renombrar, incluso por fuera de Geode): los
+  // enlaces entrantes pueden resolver distinto → recalcular.
+  useEffect(() => {
+    setBacklinksKey((k) => k + 1)
+  }, [allFiles])
 
   // Editor imperativo del panel enfocado (para IA/timeline/plugins).
   const getActiveEditor = useCallback(
@@ -461,6 +466,9 @@ export function App(): JSX.Element {
   const updateLinksAfterMove = useCallback(async (from: string, to: string) => {
     try {
       const n = await window.geode.vault.updateLinks(from, to)
+      // Recalcular los enlaces entrantes recién AHORA: si se pidieron al cambiar
+      // el nombre, la reescritura de las otras notas todavía no había terminado.
+      setBacklinksKey((k) => k + 1)
       if (n > 0) {
         bumpAll()
         setToast(`Se actualizaron los enlaces en ${n} ${n === 1 ? 'nota' : 'notas'}.`)

@@ -1,6 +1,7 @@
 import { StateField, type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
 import { readProperties, splitFrontmatter } from '@shared/obsidian'
+import { t } from '@shared/i18n'
 
 /**
  * Oculta el bloque de propiedades (frontmatter YAML) en el editor y lo reemplaza
@@ -18,7 +19,9 @@ class FrontmatterWidget extends WidgetType {
     const el = document.createElement('div')
     el.className = 'cm-frontmatter-chip'
     el.textContent =
-      this.count === 1 ? '1 propiedad · editala en el panel de arriba' : `${this.count} propiedades · editalas en el panel de arriba`
+      this.count === 1
+        ? t('{n} propiedad · editala en el panel de arriba', { n: 1 })
+        : t('{n} propiedades · editalas en el panel de arriba', { n: this.count })
     return el
   }
   ignoreEvent(): boolean {

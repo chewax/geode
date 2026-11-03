@@ -9,6 +9,7 @@ import {
   parseTable,
   type MdTable
 } from '@shared/mdtable'
+import { t } from '@shared/i18n'
 
 /**
  * Comandos de formato Markdown para la barra de formato y los atajos. Cada uno
@@ -133,7 +134,7 @@ export function toggleLinePrefix(kind: 'bullet' | 'ordered' | 'task' | 'quote' |
 export const insertLink: Command = (view) => {
   if (view.state.readOnly) return false
   const { from, to } = view.state.selection.main
-  const text = view.state.sliceDoc(from, to) || 'texto'
+  const text = view.state.sliceDoc(from, to) || t('texto')
   const insert = `[${text}]()`
   view.dispatch({
     changes: { from, to, insert },
@@ -266,6 +267,8 @@ export function insertTable(cols: number, rows: number): Command {
     const nextNonEmpty = line.number < doc.lines && doc.line(line.number + 1).text.trim() !== ''
     const trail = empty ? (nextNonEmpty ? '\n' : '') : '\n'
     const table = emptyTable(cols, rows)
+    // Los encabezados de ejemplo los reemplaza el usuario: van en su idioma.
+    table.header = table.header.map((_, i) => t('Columna {n}', { n: i + 1 }))
     const text = formatTable(table)
     const insert = `${lead}${text}${trail}`
     view.dispatch({

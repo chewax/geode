@@ -1,6 +1,6 @@
 {
   "name": "geode",
-  "version": "0.8.1",
+  "version": "1.0.0",
   "description": "Notas versionadas sobre Git — local-first, extensible.",
   "author": "Daniel Waksman <dwaksman@gmail.com>",
   "license": "MPL-2.0",

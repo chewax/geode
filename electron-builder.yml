@@ -19,7 +19,7 @@ win:
     - nsis
   # El ícono del .exe se genera automáticamente desde build/icon.png.
 
-# macOS: un .dmg por arquitectura (Apple Silicon e Intel). Sin certificado de
+# macOS: un .dmg solo para Apple Silicon (arm64). Sin certificado de
 # Apple Developer todavía: la app sale sin firmar/notarizar, así que Gatekeeper
 # pide autorizarla la primera vez (Ajustes del Sistema → Privacidad y seguridad).
 # El .icns se deriva de build/icon.png.
@@ -28,7 +28,6 @@ mac:
     - target: dmg
       arch:
         - arm64
-        - x64
   category: public.app-category.productivity
   artifactName: ${productName}-${version}-${arch}.${ext}
 

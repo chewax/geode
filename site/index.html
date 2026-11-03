@@ -179,6 +179,14 @@
   .g-tag { fill: var(--accent-soft); }
   .g-tag-t { fill: var(--accent); font-family: var(--f-mono); font-size: 11px; font-weight: 500; }
 
+  .mcp-card { display: grid; gap: 12px; }
+  .mcp-row { display: grid; gap: 4px; }
+  .mcp-who { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .mcp-msg { font-family: var(--f-body, inherit); font-size: 14.5px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .mcp-tool { color: var(--accent); }
+  .mcp-ver { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+  .mcp-ver .ico { width: 16px; height: 16px; min-width: 0; flex: none; display: inline-block; color: var(--ok); }
+  .mcp-card { min-width: 0; overflow-wrap: anywhere; }
   .dl { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 44px; }
   .dl h2 { margin-top: 0; }
   .dl p { color: var(--muted); margin: 0 0 24px; }
@@ -227,6 +235,7 @@
   <symbol id="i-blocks" viewBox="0 0 24 24"><rect width="7" height="7" x="14" y="3" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></symbol>
   <symbol id="i-forward" viewBox="0 0 24 24"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></symbol>
 </svg>
 
@@ -235,6 +244,7 @@
   <nav class="nav-links" aria-label="Principal">
     <a href="#como-funciona">Cómo funciona</a>
     <a href="#funciones">Funciones</a>
+    <a href="#memoria-ia">Memoria para IA</a>
     <a href="#modo-avanzado">Modo Avanzado</a>
     <a class="btn primary sm" href="#descargar"><svg class="ico"><use href="#i-download"/></svg>Descargar</a>
   </nav>
@@ -254,6 +264,7 @@
         <span><svg class="ico"><use href="#i-check"/></svg>Gratis y de código abierto</span>
         <span><svg class="ico"><use href="#i-check"/></svg>Funciona sin internet</span>
         <span><svg class="ico"><use href="#i-check"/></svg>Sin cuenta para empezar</span>
+        <span><svg class="ico"><use href="#i-check"/></svg>MCP ready</span>
       </div>
       <p class="also">Para Windows, macOS y Linux</p>
     </div>
@@ -321,6 +332,33 @@
         <div class="feat"><svg class="ico"><use href="#i-cloud"/></svg><h3>Respaldo en la nube</h3><p>Opcional y privado. Un asistente te guía paso a paso; después tus versiones se respaldan solas.</p></div>
         <div class="feat"><svg class="ico"><use href="#i-folder"/></svg><h3>Tus archivos son tuyos</h3><p>Notas en Markdown común, en una carpeta de tu computadora. Las podés abrir con cualquier otro editor.</p></div>
         <div class="feat"><svg class="ico"><use href="#i-blocks"/></svg><h3>Extensible con plugins</h3><p>Comandos, paneles y extensiones del editor. Activá solo los que usás.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="memoria-ia" class="band">
+    <div class="wrap adv">
+      <div>
+        <div class="eyebrow">MCP ready · Memoria para IA</div>
+        <h2>La memoria de tus IAs, en tus notas.</h2>
+        <p>Geode trae un servidor MCP integrado: Claude, ChatGPT, Cursor, Gemini o cualquier asistente compatible puede buscar y leer tu cuaderno, y guardar lo que vale la pena recordar. Te recomendamos usarlo como la memoria de todas tus IAs.</p>
+        <ul>
+          <li><svg class="ico"><use href="#i-check"/></svg>Compatible con todos los proveedores: una sola memoria, no una por producto</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Inmutable: cada cosa que la IA recuerda queda como una versión, y la deshacés con un click</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Viaja sola a todos tus dispositivos con el respaldo en la nube</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Notas Markdown que podés leer y corregir, sin costo extra de IA</li>
+        </ul>
+      </div>
+      <div class="graph mcp-card" aria-label="Ejemplo: un asistente guarda una preferencia en Geode">
+        <div class="mcp-row">
+          <span class="mcp-who">Vos</span>
+          <div class="mcp-msg">Acordate de que el viaje a Cabo Polonio es en marzo y que prefiero ir en bus.</div>
+        </div>
+        <div class="mcp-row">
+          <span class="mcp-who">Asistente</span>
+          <div class="mcp-msg"><span class="mcp-tool">append_note</span> memoria/viajes.md<br>Listo, lo guardé en tu memoria de Geode.</div>
+        </div>
+        <div class="mcp-ver"><svg class="ico"><use href="#i-history"/></svg>Nueva versión · «IA: Fecha y transporte del viaje» · Claude (IA)</div>
       </div>
     </div>
   </section>

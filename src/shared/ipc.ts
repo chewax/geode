@@ -47,6 +47,7 @@ export const IPC = {
   gitChanges: 'geode:git-changes',
   gitPush: 'geode:git-push',
   gitPendingPush: 'geode:git-pending-push',
+  gitPulled: 'geode:git-pulled',
   gitPendingLineStat: 'geode:git-pending-linestat',
   gitCreateBranch: 'geode:git-create-branch',
   gitMergeBranch: 'geode:git-merge-branch',
@@ -290,6 +291,19 @@ export interface GitGraph {
   pushed: string[]
 }
 
+/** Resultado de sincronizar con la nube (traer + integrar + subir). */
+export interface SyncOutcome {
+  branch: string
+  oid: string
+  /** true si se trajeron cambios de la nube al disco (hay que recargar). */
+  pulled: boolean
+  /**
+   * Copias "(versión de la nube)" creadas porque la misma nota se editó en el
+   * mismo lugar en dos computadoras. Lo local quedó en la nota; esto, al lado.
+   */
+  cloudCopies: string[]
+}
+
 export interface GitApi {
   /** Commitea los cambios del vault. Devuelve el oid, o null si no había nada. */
   commit(message?: string): Promise<string | null>
@@ -299,10 +313,18 @@ export interface GitApi {
   checkout(oid: string): Promise<void>
   /** Rutas con cambios pendientes respecto de HEAD (lo que se versionaría). */
   changes(): Promise<string[]>
-  /** Pushea la rama actual al remoto configurado. */
-  push(): Promise<{ branch: string; oid: string }>
+  /**
+   * Sincroniza con la nube: trae e integra lo que haya en el remoto y después
+   * pushea la rama actual. `pulled` = el working dir cambió (hay que recargar).
+   */
+  push(): Promise<SyncOutcome>
   /** Commits de la rama actual sin pushear. */
   pendingPush(): Promise<number>
+  /**
+   * Suscribe al aviso de que un auto-respaldo trajo cambios de la nube al disco
+   * (el renderer debe recargar árbol y notas abiertas). Devuelve el desuscriptor.
+   */
+  onPulled(cb: (info: { cloudCopies: string[] }) => void): () => void
   /** Crea una rama desde un commit (por defecto HEAD) y cambia a ella. Devuelve el nombre. */
   createBranch(fromOid: string, name?: string): Promise<string>
   /** Integra la rama actual a su rama de origen (base) y cambia a la base. */

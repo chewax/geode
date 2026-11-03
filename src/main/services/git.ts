@@ -2,9 +2,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { mkdir, open, readdir, readFile, rm, stat, type FileHandle } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
-import git, { TREE } from 'isomorphic-git'
+import git, { TREE, type MergeDriverCallback } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
 import { createPatch, diffLines } from 'diff'
+import diff3Merge from 'diff3'
 import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
 import { isImagePath } from '@shared/attachments'
 import { atomicWrite } from '../fs/atomic'
@@ -14,6 +15,61 @@ const IGNORED_TOP = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
 
 /** Rama de "producción": es intocable, solo avanza por merge. */
 const PROD = 'main'
+
+/** Resultado de `GitService.sync`: qué se pusheó y si el working dir cambió. */
+export interface SyncResult {
+  branch: string
+  oid: string
+  /** true si se trajeron cambios de la nube al working dir (hay que recargar). */
+  pulled: boolean
+  /** Rutas de las copias "(versión de la nube)" creadas por conflictos. */
+  cloudCopies: string[]
+}
+
+/** Misma partición por líneas que usa isomorphic-git para su merge por defecto. */
+const LINEBREAKS = /^.*(\r?\n|$)/gm
+
+/**
+ * Merge 3-way por líneas (diff3). En los tramos en conflicto gana `ours`; el
+ * caller decide qué hacer con `theirs` (acá: guardarlo como copia al lado).
+ */
+function mergeLines(
+  base: string,
+  ours: string,
+  theirs: string
+): { cleanMerge: boolean; mergedText: string } {
+  const hunks = diff3Merge(
+    ours.match(LINEBREAKS) ?? [],
+    base.match(LINEBREAKS) ?? [],
+    theirs.match(LINEBREAKS) ?? []
+  )
+  let mergedText = ''
+  let cleanMerge = true
+  for (const h of hunks) {
+    if (h.ok) mergedText += h.ok.join('')
+    if (h.conflict) {
+      cleanMerge = false
+      mergedText += h.conflict.a.join('')
+    }
+  }
+  return { cleanMerge, mergedText }
+}
+
+/**
+ * Ruta (relativa al vault) para la copia de la nube de una nota en conflicto:
+ * "carpeta/nota.md" → "carpeta/nota (versión de la nube).md". Si ya existe una
+ * copia anterior, numera ("… (versión de la nube 2).md") para no pisarla.
+ */
+function cloudCopyPath(dir: string, filepath: string): string {
+  const m = /^(.*?)(\.[^./\\]+)?$/.exec(filepath)
+  const stem = m?.[1] ?? filepath
+  const ext = m?.[2] ?? ''
+  let candidate = `${stem} (versión de la nube)${ext}`
+  for (let n = 2; fs.existsSync(join(dir, candidate)); n++) {
+    candidate = `${stem} (versión de la nube ${n})${ext}`
+  }
+  return candidate
+}
 
 /**
  * Asigna una columna (lane) a cada commit según la topología del DAG, para
@@ -603,6 +659,223 @@ export class GitService {
 
     const oid = await git.resolveRef({ fs, dir, ref: branch })
     return { branch, oid }
+  }
+
+  /**
+   * Sincroniza la rama actual con la nube: primero TRAE lo que haya en el remoto
+   * y lo integra en la rama local, y recién después pushea. Un `push` a secas
+   * fallaba (non-fast-forward) apenas otro dispositivo había subido algo.
+   *
+   * Integración según cómo esté la nube respecto de lo local:
+   *   - la rama no existe en la nube, o está igual/atrás: solo push;
+   *   - la nube está adelante (lo local es ancestro): fast-forward, sin commit extra;
+   *   - divergieron: merge 3-way por líneas (diff3) con un commit "Integrar cambios
+   *     de la nube". Si una nota cambió en los dos lados en el MISMO lugar, en la
+   *     nota queda la versión local (más lo que la nube cambió en otras partes) y
+   *     la versión completa de la nube se guarda al lado como
+   *     "<nota> (versión de la nube).md": nunca se pierde ninguna de las dos.
+   *
+   * Edición no destructiva: antes de tocar el working dir se commitea lo pendiente,
+   * así el checkout que materializa la integración no pisa nada sin versionar.
+   * Devuelve `pulled=true` si el working dir cambió (el renderer debe recargar).
+   */
+  async sync(dir: string, url: string, token: string): Promise<SyncResult> {
+    // Single-flight por bóveda: el auto-respaldo, el botón y la sincronización al
+    // volver a la ventana pueden coincidir. Dos integraciones a la vez sobre el
+    // mismo .git podrían pisarse; la segunda espera y reusa el resultado.
+    const key = resolve(dir)
+    const running = this.syncsInFlight.get(key)
+    if (running) return running
+    const p = this.syncOnce(dir, url, token).finally(() => this.syncsInFlight.delete(key))
+    this.syncsInFlight.set(key, p)
+    return p
+  }
+
+  private syncsInFlight = new Map<string, Promise<SyncResult>>()
+
+  private async syncOnce(dir: string, url: string, token: string): Promise<SyncResult> {
+    const branch = await git.currentBranch({ fs, dir, fullname: false })
+    if (!branch) throw new Error('HEAD está en una versión anterior (detached): no hay rama para pushear')
+    const onAuth = (): { username: string; password: string } => ({
+      username: 'x-access-token',
+      password: token
+    })
+
+    // 1. Traer SOLO esta rama desde la nube (sin tags ni otras ramas).
+    const remoteTip = await this.fetchBranchTip(dir, url, branch, onAuth)
+
+    // 2. Integrar lo traído, si la nube tiene algo que acá no está.
+    const { pulled, cloudCopies } = remoteTip
+      ? await this.integrateRemote(dir, branch, remoteTip)
+      : { pulled: false, cloudCopies: [] as string[] }
+
+    // 3. Pushear: ahora la rama contiene todo lo de la nube, así que es fast-forward.
+    await git.push({ fs, http, dir, url, remote: 'origin', ref: branch, onAuth })
+    const oid = await git.resolveRef({ fs, dir, ref: branch })
+    return { branch, oid, pulled, cloudCopies }
+  }
+
+  /**
+   * Integra en la rama local `branch` el commit `remoteTip` (ya presente en la
+   * base de objetos local, p. ej. recién traído por fetch). Separado del fetch
+   * para poder testearlo sin red. Ver `sync` para la estrategia.
+   */
+  async integrateRemote(
+    dir: string,
+    branch: string,
+    remoteTip: string
+  ): Promise<{ pulled: boolean; cloudCopies: string[] }> {
+    const cloudCopies: string[] = []
+    let localTip = await git.resolveRef({ fs, dir, ref: branch })
+    // findMergeBase devuelve [] si las historias no se tocan (base undefined).
+    const [base] = (await git.findMergeBase({ fs, dir, oids: [localTip, remoteTip] })) as (
+      | string
+      | undefined
+    )[]
+    if (remoteTip === localTip || base === remoteTip) return { pulled: false, cloudCopies }
+
+    // Lo pendiente se versiona ANTES de mover el working dir (nada sin commit
+    // puede perderse en el checkout). Si había algo, la rama ya no es
+    // ancestro de la nube: pasa de fast-forward a merge 3-way, que es lo correcto.
+    if (await this.commit(dir, 'Cambios antes de sincronizar')) {
+      localTip = await git.resolveRef({ fs, dir, ref: branch })
+    }
+    let binaryConflicts: string[] = []
+    if (base === localTip) {
+      // Fast-forward: la rama avanza al tip de la nube, sin reescribir nada.
+      await git.writeRef({ fs, dir, ref: `refs/heads/${branch}`, value: remoteTip, force: true })
+    } else {
+      binaryConflicts = await this.mergeRemote(dir, branch, localTip, remoteTip, cloudCopies)
+    }
+    // Materializar el nuevo tip en disco (merge/writeRef no tocan el working dir).
+    await git.checkout({ fs, dir, ref: branch, force: true })
+
+    // Imágenes cambiadas en los dos lados: el merge por líneas no sirve para
+    // binarios. Se restauran los bytes LOCALES y la versión de la nube va al lado.
+    for (const filepath of binaryConflicts) {
+      const ours = await this.readBytesAt(dir, localTip, filepath)
+      const theirs = await this.readBytesAt(dir, remoteTip, filepath)
+      await atomicWrite(this.resolveInside(dir, filepath), ours)
+      const copyPath = cloudCopyPath(dir, filepath)
+      await atomicWrite(this.resolveInside(dir, copyPath), theirs)
+      cloudCopies.push(copyPath)
+    }
+
+    if (cloudCopies.length > 0) {
+      await this.commit(
+        dir,
+        cloudCopies.length === 1
+          ? 'Versión de la nube de una nota en conflicto'
+          : `Versiones de la nube de ${cloudCopies.length} notas en conflicto`
+      )
+    }
+    return { pulled: true, cloudCopies }
+  }
+
+  /**
+   * Trae la rama `branch` del remoto y devuelve su oid, o null si la rama todavía
+   * no existe en la nube (repo vacío recién creado, o primera subida de una rama
+   * nueva). Cualquier otro fallo (red, auth) se propaga.
+   */
+  private async fetchBranchTip(
+    dir: string,
+    url: string,
+    branch: string,
+    onAuth: () => { username: string; password: string }
+  ): Promise<string | null> {
+    try {
+      const res = await git.fetch({
+        fs,
+        http,
+        dir,
+        url,
+        remote: 'origin',
+        ref: branch,
+        singleBranch: true,
+        tags: false,
+        onAuth
+      })
+      return res.fetchHead
+    } catch (e) {
+      // isomorphic-git lanza NotFoundError cuando el remoto tiene refs pero no
+      // esta rama; un remoto vacío no lanza (fetchHead null).
+      if ((e as { code?: string })?.code === 'NotFoundError') return null
+      throw e
+    }
+  }
+
+  /**
+   * Merge 3-way de la nube (`remoteTip`) sobre la rama local. Los conflictos por
+   * línea se resuelven a favor de lo local y la versión completa de la nube de
+   * cada nota en conflicto se escribe al lado ("<nota> (versión de la nube).md");
+   * sus rutas se agregan a `cloudCopies` (el caller las commitea).
+   *
+   * Si isomorphic-git no puede hacer el merge (historias entrecruzadas con varias
+   * bases, o una nota borrada de un lado y editada del otro), cae a un merge
+   * conservador: el árbol local queda tal cual y los commits de la nube pasan a
+   * ser ancestros del merge. Nada se pierde (todo sigue en el historial) y el
+   * push deja de rechazarse.
+   */
+  private async mergeRemote(
+    dir: string,
+    branch: string,
+    localTip: string,
+    remoteTip: string,
+    cloudCopies: string[]
+  ): Promise<string[]> {
+    const author = this.author()
+    // Binarios (imágenes) cambiados en ambos lados: el driver solo ve texto, así
+    // que se marcan y el caller restaura los bytes reales tras el checkout.
+    const binaryConflicts: string[] = []
+    const message = 'Integrar cambios de la nube'
+    const conflicts = new Map<string, string>() // ruta → contenido completo de la nube
+
+    const mergeDriver: MergeDriverCallback = ({ contents, path }) => {
+      const [base, ours, theirs] = contents
+      if (isImagePath(path) || /\u0000/.test(ours + theirs)) {
+        binaryConflicts.push(path)
+        return { cleanMerge: true, mergedText: ours }
+      }
+      const r = mergeLines(base, ours, theirs)
+      if (!r.cleanMerge) conflicts.set(path, theirs)
+      return { cleanMerge: true, mergedText: r.mergedText }
+    }
+
+    try {
+      await git.merge({
+        fs,
+        dir,
+        ours: branch,
+        theirs: remoteTip,
+        author,
+        committer: author,
+        message,
+        mergeDriver,
+        allowUnrelatedHistories: true
+      })
+    } catch (e) {
+      const code = (e as { code?: string })?.code
+      if (code !== 'MergeNotSupportedError' && code !== 'MergeConflictError') throw e
+      console.warn(`[sync] merge automático no posible (${code}); se integra conservando lo local`)
+      const { commit } = await git.readCommit({ fs, dir, oid: localTip })
+      await git.commit({
+        fs,
+        dir,
+        ref: `refs/heads/${branch}`,
+        tree: commit.tree,
+        parent: [localTip, remoteTip],
+        message,
+        author,
+        committer: author
+      })
+    }
+
+    for (const [filepath, content] of conflicts) {
+      const copyPath = cloudCopyPath(dir, filepath)
+      await atomicWrite(this.resolveInside(dir, copyPath), content)
+      cloudCopies.push(copyPath)
+    }
+    return binaryConflicts
   }
 
   /**

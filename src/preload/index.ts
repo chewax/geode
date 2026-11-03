@@ -53,6 +53,12 @@ const api: GeodeApi = {
     changes: () => ipcRenderer.invoke(IPC.gitChanges),
     push: () => ipcRenderer.invoke(IPC.gitPush),
     pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush),
+    onPulled: (cb) => {
+      const handler = (_e: IpcRendererEvent, info?: { cloudCopies?: string[] }): void =>
+        cb({ cloudCopies: info?.cloudCopies ?? [] })
+      ipcRenderer.on(IPC.gitPulled, handler)
+      return () => ipcRenderer.removeListener(IPC.gitPulled, handler)
+    },
     createBranch: (fromOid, name) => ipcRenderer.invoke(IPC.gitCreateBranch, fromOid, name),
     mergeBranch: () => ipcRenderer.invoke(IPC.gitMergeBranch),
     commitDiff: (oid) => ipcRenderer.invoke(IPC.gitCommitDiff, oid),

@@ -290,11 +290,20 @@ async function autoPushAfterCommit(root: string): Promise<void> {
   if (!remote) return // esta bóveda no está respaldada: no se pushea nada
   try {
     const url = normalizeRemoteUrl(remote)
-    const { branch, oid } = await gitService.push(root, url, token)
+    // Trae e integra lo que haya en la nube antes de subir: si otro dispositivo
+    // pusheó, un push a secas se rechazaba (non-fast-forward) para siempre.
+    const { branch, oid, pulled, cloudCopies } = await gitService.sync(root, url, token)
     // Recordar el oid pusheado por rama PARA ESTA bóveda (el contador de
     // pendientes de esta bóveda vuelve a 0, sin tocar el de otras). Se recarga el
     // settings por si otra operación lo modificó durante el await del push.
     await saveSettings(withPushedForVault(await loadSettings(), root, branch, oid))
+    // El disco cambió por debajo del renderer: avisarle para que recargue árbol
+    // y notas abiertas (solo si la bóveda sincronizada sigue siendo la abierta).
+    if (pulled && vault.getInfo()?.root === root) {
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send(IPC.gitPulled, { cloudCopies })
+      }
+    }
   } catch (e) {
     // Solo la superficie segura al log: nunca el objeto de error crudo (podría
     // arrastrar la URL con credencial embebida o headers de una futura versión de
@@ -987,19 +996,25 @@ function registerIpcHandlers(): void {
     // Push manual (reintento del botón persistente): TODO fallo de git/API pasa
     // por mapBackupError (BACKUP-05) para que solo cruce el mensaje humano —
     // nunca el crudo de la API ni el token embebido en la URL (T-12-01/T-12-03).
+    // `sync` trae e integra lo de la nube ANTES de pushear: si otro dispositivo
+    // subió cambios, el push a secas se rechazaba (non-fast-forward) siempre.
     let branch: string
     let oid: string
+    let pulled: boolean
+    let cloudCopies: string[]
     try {
-      const res = await gitService.push(root, url, token)
+      const res = await gitService.sync(root, url, token)
       branch = res.branch
       oid = res.oid
+      pulled = res.pulled
+      cloudCopies = res.cloudCopies
     } catch (e) {
       throw mapBackupError(e)
     }
 
     // Recordar el oid pusheado por rama PARA ESTA bóveda, para el contador de pendientes.
     await saveSettings(withPushedForVault(await loadSettings(), root, branch, oid))
-    return { branch, oid }
+    return { branch, oid, pulled, cloudCopies }
   })
 
   // ── Respaldo en la nube (enable + onboarding + signup) ──────────────────────

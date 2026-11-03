@@ -9,7 +9,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ### Agregado
 - **Interfaz en inglés**: Ajustes → General → Idioma (o el del sistema). La IA responde en el idioma elegido.
 - **Abrir nota por nombre** (Ctrl+O, reasignable): búsqueda difusa, recientes y favoritas primero; crea la nota si no existe.
-- **Fórmulas matemáticas** (`$…$` y `$$…$$`) con KaTeX, como plugin integrado que se puede desactivar.
+- **Fórmulas matemáticas** (`$…$` y `$$…$$`) con KaTeX, como plugin integrado que se puede desactivar, con dos botones en la barra de formato (fórmula en el texto y bloque de fórmula).
+- La página del proyecto (`site/`) muestra las fórmulas LaTeX, los diagramas Mermaid y la exportación a PDF.
 - **Notas al pie** (`[^1]`).
 - **Búsqueda por propiedades**: `estado:pendiente`, `cliente:"Acme"`, `fecha:>2026-01-01`, `prioridad:` y negación con `-`.
 - **Exportar a PDF** una nota, con el mismo dibujo que la vista previa.

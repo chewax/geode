@@ -164,6 +164,7 @@
   .feat .ico { width: 24px; height: 24px; color: var(--accent); }
   .feat h3 { margin: 4px 0 0; font-size: 18.5px; font-weight: 600; font-family: var(--f-display); }
   .feat p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .feat code { font-family: var(--f-mono); font-size: 13px; background: var(--sunken); border-radius: 5px; padding: 1px 5px; color: var(--fg); white-space: nowrap; }
 
   .adv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
   .adv p { color: var(--muted); font-size: 18px; margin: 0 0 14px; max-width: 32em; }
@@ -233,6 +234,9 @@
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
   <symbol id="i-blocks" viewBox="0 0 24 24"><rect width="7" height="7" x="14" y="3" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/></symbol>
+  <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2"/></symbol>
+  <symbol id="i-workflow" viewBox="0 0 24 24"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
   <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></symbol>
@@ -332,6 +336,9 @@
         <div class="feat"><svg class="ico"><use href="#i-cloud"/></svg><h3>Respaldo en la nube</h3><p>Opcional y privado. Un asistente te guía paso a paso; después tus versiones se respaldan solas.</p></div>
         <div class="feat"><svg class="ico"><use href="#i-folder"/></svg><h3>Tus archivos son tuyos</h3><p>Notas en Markdown común, en una carpeta de tu computadora. Las podés abrir con cualquier otro editor.</p></div>
         <div class="feat"><svg class="ico"><use href="#i-blocks"/></svg><h3>Extensible con plugins</h3><p>Comandos, paneles y extensiones del editor. Activá solo los que usás.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-sigma"/></svg><h3>Fórmulas LaTeX incluidas</h3><p>Escribí <code>$E = mc^2$</code> o un bloque <code>$$…$$</code> y se ve formateado al instante, con KaTeX. Sin instalar nada.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-workflow"/></svg><h3>Diagramas Mermaid incluidos</h3><p>Flujos, secuencias, Gantt y más, dibujados desde texto en un bloque <code>```mermaid</code>. Viven en tu nota y se versionan con ella.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-pdf"/></svg><h3>Exportar a PDF</h3><p>Cualquier nota, con sus fórmulas, diagramas e imágenes, en un PDF listo para compartir o imprimir.</p></div>
       </div>
     </div>
   </section>

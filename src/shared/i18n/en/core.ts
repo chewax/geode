@@ -237,5 +237,7 @@ export const core: Record<string, string> = {
   // Editor
   texto: 'text',
   '{n} propiedad · editala en el panel de arriba': '{n} property · edit it in the panel above',
-  '{n} propiedades · editalas en el panel de arriba': '{n} properties · edit them in the panel above'
+  '{n} propiedades · editalas en el panel de arriba': '{n} properties · edit them in the panel above',
+  'Fórmula LaTeX en el texto ($…$)': 'Inline LaTeX formula ($…$)',
+  'Bloque de fórmula LaTeX ($$…$$)': 'LaTeX formula block ($$…$$)'
 }

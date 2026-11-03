@@ -13,7 +13,6 @@ import { TableEditor } from './TableEditor'
 import { writeTable, type TableAtCursor } from './editor/formatting'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 import { t } from '@shared/i18n'
-import { tx } from './i18n'
 
 /** Payload del arrastre de una tab. Se guarda en módulo porque `dataTransfer`
  *  no es legible durante `dragover` (solo en `drop`). */

@@ -8,6 +8,7 @@
  * (colapsa espacios a guiones, quita `~^:?*[`), incorrectas para una carpeta:
  * las carpetas SÍ permiten espacios y prohíben otro conjunto de caracteres.
  */
+import { getLocale, t } from '@shared/i18n'
 
 /**
  * Nombres de dispositivo reservados por Windows. Están prohibidos incluso con
@@ -41,18 +42,26 @@ export function sanitizeVaultName(raw: string): string {
   name = Array.from(name).slice(0, MAX_VAULT_NAME).join('')
   name = name.replace(/[. ]+$/g, '').trim() // sin punto/espacio final
   const stem = name.split('.')[0] || name
-  if (name === '' || WINDOWS_RESERVED.test(stem)) return 'Cuaderno'
+  if (name === '' || WINDOWS_RESERVED.test(stem)) return t('Cuaderno')
   return name
 }
 
 /**
  * Contenido canónico de la nota de bienvenida (`Bienvenida.md`) que se siembra al
- * crear un cuaderno nuevo. Es una constante FIJA: nunca se interpola con el nombre
+ * crear un cuaderno nuevo. Es un texto FIJO: nunca se interpola con el nombre
  * del cuaderno, para no abrir una superficie de inyección markdown vía el nombre
  * (ver threat model T-11-04). Tono en 2ª persona, cálido, sin jerga; menciona
  * "copia de seguridad", nunca "GitHub".
+ *
+ * Es una función (no una constante) para elegir el idioma con `getLocale()` en el
+ * momento de crear el cuaderno. El nombre del archivo (`Bienvenida.md`) NO se
+ * traduce: el renderer lo abre por esa ruta tras la creación.
  */
-export const SEED_BIENVENIDA = `# Te damos la bienvenida
+export function seedBienvenida(): string {
+  return getLocale() === 'en' ? SEED_WELCOME_EN : SEED_BIENVENIDA_ES
+}
+
+const SEED_BIENVENIDA_ES = `# Te damos la bienvenida
 
 Este es tu primer cuaderno. Escribí acá lo que quieras: ideas, notas,
 borradores, listas… lo que se te ocurra.
@@ -66,4 +75,19 @@ salvo en otro lugar. Pero eso es para después: por ahora, simplemente
 escribí.
 
 ¿Querés empezar de cero? Borrá esta nota y hacela tuya.
+`
+
+const SEED_WELCOME_EN = `# Welcome
+
+This is your first notebook. Write whatever you like here: ideas, notes,
+drafts, lists… anything that comes to mind.
+
+You don't have to worry about saving: your notebook saves itself and
+remembers every change, so **you'll never lose anything** and you can
+experiment without fear.
+
+Later on you'll be able to make a **backup** to keep it safe somewhere
+else. But that's for later: for now, just write.
+
+Want to start from scratch? Delete this note and make it your own.
 `

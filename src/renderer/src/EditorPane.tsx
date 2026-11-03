@@ -62,6 +62,8 @@ export interface EditorPaneProps {
   files: string[]
   /** Abre (o crea) el destino de un enlace `[[...]]` escrito en `fromPath`. */
   onOpenLink: (target: string, fromPath: string) => void
+  /** Crea (sin abrir) la nota de un enlace recién hecho desde el menú del editor. */
+  onCreateLinkedNote: (target: string, fromPath: string) => void
   /** Aviso breve al usuario (errores al pegar imágenes). */
   onNotify: (message: string) => void
   /** Click/Ctrl+click en una etiqueta `#tag`: buscar notas con esa etiqueta. */
@@ -497,7 +499,11 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
                   const from = propsRef.current.pane.active
                   if (from) propsRef.current.onOpenLink(t, from)
                 },
-                openTag: (t) => propsRef.current.onOpenTag(t)
+                openTag: (t) => propsRef.current.onOpenTag(t),
+                create: (t) => {
+                  const from = propsRef.current.pane.active
+                  if (from) propsRef.current.onCreateLinkedNote(t, from)
+                }
               }}
               onPasteFiles={pasteFiles}
               hideFrontmatter={!showRawYaml}

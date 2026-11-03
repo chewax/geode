@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
@@ -7,6 +7,7 @@ import { consumeEditorAutoFocusSuppression } from './focusControl'
 import { wikilinkExtensions, type LinkEnv } from './wikilinks'
 import { formattingKeymap } from './formatting'
 import { frontmatterExtension } from './frontmatter'
+import { EditorContextMenu, type EditorMenuAt } from './EditorContextMenu'
 import { getTheme, subscribeTheme } from '../theme'
 import { useShortcuts } from '../shortcuts'
 import { toCodeMirrorKey, type ShortcutMap } from '@shared/shortcuts'
@@ -130,6 +131,9 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
     onRequestAiRef.current = onRequestAi
     // Snapshot de las extensiones de plugins al montar (el view se crea una vez).
     const extraExtensionsRef = useRef(extraExtensions)
+    // Menú contextual propio (crear nota enlazada, cortar/copiar/pegar).
+    const [menuAt, setMenuAt] = useState<EditorMenuAt | null>(null)
+    const closeMenu = useCallback(() => setMenuAt(null), [])
 
     useImperativeHandle(ref, () => ({
       getContext(): EditorContext | null {
@@ -223,6 +227,17 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
             }),
             frontmatterComp.current.of(frontmatterExtension(hideFrontmatter ?? false)),
             EditorView.domEventHandlers({
+              contextmenu(e, view) {
+                e.preventDefault()
+                // Como en cualquier editor: clic derecho fuera de la selección
+                // mueve el cursor ahí; dentro de ella, la conserva.
+                const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+                const { from, to } = view.state.selection.main
+                if (pos != null && (pos < from || pos > to)) view.dispatch({ selection: { anchor: pos } })
+                view.focus()
+                setMenuAt({ x: e.clientX, y: e.clientY })
+                return true
+              },
               paste(e, view) {
                 const files = imageFiles(e.clipboardData)
                 if (files.length === 0 || !onPasteFilesRef.current || view.state.readOnly) return false
@@ -333,6 +348,18 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       })
     }, [readOnly])
 
-    return <div className="cm-host" ref={hostRef} />
+    return (
+      <>
+        <div className="cm-host" ref={hostRef} />
+        {menuAt && viewRef.current && (
+          <EditorContextMenu
+            view={viewRef.current}
+            at={menuAt}
+            onClose={closeMenu}
+            onCreateLinkedNote={linkEnv?.create ? (t) => linkEnvRef.current?.create?.(t) : undefined}
+          />
+        )}
+      </>
+    )
   }
 )

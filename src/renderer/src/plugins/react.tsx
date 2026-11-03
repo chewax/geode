@@ -42,6 +42,11 @@ export function usePluginRegistry(): number {
   return useSyncExternalStore(host.subscribe, host.getVersion)
 }
 
+/** El host de plugins (para la vista previa: renderizadores de bloques de código). */
+export function usePluginHost(): PluginHost | null {
+  return useContext(HostContext)
+}
+
 /** API de workspace para componentes de plugins (leer nota activa, editor, eventos…). */
 export function useGeode(): Workspace {
   const host = useHost()
@@ -98,7 +103,8 @@ export function buildPluginContext(host: PluginHost, disposables: Disposable[]):
       toggle: (id) => host.togglePanel(id)
     },
     statusBar: { addItem: (item) => track(host.addStatusItem(item)) },
-    editorExtensions: { add: (ext) => track(host.addExtension(cryptoId(), ext)) }
+    editorExtensions: { add: (ext) => track(host.addExtension(cryptoId(), ext)) },
+    markdown: { registerCodeBlock: (lang, render) => track(host.registerCodeBlock(lang, render)) }
   }
 }
 

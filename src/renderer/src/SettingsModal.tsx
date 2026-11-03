@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic } from 'lucide-react'
 import type {
   AiConfig,
   AiModel,
@@ -10,6 +10,7 @@ import type {
 } from '@shared/ipc'
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
+import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -33,6 +34,12 @@ function perMillion(perToken: string | null): string {
 export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): JSX.Element {
   const [section, setSection] = useState<Section>('ai')
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref)
+  const [formatToolbar, setFormatToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
+  /** Atajo global del dictado (null si no se pudo registrar). */
+  const [dictationShortcut, setDictationShortcut] = useState<string | null>(null)
+  useEffect(() => {
+    window.geode.dictation.getShortcut().then(setDictationShortcut).catch(() => setDictationShortcut(null))
+  }, [])
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [models, setModels] = useState<AiModel[]>([])
@@ -248,6 +255,18 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   ))}
                 </div>
 
+                <div className="field-label">Barra de formato</div>
+                <label className="switch-row">
+                  <input
+                    type="checkbox"
+                    className="switch-input"
+                    checked={formatToolbar}
+                    onChange={(e) => setFormatToolbar(e.target.checked)}
+                  />
+                  <span className="switch-track" aria-hidden="true" />
+                  <span className="switch-text">{formatToolbar ? 'Visible arriba del editor' : 'Oculta (los atajos siguen funcionando)'}</span>
+                </label>
+
                 <div className="field-label">Modo Avanzado</div>
                 <label className="switch-row">
                   <input
@@ -349,6 +368,43 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                   />
                   Generar resúmenes de versión con IA
                 </label>
+
+                <h3 className="settings-subtitle"><Mic size={15} /> Dictado por voz</h3>
+                <p className="modal-sub">
+                  {dictationShortcut ? (
+                    <>
+                      Apretá <kbd>{dictationShortcut}</kbd> desde cualquier lugar para empezar a dictar, y otra
+                      vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se
+                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto).
+                    </>
+                  ) : (
+                    <>
+                      El atajo global no se pudo registrar (puede que otra app lo use). Podés dictar igual desde la
+                      paleta de comandos: «Dictar».
+                    </>
+                  )}
+                </p>
+                <label className="field-label" htmlFor="dictation-model">Modelo para transcribir</label>
+                <select
+                  id="dictation-model"
+                  className="text-input"
+                  disabled={!config?.hasKey}
+                  value={config?.dictationModel ?? ''}
+                  onChange={async (e) => {
+                    const next = await window.geode.ai.setDictationModel(e.target.value || null)
+                    setConfig(next)
+                    onConfigChange(next)
+                  }}
+                >
+                  <option value="">Automático (recomendado)</option>
+                  {models
+                    .filter((m) => m.audioInput || m.id === config?.dictationModel)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — in {perMillion(m.promptPrice)}
+                      </option>
+                    ))}
+                </select>
               </section>
             )}
 

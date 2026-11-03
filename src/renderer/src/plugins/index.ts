@@ -6,16 +6,18 @@ import { readingTimePlugin } from './builtin/readingTime'
 import { outlinePlugin } from './builtin/outline'
 import { dailyNotesPlugin } from './builtin/dailyNotes'
 import { templatesPlugin } from './builtin/templates'
+import { mermaidPlugin } from './builtin/mermaid'
 
 export { PluginHost } from './host'
-export { GeodeProvider, useGeode, usePluginRegistry } from './react'
+export { GeodeProvider, useGeode, usePluginRegistry, usePluginHost } from './react'
 export { CommandPalette } from './CommandPalette'
 export { QuickPick } from './QuickPick'
+export { activateExternalViaBridge } from './bridge'
 export { PluginPanels } from './PluginPanels'
 export { PluginStatusItems } from './PluginStatusBar'
 export { loadExternalPlugins } from './loader'
 export type { LoadResult } from './loader'
-export type { GeodePlugin, PluginContext, Command } from './types'
+export type { GeodePlugin, PluginContext, Command, PluginEntry } from './types'
 
 /** Plugins internos que vienen con Geode (la "prueba de fuego" de la API v1). */
 export const BUILTIN_PLUGINS: GeodePlugin[] = [
@@ -23,7 +25,8 @@ export const BUILTIN_PLUGINS: GeodePlugin[] = [
   readingTimePlugin,
   outlinePlugin,
   dailyNotesPlugin,
-  templatesPlugin
+  templatesPlugin,
+  mermaidPlugin
 ]
 
 /**

@@ -1,0 +1,11 @@
+{
+  "id": "barras-de-progreso",
+  "name": "Barras de progreso",
+  "version": "1.0.0",
+  "description": "Ejemplo de bloque de código propio: ```progreso dibuja barras de avance en la vista previa.",
+  "author": "Geode",
+  "main": "main.js",
+  "apiVersion": 2,
+  "minAppVersion": "0.8.1",
+  "permissions": []
+}

@@ -16,6 +16,8 @@ export interface Settings {
   ai?: {
     enabled?: boolean
     model?: string
+    /** Modelo para el dictado por voz (debe aceptar audio). Ausente = automático. */
+    dictationModel?: string
     /** Key cifrada (base64) si safeStorage está disponible, o texto plano si no. */
     key?: string
     keyEncrypted?: boolean

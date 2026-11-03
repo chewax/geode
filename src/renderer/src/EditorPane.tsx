@@ -1,12 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX, DragEvent } from 'react'
 import type { Extension } from '@codemirror/state'
-import { X, Eye, PenLine, SplitSquareHorizontal, FileQuestion, ImageOff } from 'lucide-react'
-import { isImagePath, relativeFrom, vaultFileUrl } from '@shared/attachments'
+import { X, Eye, PenLine, SplitSquareHorizontal, FileQuestion, ImageOff, ExternalLink, File as FileIcon } from 'lucide-react'
+import { extOf, isAttachmentPath, isImagePath, relativeFrom, vaultFileUrl } from '@shared/attachments'
+import { PropertiesPanel } from './PropertiesPanel'
 import { displayName } from '@shared/links'
 import type { LeafPane, DropZone } from './paneTree'
 import { CodeMirrorEditor, type EditorHandle } from './editor/CodeMirrorEditor'
 import { MarkdownPreview } from './MarkdownPreview'
+import { FormatToolbar } from './FormatToolbar'
+import { TableEditor } from './TableEditor'
+import { writeTable, type TableAtCursor } from './editor/formatting'
+import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 
 /** Payload del arrastre de una tab. Se guarda en módulo porque `dataTransfer`
  *  no es legible durante `dragover` (solo en `drop`). */
@@ -54,6 +59,10 @@ export interface EditorPaneProps {
   onOpenLink: (target: string, fromPath: string) => void
   /** Aviso breve al usuario (errores al pegar imágenes). */
   onNotify: (message: string) => void
+  /** Click/Ctrl+click en una etiqueta `#tag`: buscar notas con esa etiqueta. */
+  onOpenTag: (tag: string) => void
+  /** Bóveda de Obsidian con wikilinks: las imágenes pegadas se insertan como `![[x]]`. */
+  useWikilinks: boolean
 }
 
 const AUTOSAVE_MS = 600
@@ -73,6 +82,13 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
   const [ghost, setGhost] = useState(false)
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const [dragOverTab, setDragOverTab] = useState<number | null>(null)
+  /** Tabla abierta en el editor visual (null = cerrado). */
+  const [editingTable, setEditingTable] = useState<TableAtCursor | null>(null)
+  const [showToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
+  /** Ver el YAML de propiedades como texto en el editor (por defecto oculto). */
+  const [showRawYaml, setShowRawYaml] = useState(false)
+  /** Pedido de "agregar propiedad" desde la barra de formato. */
+  const [addPropNonce, setAddPropNonce] = useState(0)
 
   const editorRef = useRef<EditorHandle>(null)
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -128,8 +144,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         return
       }
       const previewOid = propsRef.current.previewOid
-      // Las imágenes no se leen como texto: se muestran por el protocolo de la bóveda.
-      if (isImagePath(pane.active)) {
+      // Los adjuntos no se leen como texto: se muestran por el protocolo de la bóveda.
+      if (isAttachmentPath(pane.active)) {
         if (!cancelled) {
           setGhost(false)
           setContent('')
@@ -174,6 +190,31 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
     propsRef.current.onNoteChange(pane.id, pane.active, doc)
   }
 
+  /** Lee otra nota para `![[nota]]` (del pasado si se está viajando en el tiempo). */
+  const loadNote = useCallback((path: string): Promise<string> => {
+    const oid = propsRef.current.previewOid
+    return oid ? window.geode.git.readNoteAt(oid, path) : window.geode.vault.readNote(path)
+  }, [])
+
+  /**
+   * Reemplaza el texto de la nota por `next` tocando sólo lo que cambió al
+   * principio (el bloque de propiedades): cursor, scroll y Ctrl+Z se conservan.
+   */
+  const applyWholeText = (next: string): void => {
+    editorRef.current?.run((view) => {
+      const cur = view.state.doc.toString()
+      if (cur === next) return true
+      let end = 0
+      // Sufijo común: el cuerpo de la nota no cambia al editar propiedades.
+      while (end < cur.length && end < next.length && cur[cur.length - 1 - end] === next[next.length - 1 - end]) end++
+      view.dispatch({
+        changes: { from: 0, to: cur.length - end, insert: next.slice(0, next.length - end) },
+        userEvent: 'input.properties'
+      })
+      return true
+    })
+  }
+
   /** Guarda imágenes pegadas/soltadas como adjuntos y arma su Markdown. */
   const pasteFiles = async (files: File[]): Promise<string | null> => {
     const notePath = propsRef.current.pane.active
@@ -182,9 +223,14 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
     for (const file of files) {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer())
-        const rel = await window.geode.vault.saveAttachment(file.name || 'image.png', bytes)
+        const rel = await window.geode.vault.saveAttachment(file.name || 'image.png', bytes, notePath)
         const alt = displayName(rel).replace(/\.[^.]+$/, '')
-        parts.push(`![${alt}](${relativeFrom(notePath, rel)})`)
+        // En bóvedas de Obsidian se respeta su estilo de enlace (por defecto `![[x]]`).
+        parts.push(
+          propsRef.current.useWikilinks
+            ? `![[${displayName(rel)}]]`
+            : `![${alt}](${relativeFrom(notePath, rel)})`
+        )
       } catch (e) {
         propsRef.current.onNotify(e instanceof Error ? e.message : 'No se pudo guardar la imagen')
       }
@@ -334,6 +380,38 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         </div>
       </div>
 
+      {showToolbar && pane.active && !ghost && !preview && !isAttachmentPath(pane.active) && props.previewOid == null && (
+        <FormatToolbar
+          getEditor={() => editorRef.current}
+          onAddProperty={() => setAddPropNonce((n) => n + 1)}
+          onEditTable={setEditingTable}
+          onPickImages={(files) => {
+            void pasteFiles(files).then((md) => {
+              if (md) editorRef.current?.insertAtCursor(md)
+            })
+          }}
+        />
+      )}
+
+      {editingTable && (
+        <TableEditor
+          table={editingTable.table}
+          onClose={() => {
+            setEditingTable(null)
+            editorRef.current?.focus()
+          }}
+          onSave={(table) => {
+            const { from, to } = editingTable
+            setEditingTable(null)
+            editorRef.current?.run((view) => {
+              writeTable(view, from, to, table, -1, 0)
+              view.focus()
+              return true
+            })
+          }}
+        />
+      )}
+
       <div
         className="epane-body"
         onDragOver={onBodyDragOver}
@@ -351,6 +429,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
             </div>
           ) : isImagePath(pane.active) ? (
             <ImageView path={pane.active} previewOid={props.previewOid ?? null} />
+          ) : isAttachmentPath(pane.active) ? (
+            <AttachmentView path={pane.active} previewOid={props.previewOid ?? null} onNotify={props.onNotify} />
           ) : preview ? (
             <MarkdownPreview
               source={content}
@@ -358,8 +438,21 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               files={props.files}
               previewOid={props.previewOid ?? null}
               onOpenLink={(t) => pane.active && props.onOpenLink(t, pane.active)}
+              onOpenTag={props.onOpenTag}
+              loadNote={loadNote}
             />
           ) : (
+            <div className="editor-stack">
+            {props.previewOid == null && (
+              <PropertiesPanel
+                content={content}
+                showRaw={showRawYaml}
+                onToggleRaw={() => setShowRawYaml((v) => !v)}
+                addNonce={addPropNonce}
+                onOpenTag={props.onOpenTag}
+                onChange={(next) => applyWholeText(next)}
+              />
+            )}
             <CodeMirrorEditor
               ref={editorRef}
               reloadKey={`${pane.id}#${epoch}`}
@@ -373,10 +466,13 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
                 open: (t) => {
                   const from = propsRef.current.pane.active
                   if (from) propsRef.current.onOpenLink(t, from)
-                }
+                },
+                openTag: (t) => propsRef.current.onOpenTag(t)
               }}
               onPasteFiles={pasteFiles}
+              hideFrontmatter={!showRawYaml}
             />
+            </div>
           )
         ) : (
           <div className="placeholder">Panel vacío. Arrastrá una nota o cerralo.</div>
@@ -404,6 +500,42 @@ function ImageView({ path, previewOid }: { path: string; previewOid: string | nu
   return (
     <div className="image-view">
       <img src={vaultFileUrl(path, previewOid)} alt={displayName(path)} onError={() => setBroken(true)} />
+    </div>
+  )
+}
+
+/** Visor de otros adjuntos: PDF embebido, audio/video con reproductor, o abrir afuera. */
+function AttachmentView({
+  path,
+  previewOid,
+  onNotify
+}: {
+  path: string
+  previewOid: string | null
+  onNotify: (m: string) => void
+}): JSX.Element {
+  const ext = extOf(path)
+  const url = vaultFileUrl(path, previewOid)
+  const openOutside = (): void => {
+    window.geode.vault.openExternal(path).catch((e) => onNotify(e instanceof Error ? e.message : 'No se pudo abrir'))
+  }
+  return (
+    <div className="attachment-view">
+      {ext === 'pdf' ? (
+        <iframe className="attachment-pdf" src={url} title={displayName(path)} />
+      ) : ['mp3', 'wav', 'm4a', 'ogg', 'flac'].includes(ext) ? (
+        <audio controls src={url} />
+      ) : ['mp4', 'webm', 'mov'].includes(ext) ? (
+        <video controls src={url} className="attachment-video" />
+      ) : (
+        <div className="placeholder ghost-note">
+          <FileIcon size={32} />
+          <p className="ghost-note-title">{displayName(path)}</p>
+        </div>
+      )}
+      <button className="attachment-open" onClick={openOutside}>
+        <ExternalLink size={14} /> Abrir con la aplicación del sistema
+      </button>
     </div>
   )
 }

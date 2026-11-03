@@ -2,6 +2,7 @@ import { autocompletion, type CompletionContext, type CompletionResult } from '@
 import type { Extension, Range } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { WIKILINK_SOURCE, dirName, linkTextFor, maskCode } from '@shared/links'
+import { TAG_SOURCE } from '@shared/obsidian'
 
 /**
  * Entorno que el editor necesita para los enlaces: la lista de archivos de la
@@ -11,6 +12,8 @@ import { WIKILINK_SOURCE, dirName, linkTextFor, maskCode } from '@shared/links'
 export interface LinkEnv {
   files(): string[]
   open(target: string): void
+  /** Ctrl+click sobre un `#tag`: buscar las notas con esa etiqueta. */
+  openTag?(tag: string): void
 }
 
 /** Autocompletado al tipear `[[`: lista notas (e imágenes) por nombre. */
@@ -44,6 +47,7 @@ function linkCompletions(env: LinkEnv) {
 }
 
 const linkMark = Decoration.mark({ class: 'cm-wikilink' })
+const tagMark = Decoration.mark({ class: 'cm-tag' })
 
 /** Resalta los `[[...]]` visibles (fuera de bloques de código). */
 const linkHighlighter = ViewPlugin.fromClass(
@@ -68,6 +72,11 @@ const linkHighlighter = ViewPlugin.fromClass(
         while ((m = re.exec(slice)) !== null) {
           marks.push(linkMark.range(from + m.index, from + m.index + m[0].length))
         }
+        const tagRe = new RegExp(TAG_SOURCE, 'gu')
+        while ((m = tagRe.exec(slice)) !== null) {
+          const start = from + m.index + m[1].length
+          marks.push(tagMark.range(start, start + 1 + m[2].length))
+        }
       }
       return Decoration.set(marks, true)
     }
@@ -87,6 +96,18 @@ function linkAt(view: EditorView, pos: number): string | null {
   return null
 }
 
+/** Tag bajo una posición del documento, o null. */
+function tagAt(view: EditorView, pos: number): string | null {
+  const line = view.state.doc.lineAt(pos)
+  const re = new RegExp(TAG_SOURCE, 'gu')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(line.text)) !== null) {
+    const from = line.from + m.index + m[1].length
+    if (pos >= from && pos <= from + 1 + m[2].length) return m[2]
+  }
+  return null
+}
+
 /**
  * Extensiones de enlaces wiki: autocompletado, resaltado y Ctrl/Cmd+click para
  * abrir (o crear, si no existe) la nota enlazada.
@@ -101,14 +122,28 @@ export function wikilinkExtensions(env: LinkEnv): Extension[] {
         const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
         if (pos == null) return false
         const target = linkAt(view, pos)
-        if (!target) return false
-        e.preventDefault()
-        env.open(target)
-        return true
+        if (target) {
+          e.preventDefault()
+          env.open(target)
+          return true
+        }
+        const tag = tagAt(view, pos)
+        if (tag && env.openTag) {
+          e.preventDefault()
+          env.openTag(tag)
+          return true
+        }
+        return false
       }
     }),
     EditorView.theme({
-      '.cm-wikilink': { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '3px' }
+      '.cm-wikilink': { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '3px' },
+      '.cm-tag': {
+        color: 'var(--accent)',
+        backgroundColor: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+        borderRadius: '4px',
+        padding: '0 2px'
+      }
     })
   ]
 }

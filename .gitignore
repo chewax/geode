@@ -11,3 +11,6 @@ dist-electron
 *.db-shm
 *.db-wal
 .geode/index.db
+
+# Artefacto generado del runtime del iframe de plugins (paso build:iframe); reconstruible.
+src/renderer/iframe-runtime/runtime.iife.js

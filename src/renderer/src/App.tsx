@@ -29,7 +29,11 @@ import {
   X
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
-import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
+// URL del bundle IIFE del runtime del iframe de plugins (build:iframe). Se lee su
+// texto con fetch same-origin y se inyecta inline en el srcdoc de cada iframe; el
+// iframe conserva connect-src 'none' (los plugins de terceros no tienen red).
+import iframeRuntimeUrl from '../iframe-runtime/runtime.iife.js?url'
+import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, ObsidianConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { suppressNextEditorAutoFocus } from './editor/focusControl'
 import { PaneView } from './PaneView'
@@ -80,6 +84,11 @@ import { useTour } from './tour/useTour'
 import { AiPromptModal } from './AiPromptModal'
 import { SearchPanel } from './SearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
+import { TagsPanel } from './TagsPanel'
+import { startRecording, type Recording } from './dictation/recorder'
+import { DAILY_DIR } from './plugins/builtin/dailyNotes'
+import { TEMPLATES_DIR, applyTemplate, localDate, localTime } from './plugins/builtin/templating'
+import type { DictationStatus, DictationTarget } from '@shared/ipc'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf } from '@shared/attachments'
 import {
@@ -90,6 +99,7 @@ import {
   PluginPanels,
   PluginStatusItems,
   activatePlugins,
+  activateExternalViaBridge,
   loadExternalPlugins,
   BUILTIN_PLUGINS
 } from './plugins'
@@ -154,6 +164,8 @@ export function App(): JSX.Element {
   // NUNCA se persiste — la app siempre abre en el presente (SOFT-05, T-02-10).
   const [previewOid, setPreviewOid] = useState<string | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
+  const aiConfigRef = useRef<AiConfig | null>(null)
+  aiConfigRef.current = aiConfig
   // Modo Avanzado: revela las superficies git (toolbar, grafo, ramas, paleta).
   // Default false ⇒ experiencia sin jerga git (fail-safe ante error IPC).
   const [advanced, setAdvanced] = useState(false)
@@ -215,6 +227,10 @@ export function App(): JSX.Element {
   /** Panel de búsqueda (Ctrl+Shift+F) visible; el nonce re-enfoca su input. */
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchFocus, setSearchFocus] = useState(0)
+  /** Consulta inyectada en la búsqueda (click en una #etiqueta). */
+  const [searchSeed, setSearchSeed] = useState<{ text: string; nonce: number } | null>(null)
+  /** Configuración de Obsidian de la bóveda abierta (estilo de enlaces, adjuntos). */
+  const [obsidianCfg, setObsidianCfg] = useState<ObsidianConfig | null>(null)
   /** Sube con cada guardado: los enlaces entrantes se recalculan (con debounce). */
   const [backlinksKey, setBacklinksKey] = useState(0)
   /** Coincidencia a seleccionar cuando termine de cargar la nota (búsqueda/backlinks). */
@@ -472,6 +488,15 @@ export function App(): JSX.Element {
     }
   }, [flushAll, reloadAfterPull, refreshGithub])
 
+  // Configuración de Obsidian de la bóveda abierta (estilo de enlace al pegar imágenes).
+  useEffect(() => {
+    if (!vault) {
+      setObsidianCfg(null)
+      return
+    }
+    window.geode.vault.obsidianConfig().then(setObsidianCfg).catch(() => setObsidianCfg(null))
+  }, [vault?.root])
+
   // Al abrir una bóveda (o conectar su respaldo): traer de inmediato.
   useEffect(() => {
     if (vault && githubCfg?.remote) void backgroundSync(true)
@@ -566,6 +591,126 @@ export function App(): JSX.Element {
       setToast('Se renombró, pero no se pudieron actualizar los enlaces.')
     }
   }, [bumpAll, refreshGraph])
+
+  // ── Dictado por voz ─────────────────────────────────────────────────────────
+
+  /** Grabación en curso y adónde va el texto; null = no se está dictando. */
+  const dictationRef = useRef<{ rec: Recording; target: DictationTarget; timer: number } | null>(null)
+  /** Transcripción en vuelo: un segundo atajo mientras tanto no hace nada. */
+  const transcribingRef = useRef(false)
+
+  const reportDictation = useCallback((status: DictationStatus) => {
+    window.geode.dictation.reportStatus(status)
+  }, [])
+
+  /**
+   * Agrega el texto dictado al final de la nota de hoy (Diario/AAAA-MM-DD.md),
+   * con la hora. La crea si no existe (con Plantillas/Diario.md si hay). Nunca
+   * pisa: si la nota estaba abierta, primero se persiste lo tipeado.
+   */
+  const appendToToday = useCallback(async (text: string): Promise<string> => {
+    await flushAll()
+    const title = localDate()
+    const path = `${DAILY_DIR}/${title}.md`
+    const line = `**${localTime()}** — ${text}`
+    let current: string | null = null
+    try {
+      current = await window.geode.vault.readNote(path)
+    } catch {
+      current = null
+    }
+    if (current === null) {
+      let base = `# ${title}\n`
+      try {
+        base = applyTemplate(await window.geode.vault.readNote(`${TEMPLATES_DIR}/Diario.md`), { title })
+      } catch {
+        // sin plantilla: encabezado mínimo
+      }
+      await window.geode.vault.createNoteAt(path, `${base.replace(/\s*$/, '')}\n\n${line}\n`)
+    } else {
+      await window.geode.vault.writeNote(path, `${current.replace(/\s*$/, '')}\n\n${line}\n`)
+    }
+    await refreshTree()
+    bumpAll() // si la nota de hoy estaba abierta, que muestre lo nuevo
+    return path
+  }, [flushAll, refreshTree, bumpAll])
+
+  /** Empieza a grabar. `target` decide adónde va el texto al terminar. */
+  const startDictation = useCallback(async (target: DictationTarget) => {
+    if (dictationRef.current || transcribingRef.current) return
+    if (!aiConfigRef.current?.hasKey) {
+      reportDictation({ state: 'error', message: 'Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.' })
+      return
+    }
+    try {
+      const rec = await startRecording()
+      // Tope de 5 minutos por dictado: corta solo (y transcribe lo grabado).
+      const timer = window.setTimeout(() => void stopDictationRef.current(), 5 * 60_000)
+      dictationRef.current = { rec, target, timer }
+      reportDictation({ state: 'listening' })
+    } catch (e) {
+      reportDictation({ state: 'error', message: e instanceof Error ? e.message : 'No se pudo abrir el micrófono.' })
+    }
+  }, [reportDictation])
+
+  /** Termina de grabar, transcribe y escribe el texto donde corresponde. */
+  const stopDictation = useCallback(async () => {
+    const cur = dictationRef.current
+    if (!cur) return
+    dictationRef.current = null
+    window.clearTimeout(cur.timer)
+    transcribingRef.current = true
+    reportDictation({ state: 'transcribing' })
+    try {
+      const audio = await cur.rec.stop()
+      if (!audio) {
+        reportDictation({ state: 'done', message: 'No se escuchó nada' })
+        return
+      }
+      const text = (await window.geode.ai.transcribe(audio.wavBase64)).trim()
+      void refreshAiUsage() // la transcripción tiene costo: que se vea
+      if (!text) {
+        reportDictation({ state: 'done', message: 'No se entendió nada' })
+        return
+      }
+      const editor = getActiveEditor()
+      const path = openPathRef.current
+      const canInsert = cur.target === 'cursor' && !!editor && !!path && isNotePath(path) && previewOidRef.current == null
+      if (canInsert) {
+        editor.insertAtCursor(text)
+        reportDictation({ state: 'done', message: 'Listo: texto agregado' })
+      } else {
+        await appendToToday(text)
+        reportDictation({ state: 'done', message: 'Listo: agregado a tu nota de hoy' })
+        setToast('Dictado agregado a tu nota de hoy.')
+      }
+    } catch (e) {
+      reportDictation({ state: 'error', message: e instanceof Error ? e.message : 'No se pudo dictar' })
+    } finally {
+      transcribingRef.current = false
+    }
+  }, [reportDictation, refreshAiUsage, getActiveEditor, appendToToday])
+  const stopDictationRef = useRef(stopDictation)
+  stopDictationRef.current = stopDictation
+
+  // Órdenes del atajo global (las manda el main).
+  useEffect(
+    () =>
+      window.geode.dictation.onCommand((cmd) => {
+        if (cmd.action === 'start') void startDictation(cmd.target)
+        else if (cmd.action === 'stop') void stopDictation()
+        else {
+          const cur = dictationRef.current
+          dictationRef.current = null
+          if (cur) {
+            window.clearTimeout(cur.timer)
+            cur.rec.cancel()
+          }
+          reportDictation({ state: 'idle' })
+        }
+      }),
+    [startDictation, stopDictation, reportDictation]
+  )
 
   // ── Callbacks de los paneles (EditorPane → App) ─────────────────────────────
 
@@ -675,7 +820,17 @@ export function App(): JSX.Element {
 
   const openVault = useCallback(async () => {
     const info = await window.geode.vault.open()
-    if (info) await adoptVault(info)
+    if (!info) return
+    await adoptVault(info)
+    // Primera vez que se abre esta carpeta: contarle al usuario que ya está a salvo.
+    if (info.imported) {
+      const n = info.imported.notes
+      setToast(
+        info.imported.fromObsidian
+          ? `Abriste tu bóveda de Obsidian (${n} ${n === 1 ? 'nota' : 'notas'}). Guardamos una primera versión de todo: enlaces, imágenes, etiquetas y propiedades funcionan igual.`
+          : `Guardamos una primera versión de las ${n} ${n === 1 ? 'nota' : 'notas'} de esta carpeta: desde ahora nada se pierde.`
+      )
+    }
   }, [adoptVault])
 
   // El input de nombre selecciona su texto al montar, para poder sobrescribir de una.
@@ -1288,6 +1443,14 @@ export function App(): JSX.Element {
       setSearchOpen(true)
       setSearchFocus((n) => n + 1)
     },
+    toggleDictation: () => {
+      if (dictationRef.current) void stopDictation()
+      else void startDictation('cursor')
+    },
+    openTag: (tag: string) => {
+      setSearchOpen(true)
+      setSearchSeed({ text: `#${tag.replace(/^#/, '')}`, nonce: Date.now() })
+    },
     openNote: async (path: string) => {
       await refreshTree()
       await openNoteAt(path)
@@ -1351,9 +1514,20 @@ export function App(): JSX.Element {
     // así que se activan aparte y se limpian en el unmount aunque lleguen tarde.
     let offExternal: { dispose: () => void } | null = null
     void (async () => {
-      const { plugins, errors } = await loadExternalPlugins()
+      const { entries, errors } = await loadExternalPlugins()
       if (cancelled) return
-      offExternal = activatePlugins(host, plugins)
+      if (entries.length > 0) {
+        // Plugins de terceros: cada uno corre AISLADO en su iframe sandbox (origen
+        // opaco, sin red ni acceso a window.geode) y habla por un puente async.
+        try {
+          const runtimeSource = await fetch(iframeRuntimeUrl).then((r) => r.text())
+          if (cancelled) return
+          offExternal = activateExternalViaBridge(host, entries, runtimeSource)
+        } catch (e) {
+          console.error('[plugins] no se pudo cargar el runtime del sandbox:', e)
+          setToast('No se pudieron cargar los plugins instalados.')
+        }
+      }
       if (errors.length > 0) {
         setToast(`Plugins con error: ${errors.map((e) => e.id).join(', ')}`)
       }
@@ -1368,6 +1542,7 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
       host.registerCommand({ id: 'core.search', title: 'Buscar en todas las notas', category: 'Núcleo', shortcut: 'Ctrl+Shift+F', run: () => api().openSearch() }),
+      host.registerCommand({ id: 'core.dictate', title: 'Dictar (empezar / terminar)', category: 'Núcleo', shortcut: 'Ctrl+Alt+Espacio', run: () => api().toggleDictation() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
       host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
@@ -1661,6 +1836,7 @@ export function App(): JSX.Element {
                 disabled={previewOid != null}
                 onOpen={(p, at) => void openNoteAt(p, at)}
                 onClose={() => setSearchOpen(false)}
+                seed={searchSeed}
               />
             </SidebarSection>
           )}
@@ -1731,6 +1907,14 @@ export function App(): JSX.Element {
             />
           </SidebarSection>
 
+          <SidebarSection id="etiquetas" title="ETIQUETAS">
+            <TagsPanel
+              refreshKey={backlinksKey}
+              disabled={previewOid != null}
+              onOpenTag={(t) => commandApiRef.current.openTag(t)}
+            />
+          </SidebarSection>
+
           <SidebarSection id="timeline" title="LÍNEA DE TIEMPO">
             {/* Ancla Capa 0 del paso "historial". Vive dentro de la sección para
                 que, si está colapsada, el TourOverlay pueda expandirla (busca el
@@ -1798,6 +1982,8 @@ export function App(): JSX.Element {
               files={allFiles}
               onOpenLink={(t, from) => void openLink(t, from)}
               onNotify={setToast}
+              onOpenTag={(t) => commandApiRef.current.openTag(t)}
+              useWikilinks={!!obsidianCfg?.useWikilinks}
             />
           </div>
         </main>

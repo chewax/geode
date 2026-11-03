@@ -1,6 +1,9 @@
 import type { Extension } from '@codemirror/state'
 import type {
+  CodeBlockRenderer,
   Command,
+  ExternalPanelDef,
+  ExternalStatusItem,
   Disposable,
   GeodeEventName,
   GeodeEvents,
@@ -54,6 +57,14 @@ export class PluginHost {
   private eventBus = new Map<string, Set<(payload: unknown) => void>>()
   private activeNoteState: { path: string; content: string } | null = null
   private bridge: AppBridge | null = null
+  // ── Registros PARALELOS para plugins EXTERNOS (Fase 12 / UI-01) ──────────────
+  // Un panel externo se dibuja DENTRO de su iframe: el host guarda su `def`
+  // serializable + el `HTMLIFrameElement` para reposicionarlo en el panel-body.
+  private externalPanels = new Map<string, { def: ExternalPanelDef; iframe: HTMLIFrameElement }>()
+  // Un status-item externo cruza como datos serializables; el host lo dibuja.
+  private externalStatusItems = new Map<string, ExternalStatusItem>()
+  // Renderizadores de bloques de código (```lang), por lenguaje en minúsculas.
+  private codeBlocks = new Map<string, CodeBlockRenderer>()
   private pickRequest: PickRequest | null = null
   private pickSeq = 0
 
@@ -107,13 +118,71 @@ export class PluginHost {
     return [...this.panels.values()]
   }
   togglePanel(id: string): void {
-    if (!this.panels.has(id)) return
+    // Reconoce tanto los paneles in-host (built-ins) como los externos (iframe).
+    if (!this.panels.has(id) && !this.externalPanels.has(id)) return
     if (this.openPanels.has(id)) this.openPanels.delete(id)
     else this.openPanels.add(id)
     this.bump()
   }
   isPanelOpen(id: string): boolean {
     return this.openPanels.has(id)
+  }
+
+  // ── Paneles EXTERNOS (iframe) ────────────────────────────────────────────────
+  // El panel de un plugin externo se renderiza DENTRO de su iframe; el host solo
+  // guarda su parte serializable + el iframe para superponerlo en el panel-body y
+  // dibuja el header (título + ícono Lucide por nombre + cerrar).
+  registerExternalPanel(def: ExternalPanelDef, iframe: HTMLIFrameElement): Disposable {
+    this.externalPanels.set(def.id, { def, iframe })
+    this.bump()
+    return {
+      dispose: () => {
+        this.externalPanels.delete(def.id)
+        this.openPanels.delete(def.id)
+        this.bump()
+      }
+    }
+  }
+  listExternalPanels(): { def: ExternalPanelDef; iframe: HTMLIFrameElement }[] {
+    return [...this.externalPanels.values()]
+  }
+
+  // ── Ítems de status EXTERNOS (datos serializables) ───────────────────────────
+  addExternalStatusItem(item: ExternalStatusItem): Disposable {
+    this.externalStatusItems.set(item.id, item)
+    this.bump()
+    return {
+      dispose: () => {
+        this.externalStatusItems.delete(item.id)
+        this.bump()
+      }
+    }
+  }
+  updateExternalStatusItem(id: string, patch: Partial<Omit<ExternalStatusItem, 'id'>>): void {
+    const cur = this.externalStatusItems.get(id)
+    if (!cur) return
+    this.externalStatusItems.set(id, { ...cur, ...patch })
+    this.bump()
+  }
+  listExternalStatusItems(): ExternalStatusItem[] {
+    return [...this.externalStatusItems.values()]
+  }
+
+  // ── Bloques de código (vista previa) ─────────────────────────────────────────
+  /** Registra el renderizador de ```lang. Al desregistrar, sólo se quita si sigue siendo el mismo. */
+  registerCodeBlock(lang: string, render: CodeBlockRenderer): Disposable {
+    const key = lang.trim().toLowerCase()
+    this.codeBlocks.set(key, render)
+    this.bump()
+    return {
+      dispose: () => {
+        if (this.codeBlocks.get(key) === render) this.codeBlocks.delete(key)
+        this.bump()
+      }
+    }
+  }
+  codeBlockRenderer(lang: string): CodeBlockRenderer | null {
+    return this.codeBlocks.get(lang.trim().toLowerCase()) ?? null
   }
 
   // ── Ítems de barra de estado ─────────────────────────────────────────────────

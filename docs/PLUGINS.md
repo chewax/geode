@@ -1,156 +1,269 @@
-# Ecosistema de plugins de Geode
+# Guía para escribir plugins de Geode
 
-Estado del ecosistema de plugins. **Fase A está implementada** (plugins locales
-confiables cargados en runtime). **Fase B es el diseño pendiente** (sandbox +
-permisos para terceros no confiables) — es lo que hace el producto "vendible".
+Un plugin agrega funcionalidad a Geode: comandos en la paleta, paneles, ítems en
+la barra de estado, o **bloques de código propios** en la vista previa (por
+ejemplo diagramas, gráficos o tarjetas). Esta guía es todo lo que necesitás para
+escribir uno y compartirlo.
 
-> Nota de nomenclatura: "Fase A/B" se refiere **solo al ecosistema de plugins**,
-> no a las fases del proyecto (Fase 0/1/2/3 en `ARCHITECTURE.md §8`).
-
----
-
-## Fase A — implementada (v0.5.0)
-
-Modelo **local confiable, estilo Obsidian**: el usuario instala plugins que corren
-con acceso total; la confianza es del usuario (no hay aislamiento todavía).
-
-### Arquitectura
-- Un plugin = una **carpeta** en `<userData>/plugins/` con `plugin.json` +
-  entry CommonJS.
-- **El main descubre y lee** (`src/main/services/plugins.ts`), nunca ejecuta.
-  IPC: `plugins:list | openDir | setEnabled | readSource`. Estado activado/
-  desactivado persistido en `settings.plugins.enabled` (por id).
-- **El renderer carga y activa** (`src/renderer/src/plugins/loader.ts`): pide la
-  fuente por IPC y la evalúa con `new Function(...)`; un `require` shim presta la
-  **misma instancia** de `react`, `react/jsx-runtime`, `@codemirror/state`,
-  `@codemirror/view`. Un plugin que falla no tumba a los demás.
-- **API v1** (`src/renderer/src/plugins/types.ts`): `PluginContext` con
-  `commands / panels / statusBar / editorExtensions` + workspace de solo lectura
-  (`activeNote`, `vault.readNote/tree`, `git.graph`, `editor`, `events`).
-- **CSP relajado**: `script-src` incluye `'unsafe-eval'` (`index.html`) para
-  permitir la evaluación. **En Fase B se vuelve a quitar.**
-
-### Reservado para Fase B (ya declarado, sin efecto hoy)
-- `plugin.json → permissions: string[]` — hoy informativo; en B se hace cumplir.
-- `plugin.json → minAppVersion` — control de compatibilidad.
-- El plugin **solo** recibe el `PluginContext` (no toca `window.geode` ni Node),
-  y el workspace ya es **async-friendly** (`readNote/tree/graph` son promesas) →
-  facilita moverlo detrás de un bridge por postMessage.
-
-### Limitaciones conocidas de Fase A
-- **Sin aislamiento**: un plugin puede acceder a globals del renderer. Aceptable
-  bajo el modelo confiable; inaceptable para un marketplace de terceros → Fase B.
-- **Activar/desactivar requiere reiniciar** (el loader corre una vez al montar).
-- Métodos de editor **síncronos** (`editorInsertAtCursor`, `getSelection`) — hay
-  que volverlos async al cruzar el límite del sandbox (ver migración).
+> Versión de la API: **2** (`HOST_API_VERSION` en `src/shared/ipc.ts`). Los
+> plugins escritos para la v1 siguen funcionando.
 
 ---
 
-## Fase B — diseño pendiente (sandbox + permisos, para terceros)
+## 1. Primer plugin en 2 minutos
 
-Objetivo: permitir instalar plugins de **terceros no confiables** sin poner en
-riesgo las notas ni la app. Es el paso que habilita un marketplace / producto
-vendible.
+Un plugin es una **carpeta** con dos archivos:
 
-### Modelo de amenazas
-Un plugin de terceros es **código no confiable** corriendo en la máquina del
-usuario. Debe asumirse hostil:
-- No puede leer/escribir notas ni archivos que no declaró.
-- No puede hacer red arbitraria (exfiltración) sin permiso.
-- No puede acceder al token de GitHub, la API key de IA, ni a `window.geode`.
-- No puede romper/colgar la app principal (aislar fallos y bucles).
+```
+saludo/
+  plugin.json   ← quién sos y qué versión de la API usás
+  main.js       ← tu código (CommonJS)
+```
 
-### Arquitectura de aislamiento (decisión central)
-Los plugins dejan de evaluarse en el renderer principal y pasan a un **contexto
-aislado**. Opciones:
+`plugin.json`:
 
-1. **iframe sandboxed** (`sandbox="allow-scripts"`, sin `allow-same-origin`) —
-   contexto JS y DOM propios, origen opaco (no accede a cookies/almacenamiento
-   del host). **Permite UI**: el plugin renderiza su panel dentro del iframe.
-   Recomendado como base.
-2. **Web Worker** — aísla CPU/lógica pero **no tiene DOM**; sirve para plugins
-   sin UI (procesadores, comandos). Se puede ofrecer como modo liviano.
+```json
+{
+  "id": "saludo",
+  "name": "Saludo",
+  "version": "1.0.0",
+  "description": "Inserta un saludo en la nota.",
+  "author": "Tu nombre",
+  "main": "main.js",
+  "apiVersion": 2,
+  "minAppVersion": "0.8.1",
+  "permissions": []
+}
+```
 
-**Recomendación:** iframe por plugin (o uno compartido con realms) para los que
-tienen UI; worker opcional para los headless. El renderer principal **recupera su
-CSP estricto** (se quita `'unsafe-eval'`).
+`main.js`:
 
-**El punto difícil — paneles con UI bajo sandbox:** hoy un panel es un
-`FC` React que se monta en el árbol del host. Bajo aislamiento no puede montarse
-en el DOM del host. Opciones a evaluar:
-- (a) El panel del plugin vive **dentro del iframe**; el host solo le reserva un
-  rectángulo y le pasa tamaño/tema por mensaje. UI totalmente del plugin.
-- (b) **UI declarativa restringida**: el plugin describe la UI (JSON/VDOM
-  serializable) y el host la renderiza con componentes propios. Más seguro y
-  consistente, menos flexible.
-- Decisión abierta (ver más abajo). Probablemente (a) para empezar.
+```js
+module.exports = {
+  id: 'saludo',
+  name: 'Saludo',
+  activate(ctx) {
+    const cmd = ctx.commands.register({
+      id: 'saludo.insertar',
+      title: 'Insertar saludo',
+      category: 'Saludo',
+      run: async () => {
+        await ctx.editor.insertAtCursor('¡Hola desde mi plugin!')
+        await ctx.notify('Listo')
+      }
+    })
+    // Lo que devuelvas se llama al desactivar el plugin.
+    return () => cmd.dispose()
+  }
+}
+```
 
-### Comunicación host ↔ sandbox (RPC por mensajes)
-- Toda la API pasa a un **protocolo asíncrono por `postMessage`** con un id de
-  request/response. El `PluginContext` del plugin se convierte en un **proxy**
-  que serializa llamadas al host.
-- El host **valida permisos** en el borde: cada llamada (`vault.readNote`,
-  `editor.insertAtCursor`, red, etc.) se chequea contra los `permissions`
-  declarados **antes** de ejecutarse.
-- **Migración de APIs síncronas:** `editor.getSelection()` /
-  `insertAtCursor()` deben volverse `Promise`. Conviene marcar la API v1 actual
-  como compatible y exponer v2 async, o hacer el cambio junto con el freeze.
+**Instalarlo:** Ajustes → **Plugins** → **Abrir carpeta**, copiá ahí la carpeta
+`saludo/`, activalo en la lista y **reiniciá Geode**. El comando aparece en la
+paleta (Ctrl+P).
 
-### Modelo de permisos
-- `permissions` en el manifiesto, enum cerrado. Borrador:
-  - `notes:read`, `notes:write`
-  - `editor:read`, `editor:write`
-  - `git:read` (grafo/historial)
-  - `network` (fetch, con lista de hosts permitidos opcional)
-  - `clipboard`
-- **UX de consentimiento:** al activar un plugin, mostrar los permisos que pide y
-  pedir confirmación. Cambios de permisos entre versiones → re-consentir.
-- **Enforcement:** en el bridge del host (único lugar que ejecuta acciones
-  reales). El sandbox nunca tiene acceso directo a nada.
-
-### Estabilización y versionado de la API
-- Congelar **API v1** como contrato público: `apiVersion` en el manifiesto; el
-  host rechaza/avisa si `minAppVersion`/`apiVersion` no son compatibles.
-- Documentar y no romper. Cambios → v2 con capa de compatibilidad.
-
-### Ciclo de vida
-- **Activar/desactivar/recargar en caliente** (sin reiniciar): instanciar/destruir
-  el sandbox y correr `activate`/cleanup. Elimina la limitación de Fase A.
-- **Instalación:** además de copiar la carpeta (Fase A), soportar `.zip` y/o
-  descarga desde URL/registro, con verificación de integridad (hash) y, a futuro,
-  **firma** para un marketplace.
-
-### SDK para autores
-- Template de proyecto (TS + JSX) que bundlea a un `main.js` CommonJS con
-  `react`/`@codemirror/*` como externos.
-- Tipos publicados de `PluginContext` (API v1) + docs (`examples/plugins/README.md`
-  es la semilla).
+Más ejemplos listos para copiar en [`examples/plugins/`](../examples/plugins/).
 
 ---
 
-## Migración Fase A → Fase B (orden sugerido)
-1. **Congelar API v1** + `apiVersion` en el manifiesto (sin cambiar comportamiento).
-2. **Bridge async por postMessage** contra el host actual (todavía sin sandbox):
-   convertir el `PluginContext` en proxy; volver async las APIs síncronas.
-3. **Meter el sandbox** (iframe) detrás de ese bridge. Los plugins ya hablan por
-   mensajes → cambia el transporte, no la API del plugin.
-4. **Permisos**: declarar + prompt de consentimiento + enforcement en el bridge.
-5. **Quitar `'unsafe-eval'`** del CSP del renderer principal (los plugins ya no se
-   evalúan ahí).
-6. **Hot reload** (activar/desactivar sin reiniciar) e **instalación desde zip/URL**.
+## 2. Cómo corre tu plugin (y por qué importa)
 
-## Decisiones abiertas
-- **UI bajo sandbox:** iframe con UI propia (a) vs UI declarativa (b). → definir en 3.
-- **Un iframe por plugin vs uno compartido** (aislamiento vs memoria).
-- **Granularidad de permisos** (¿`network` con allowlist de hosts?).
-- **Firma/confianza** para distribución (¿marketplace propio? ¿solo hash?).
-- **API async v2 vs mantener v1 síncrona con shim** en el borde.
+Cada plugin corre **aislado** en su propio iframe de origen opaco:
 
-## Punteros al código (Fase A)
-- Descubrimiento/IPC (main): `src/main/services/plugins.ts`, handlers en
-  `src/main/index.ts`, estado en `src/main/services/settings.ts`.
-- Loader + API (renderer): `src/renderer/src/plugins/loader.ts`, `host.ts`,
-  `react.tsx`, `types.ts`, `index.ts`.
-- UI de gestión: sección "Plugins" en `src/renderer/src/SettingsModal.tsx`.
-- CSP: `src/renderer/index.html`.
-- Ejemplo + guía de autor: `examples/plugins/`.
+- **No** tiene acceso a `window.geode`, al resto de la app, a Node ni a tus
+  archivos directamente. Todo pasa por el objeto `ctx` que recibe `activate`.
+- **No tiene red** (`fetch`/XHR bloqueados). Si tu plugin necesita una librería,
+  **empaquetala adentro** de tu `main.js` (ver §6).
+- Cada llamada a `ctx` cruza un puente de mensajes, por eso **casi todo es
+  `async`**: usá `await`.
+- Si tu plugin falla o se cuelga, no rompe Geode ni a los demás plugins.
+- El HTML/SVG que devolvés para dibujar se **sanea** (sin `<script>`, sin
+  `onclick`, sin URLs `javascript:`).
+
+---
+
+## 3. Manifiesto (`plugin.json`)
+
+| Campo | Obligatorio | Qué es |
+|---|---|---|
+| `id` | sí | Único, en kebab-case (`mi-plugin`). Usalo como prefijo de tus ids de comandos. |
+| `name` | sí | Nombre visible en Ajustes. |
+| `version` | sí | Versión de tu plugin (`x.y.z`). |
+| `main` | sí | Archivo de entrada CommonJS, relativo a la carpeta. |
+| `description`, `author` | no | Se muestran en Ajustes. |
+| `apiVersion` | no | Versión de la API que usás (por defecto 1). Si es mayor que la que soporta Geode, el plugin no se carga y Ajustes muestra el motivo. |
+| `minAppVersion` | no | Versión mínima de Geode (`x.y.z`). |
+| `permissions` | no | Reservado. Hoy es informativo; en una próxima versión Geode va a pedir consentimiento por permiso (`notes:read`, `notes:write`, `editor:read`, `editor:write`…). Declaralos desde ya. |
+
+---
+
+## 4. Referencia de la API (`ctx`)
+
+### Workspace
+
+| Método | Devuelve | Notas |
+|---|---|---|
+| `ctx.activeNote()` | `Promise<{ path, content } \| null>` | Nota abierta en el panel activo. |
+| `ctx.vault.readNote(path)` | `Promise<string>` | Rutas relativas a la bóveda, con `/`. |
+| `ctx.vault.tree()` | `Promise<TreeNode[]>` | Árbol `{ name, path, isDir, children? }`. |
+| `ctx.vault.exists(path)` | `Promise<boolean>` | *(v2)* |
+| `ctx.vault.createNote(path, content)` | `Promise<void>` | *(v2)* Falla con "Ya existe" si la ruta está ocupada: **nunca pisa** una nota. |
+| `ctx.openNote(path)` | `Promise<void>` | *(v2)* Abre la nota en el panel activo. |
+| `ctx.git.graph()` | `Promise<GitGraph>` | Historial de versiones (solo lectura). |
+| `ctx.runCommand(id)` | `Promise<void>` | Ejecuta cualquier comando de la paleta. |
+| `ctx.notify(mensaje)` | `Promise<void>` | Aviso breve (toast). |
+
+### Editor
+
+| Método | Devuelve |
+|---|---|
+| `ctx.editor.insertAtCursor(texto)` | `Promise<void>` — inserta (o reemplaza la selección). |
+| `ctx.editor.getSelection()` | `Promise<string>` |
+| `ctx.editor.revealRange(desde, hasta)` | `Promise<void>` — selecciona y hace scroll (offsets en caracteres). |
+
+Todo lo que escribís en la nota queda en el historial: el usuario lo puede
+deshacer o volver atrás en la línea de tiempo.
+
+### Comandos
+
+```js
+const d = ctx.commands.register({
+  id: 'mi-plugin.algo',      // único
+  title: 'Hacer algo',       // texto en la paleta
+  category: 'Mi Plugin',     // agrupa en la paleta
+  shortcut: 'Ctrl+Alt+A',    // informativo (no crea el atajo)
+  run: async () => { /* … */ }
+})
+d.dispose() // lo quita
+```
+
+### Selector rápido *(v2)*
+
+```js
+const elegido = await ctx.ui.pick(
+  [{ label: 'Rojo', detail: '#f00', value: 'rojo' }, { label: 'Azul', value: 'azul' }],
+  'Elegí un color…'
+)
+// elegido === 'rojo' | 'azul' | null (si cancela). Los `value` deben ser datos simples.
+```
+
+### Bloques de código propios *(v2)*
+
+Para dibujar en la vista previa un bloque como:
+
+````markdown
+```progreso
+7/10 Capítulo 3
+```
+````
+
+```js
+const d = ctx.markdown.registerCodeBlock('progreso', (texto) => {
+  // Devolvé HTML o SVG como string (o una Promise de string).
+  return `<svg …>…</svg>`
+})
+```
+
+- El lenguaje se compara sin mayúsculas. Si dos plugins registran el mismo, gana el último.
+- Si tu función lanza un error, la nota muestra «No se pudo dibujar el bloque…» con tu mensaje: usá mensajes claros en español.
+- Tenés 10 segundos para responder; después el bloque muestra un error.
+- El resultado se sanea: se permiten HTML y SVG (incluido `<style>` dentro del SVG), no scripts ni eventos.
+
+### Eventos
+
+```js
+const sub = ctx.events.on('note:open', ({ path, content }) => { /* … */ })
+sub.dispose()
+```
+
+| Evento | Datos |
+|---|---|
+| `note:open` | `{ path, content }` — se abrió una nota. |
+| `note:change` | `{ path, content }` — el usuario editó (se emite seguido: no hagas trabajo pesado en cada uno). |
+| `note:beforeSave` / `note:afterSave` | `{ path }` — antes/después de guardar una versión. |
+| `sync:after` | `{ branch, oid }` — después de respaldar en la nube. |
+| `vault:switch` | `{ root, name }` — se cambió de bóveda. |
+
+### Barra de estado
+
+```js
+const item = ctx.statusBar.addItem({ id: 'mi-plugin.estado', text: 'Listo', tooltip: 'Detalle', icon: 'Info' })
+item.update({ text: 'Procesando…' })
+item.dispose()
+```
+
+`icon` es el **nombre** de un ícono de una lista acotada de Lucide: `Puzzle`,
+`List`, `Star`, `Info`, `FileText`, `Tag`, `Bell`, `Bookmark`.
+
+### Paneles
+
+Un panel es un componente React que se dibuja **dentro de tu iframe**; Geode
+le reserva el espacio y dibuja el encabezado.
+
+```js
+const React = require('react')
+function Panel() {
+  return React.createElement('div', { style: { padding: 12 } }, 'Hola')
+}
+const p = ctx.panels.register({ id: 'mi-plugin.panel', title: 'Mi panel', icon: 'Puzzle', Component: Panel })
+ctx.panels.toggle('mi-plugin.panel') // mostrar/ocultar
+```
+
+### No disponible para plugins externos
+
+`ctx.editorExtensions.add(...)` (extensiones de CodeMirror) solo funciona en
+los plugins integrados de Geode: una extensión del editor no puede cruzar el
+aislamiento. Llamarla lanza un error explicativo.
+
+---
+
+## 5. Módulos que podés `require()`
+
+Dentro del iframe hay disponibles: `react`, `react-dom`, `react/jsx-runtime`,
+`@codemirror/state`, `@codemirror/view`. Cualquier otro `require` falla con un
+mensaje claro; el resto lo tenés que empaquetar (§6).
+
+---
+
+## 6. Usar librerías (TypeScript, JSX, npm)
+
+Escribí tu plugin como quieras y **compilalo a un único `main.js` CommonJS**,
+dejando como externos los módulos de §5. Con esbuild:
+
+```bash
+npx esbuild src/index.ts --bundle --format=cjs --platform=browser --outfile=main.js --external:react --external:react-dom --external:react/jsx-runtime --external:@codemirror/state --external:@codemirror/view
+```
+
+Cualquier librería que no use red ni Node funciona empaquetada así (por ejemplo
+un renderizador de gráficos o de fórmulas). Geode trae **Mermaid integrado**
+(bloques ` ```mermaid `), hecho con esta misma API: ver
+`src/renderer/src/plugins/builtin/mermaid.ts`.
+
+Tipos: copiá `src/renderer/src/plugins/types.ts` (`AsyncPluginContext` es el
+`ctx` que recibe un plugin externo).
+
+---
+
+## 7. Buenas prácticas
+
+- **Prefijá tus ids** con el id del plugin (`mi-plugin.algo`) para no chocar con otros.
+- **Limpiá al desactivar:** devolvé una función desde `activate` que haga `dispose()` de todo lo registrado.
+- **Nunca pises contenido del usuario:** usá `vault.createNote` (falla si existe) y escribí en la nota solo cuando el usuario lo pide (un comando).
+- **Textos en español** y sin jerga técnica: Geode está pensado para cualquier persona.
+- **Íconos:** Lucide por nombre, nunca emojis.
+- **Errores claros:** si algo falla, `ctx.notify('No se pudo …')` o lanzá un `Error` con un mensaje accionable.
+
+---
+
+## 8. Probar y depurar
+
+- Activar/desactivar un plugin requiere **reiniciar** Geode (por ahora).
+- Si el plugin no carga, Ajustes → Plugins muestra el motivo (manifiesto inválido, `apiVersion` no soportada, etc.).
+- Los `console.log` de tu plugin aparecen en las DevTools de Geode, dentro del contexto del iframe `plugin:<id>`.
+
+## 9. Compartir tu plugin
+
+Por ahora un plugin se comparte como **carpeta** (o `.zip` de la carpeta) que el
+usuario copia en su carpeta de plugins. Incluí un README con qué hace, qué
+permisos usa y capturas. La instalación desde un listado de la comunidad está en
+el plan.

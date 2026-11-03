@@ -28,6 +28,8 @@ export interface PaneViewProps {
   files: string[]
   onOpenLink: (target: string, fromPath: string) => void
   onNotify: (message: string) => void
+  onOpenTag: (tag: string) => void
+  useWikilinks: boolean
 }
 
 /** Renderiza el árbol de paneles recursivamente: hojas = editores, splits =
@@ -58,6 +60,8 @@ export function PaneView(props: PaneViewProps): JSX.Element {
         files={props.files}
         onOpenLink={props.onOpenLink}
         onNotify={props.onNotify}
+        onOpenTag={props.onOpenTag}
+        useWikilinks={props.useWikilinks}
       />
     )
   }

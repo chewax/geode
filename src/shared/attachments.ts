@@ -24,6 +24,19 @@ export const IMAGE_MIME: Record<string, string> = {
   avif: 'image/avif'
 }
 
+/** Otros adjuntos que se muestran en el árbol (se abren con la app del sistema; PDF se ve embebido). */
+export const OTHER_MIME: Record<string, string> = {
+  pdf: 'application/pdf',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime'
+}
+
 /** Extensión en minúsculas de una ruta ('' si no tiene). */
 export function extOf(path: string): string {
   const base = path.slice(path.lastIndexOf('/') + 1)
@@ -36,9 +49,16 @@ export function isImagePath(path: string): boolean {
   return extOf(path) in IMAGE_MIME
 }
 
-/** Tipo MIME de un archivo de la bóveda (octet-stream si no es imagen conocida). */
+/** true si es un adjunto (imagen, PDF, audio o video) que se muestra en el árbol. */
+export function isAttachmentPath(path: string): boolean {
+  const e = extOf(path)
+  return e in IMAGE_MIME || e in OTHER_MIME
+}
+
+/** Tipo MIME de un archivo de la bóveda (octet-stream si no es conocido). */
 export function mimeFor(path: string): string {
-  return IMAGE_MIME[extOf(path)] ?? 'application/octet-stream'
+  const e = extOf(path)
+  return IMAGE_MIME[e] ?? OTHER_MIME[e] ?? 'application/octet-stream'
 }
 
 /**

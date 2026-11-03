@@ -27,6 +27,9 @@ import {
   NotebookPen,
   FolderCog,
   Search,
+  Star,
+  StarOff,
+  FileDown,
   X
 } from 'lucide-react'
 // Logo de la app: geoda low poly (fuente única en resources/logo.svg).
@@ -87,6 +90,10 @@ import { AiPromptModal } from './AiPromptModal'
 import { SearchPanel } from './SearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
 import { TagsPanel } from './TagsPanel'
+import { NoteSwitcher } from './NoteSwitcher'
+import { BookmarksPanel } from './BookmarksPanel'
+import { PrintView } from './PrintView'
+import { intlLocale, t } from '@shared/i18n'
 import { startRecording, type Recording } from './dictation/recorder'
 import { DAILY_DIR } from './plugins/builtin/dailyNotes'
 import { TEMPLATES_DIR, applyTemplate, localDate, localTime } from './plugins/builtin/templating'
@@ -117,12 +124,12 @@ const SYNC_INTERVAL_MS = 5 * 60_000
 
 /** Aviso humano tras traer cambios de la nube (y de conflictos, si los hubo). */
 function pullMessage(cloudCopies: string[]): string {
-  if (cloudCopies.length === 0) return 'Se trajeron cambios de tus otras computadoras.'
+  if (cloudCopies.length === 0) return t('Se trajeron cambios de tus otras computadoras.')
   if (cloudCopies.length === 1) {
-    const name = displayName(cloudCopies[0]).replace(/ \(versión de la nube( \d+)?\)/, '')
-    return `«${name}» se editó en dos computadoras: quedó tu versión y la de la nube se guardó al lado.`
+    const name = displayName(cloudCopies[0]).replace(/ \((?:versión de la nube|cloud version)( \d+)?\)/, '')
+    return t('«{name}» se editó en dos computadoras: quedó tu versión y la de la nube se guardó al lado.', { name })
   }
-  return `${cloudCopies.length} notas se editaron en dos computadoras: quedó tu versión y la de la nube se guardó al lado de cada una.`
+  return t('{n} notas se editaron en dos computadoras: quedó tu versión y la de la nube se guardó al lado de cada una.', { n: cloudCopies.length })
 }
 
 export function App(): JSX.Element {
@@ -135,7 +142,7 @@ export function App(): JSX.Element {
   const [newVaultOpen, setNewVaultOpen] = useState(false)
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
   // Bienvenida sin jerga: nombre del primer cuaderno (pre-rellenado y seleccionable).
-  const [vaultName, setVaultName] = useState('Mi primer cuaderno')
+  const [vaultName, setVaultName] = useState(() => t('Mi primer cuaderno'))
   // Estado del flujo de creación del primer cuaderno (idle / creando / error).
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -224,6 +231,14 @@ export function App(): JSX.Element {
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  /** Ctrl+O: abrir nota por nombre. */
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  /** Notas favoritas de la bóveda (persisten en .geode/marcadores.json). */
+  const [bookmarks, setBookmarks] = useState<string[]>([])
+  /** Notas abiertas hace poco (por dispositivo y bóveda), la más reciente primero. */
+  const [recent, setRecent] = useState<string[]>([])
+  /** Nota que se está exportando a PDF (se dibuja en la vista de impresión). */
+  const [printing, setPrinting] = useState<{ path: string; content: string } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   /** Resaltado de la zona de drop raíz (soltar sobre el área vacía del árbol). */
   const [rootDragOver, setRootDragOver] = useState(false)
@@ -427,7 +442,7 @@ export function App(): JSX.Element {
     } catch (e) {
       // No lo escondemos: si falla, el popover muestra el motivo en vez de
       // quedarse "Cargando…" para siempre.
-      setAiUsageErr((e as Error).message || 'Error desconocido')
+      setAiUsageErr((e as Error).message || t('Error desconocido'))
     }
   }, [])
 
@@ -448,7 +463,7 @@ export function App(): JSX.Element {
       // pushCount>0 ya indica pendiente. El main ya humanizó el error
       // (mapBackupError), así que e.message es copy segura, sin crudo de API.
       setBackupFailed(true)
-      setBackupFailMsg(e instanceof Error ? e.message : 'No se pudo respaldar')
+      setBackupFailMsg(e instanceof Error ? e.message : t('No se pudo respaldar'))
     } finally {
       setPushing(false)
       await refreshGithub()
@@ -502,6 +517,88 @@ export function App(): JSX.Element {
     window.geode.vault.obsidianConfig().then(setObsidianCfg).catch(() => setObsidianCfg(null))
   }, [vault?.root])
 
+  // Favoritas y recientes de la bóveda abierta.
+  const recentKey = vault ? `geode.recent.${vault.root}` : null
+  useEffect(() => {
+    setBookmarks([])
+    if (!vault) {
+      setRecent([])
+      return
+    }
+    window.geode.vault.getBookmarks().then(setBookmarks).catch(() => setBookmarks([]))
+    try {
+      const raw = recentKey ? JSON.parse(localStorage.getItem(recentKey) ?? '[]') : []
+      setRecent(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [])
+    } catch {
+      setRecent([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vault?.root])
+
+  // Cada nota que se abre pasa al frente de las recientes (sólo en el presente).
+  useEffect(() => {
+    if (!openPath || !isNotePath(openPath) || previewOid != null || !recentKey) return
+    setRecent((prev) => {
+      if (prev[0] === openPath) return prev
+      const next = [openPath, ...prev.filter((p) => p !== openPath)].slice(0, 30)
+      try {
+        localStorage.setItem(recentKey, JSON.stringify(next))
+      } catch {
+        // Sin almacenamiento: las recientes sólo duran esta sesión.
+      }
+      return next
+    })
+  }, [openPath, previewOid, recentKey])
+
+  const saveBookmarks = useCallback((next: string[]) => {
+    setBookmarks(next)
+    window.geode.vault.setBookmarks(next).catch((e) => {
+      setToast(e instanceof Error ? e.message : t('No se pudieron guardar las favoritas'))
+    })
+  }, [])
+
+  /** Exportar a PDF: dibuja la nota en la vista de impresión y, cuando está lista, imprime. */
+  const exportPdf = useCallback(async (path: string) => {
+    if (previewOid != null) {
+      setToast(t('Volvé al presente para exportar.'))
+      return
+    }
+    await flushAll()
+    try {
+      const content = await window.geode.vault.readNote(path)
+      setPrinting({ path, content })
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t('No se pudo leer la nota'))
+    }
+  }, [previewOid, flushAll])
+
+  const printingRef = useRef(printing)
+  printingRef.current = printing
+  const finishPdf = useCallback(async () => {
+    const job = printingRef.current
+    if (!job) return
+    try {
+      const saved = await window.geode.vault.exportPdf(displayName(job.path))
+      if (saved) setToast(t('PDF guardado en {path}', { path: saved }))
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t('No se pudo exportar a PDF'))
+    } finally {
+      setPrinting(null)
+    }
+  }, [])
+
+  const toggleBookmark = useCallback((path: string) => {
+    setBookmarks((prev) => {
+      const has = prev.includes(path)
+      const next = has ? prev.filter((p) => p !== path) : [...prev, path]
+      window.geode.vault.setBookmarks(next).catch((e) => {
+        setToast(e instanceof Error ? e.message : t('No se pudieron guardar las favoritas'))
+      })
+      setToast(has ? t('«{name}» ya no está en favoritas.', { name: displayName(path) }) : t('«{name}» agregada a favoritas.', { name: displayName(path) }))
+      return next
+    })
+  }, [])
+
   // Al abrir una bóveda (o conectar su respaldo): traer de inmediato.
   useEffect(() => {
     if (vault && githubCfg?.remote) void backgroundSync(true)
@@ -529,11 +626,15 @@ export function App(): JSX.Element {
         void refreshGraph()
         if (previewOidRef.current != null) return
         void (async () => {
-          const t = await refreshTree()
-          setPanes((prev) => keepOnly(prev, new Set(flattenPaths(t))))
+          const tree = await refreshTree()
+          setPanes((prev) => keepOnly(prev, new Set(flattenPaths(tree))))
           bumpAll()
-          const names = info.paths.map((p) => `«${displayName(p)}»`).join(', ')
-          setToast(names ? `${info.author} actualizó ${names}.` : `${info.author} actualizó la bóveda.`)
+          const names = info.paths.map((p) => t('«{name}»', { name: displayName(p) })).join(', ')
+          setToast(
+            names
+              ? t('{author} actualizó {names}.', { author: info.author, names })
+              : t('{author} actualizó la bóveda.', { author: info.author })
+          )
         })()
       }),
     [refreshGraph, refreshTree, bumpAll]
@@ -579,10 +680,10 @@ export function App(): JSX.Element {
       const rel = isNotePath(clean) ? clean : `${clean}.md`
       const node = await window.geode.vault.createNoteAt(rel, `# ${displayName(rel)}\n\n`)
       await refreshTree()
-      setToast(`Nota «${displayName(node.path)}» creada.`)
+      setToast(t('Nota «{name}» creada.', { name: displayName(node.path) }))
       return node.path
     } catch (e) {
-      setToast(e instanceof Error ? e.message : 'No se pudo crear la nota')
+      setToast(e instanceof Error ? e.message : t('No se pudo crear la nota'))
       return null
     }
   }, [refreshTree])
@@ -599,7 +700,7 @@ export function App(): JSX.Element {
       return
     }
     if (previewOid != null) {
-      setToast(`«${target}» no existía en ese momento.`)
+      setToast(t('«{name}» no existía en ese momento.', { name: target }))
       return
     }
     const created = await createLinkTarget(target)
@@ -615,7 +716,7 @@ export function App(): JSX.Element {
     if (previewOid != null) return
     const existing = resolveLink(target, allFilesRef.current, fromPath)
     if (existing) {
-      setToast(`Enlazado a «${displayName(existing)}», que ya existía.`)
+      setToast(t('Enlazado a «{name}», que ya existía.', { name: displayName(existing) }))
       return
     }
     await createLinkTarget(target)
@@ -627,6 +728,14 @@ export function App(): JSX.Element {
    * desde la línea de tiempo). Si tocó notas, recarga los editores abiertos.
    */
   const updateLinksAfterMove = useCallback(async (from: string, to: string) => {
+    // Las favoritas siguen a la nota (o a todo lo de la carpeta) que se movió.
+    setBookmarks((prev) => {
+      const remap = (p: string): string => (p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : p)
+      if (!prev.some((p) => remap(p) !== p)) return prev
+      const next = prev.map(remap)
+      void window.geode.vault.setBookmarks(next).catch(() => {})
+      return next
+    })
     try {
       const n = await window.geode.vault.updateLinks(from, to)
       // Recalcular los enlaces entrantes recién AHORA: si se pidieron al cambiar
@@ -634,12 +743,12 @@ export function App(): JSX.Element {
       setBacklinksKey((k) => k + 1)
       if (n > 0) {
         bumpAll()
-        setToast(`Se actualizaron los enlaces en ${n} ${n === 1 ? 'nota' : 'notas'}.`)
+        setToast(n === 1 ? t('Se actualizaron los enlaces en {n} nota.', { n }) : t('Se actualizaron los enlaces en {n} notas.', { n }))
         void refreshGraph() // la instantánea de seguridad aparece en la línea de tiempo
       }
     } catch (e) {
       console.warn('[enlaces] no se pudieron actualizar:', e)
-      setToast('Se renombró, pero no se pudieron actualizar los enlaces.')
+      setToast(t('Se renombró, pero no se pudieron actualizar los enlaces.'))
     }
   }, [bumpAll, refreshGraph])
 
@@ -690,7 +799,7 @@ export function App(): JSX.Element {
   const startDictation = useCallback(async (target: DictationTarget) => {
     if (dictationRef.current || transcribingRef.current) return
     if (!aiConfigRef.current?.hasKey) {
-      reportDictation({ state: 'error', message: 'Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.' })
+      reportDictation({ state: 'error', message: t('Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.') })
       return
     }
     try {
@@ -700,7 +809,7 @@ export function App(): JSX.Element {
       dictationRef.current = { rec, target, timer }
       reportDictation({ state: 'listening' })
     } catch (e) {
-      reportDictation({ state: 'error', message: e instanceof Error ? e.message : 'No se pudo abrir el micrófono.' })
+      reportDictation({ state: 'error', message: e instanceof Error ? e.message : t('No se pudo abrir el micrófono.') })
     }
   }, [reportDictation])
 
@@ -715,13 +824,13 @@ export function App(): JSX.Element {
     try {
       const audio = await cur.rec.stop()
       if (!audio) {
-        reportDictation({ state: 'done', message: 'No se escuchó nada' })
+        reportDictation({ state: 'done', message: t('No se escuchó nada') })
         return
       }
       const text = (await window.geode.ai.transcribe(audio.wavBase64)).trim()
       void refreshAiUsage() // la transcripción tiene costo: que se vea
       if (!text) {
-        reportDictation({ state: 'done', message: 'No se entendió nada' })
+        reportDictation({ state: 'done', message: t('No se entendió nada') })
         return
       }
       const editor = getActiveEditor()
@@ -729,14 +838,14 @@ export function App(): JSX.Element {
       const canInsert = cur.target === 'cursor' && !!editor && !!path && isNotePath(path) && previewOidRef.current == null
       if (canInsert) {
         editor.insertAtCursor(text)
-        reportDictation({ state: 'done', message: 'Listo: texto agregado' })
+        reportDictation({ state: 'done', message: t('Listo: texto agregado') })
       } else {
         await appendToToday(text)
-        reportDictation({ state: 'done', message: 'Listo: agregado a tu nota de hoy' })
-        setToast('Dictado agregado a tu nota de hoy.')
+        reportDictation({ state: 'done', message: t('Listo: agregado a tu nota de hoy') })
+        setToast(t('Dictado agregado a tu nota de hoy.'))
       }
     } catch (e) {
-      reportDictation({ state: 'error', message: e instanceof Error ? e.message : 'No se pudo dictar' })
+      reportDictation({ state: 'error', message: e instanceof Error ? e.message : t('No se pudo dictar') })
     } finally {
       transcribingRef.current = false
     }
@@ -906,8 +1015,12 @@ export function App(): JSX.Element {
       const n = info.imported.notes
       setToast(
         info.imported.fromObsidian
-          ? `Abriste tu bóveda de Obsidian (${n} ${n === 1 ? 'nota' : 'notas'}). Guardamos una primera versión de todo: enlaces, imágenes, etiquetas y propiedades funcionan igual.`
-          : `Guardamos una primera versión de las ${n} ${n === 1 ? 'nota' : 'notas'} de esta carpeta: desde ahora nada se pierde.`
+          ? n === 1
+            ? t('Abriste tu bóveda de Obsidian ({n} nota). Guardamos una primera versión de todo: enlaces, imágenes, etiquetas y propiedades funcionan igual.', { n })
+            : t('Abriste tu bóveda de Obsidian ({n} notas). Guardamos una primera versión de todo: enlaces, imágenes, etiquetas y propiedades funcionan igual.', { n })
+          : n === 1
+            ? t('Guardamos una primera versión de la nota de esta carpeta: desde ahora nada se pierde.')
+            : t('Guardamos una primera versión de las {n} notas de esta carpeta: desde ahora nada se pierde.', { n })
       )
     }
   }, [adoptVault])
@@ -952,9 +1065,10 @@ export function App(): JSX.Element {
       // cual; para cualquier otro error caemos al texto humano fijo, sin filtrar el
       // stack/ruta crudo del main al usuario (WR-02).
       setCreateError(
-        e instanceof Error && e.message.startsWith('No se pudo crear el cuaderno')
+        e instanceof Error &&
+          (e.message.startsWith('No se pudo crear el cuaderno') || e.message.startsWith(t('No se pudo crear el cuaderno')))
           ? e.message
-          : 'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.'
+          : t('No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en tu carpeta de Documentos e intentá de nuevo.')
       )
     } finally {
       setCreating(false)
@@ -1007,7 +1121,7 @@ export function App(): JSX.Element {
         await refreshVaults()
       }
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo quitar la bóveda')
+      window.alert(e instanceof Error ? e.message : t('No se pudo quitar la bóveda'))
     } finally {
       setRemoveVaultTarget(null)
     }
@@ -1093,7 +1207,7 @@ export function App(): JSX.Element {
       // Sin diálogo nativo: mostramos el error inline y reabrimos el input para
       // corregir. Preservamos lo tipeado (rawName) como semilla del input para
       // que el usuario corrija en vez de reescribir desde cero.
-      setRenameError(e instanceof Error ? e.message : 'No se pudo renombrar')
+      setRenameError(e instanceof Error ? e.message : t('No se pudo renombrar'))
       setRenameSeed(rawName)
       setEditingPath(node.path)
       return
@@ -1138,7 +1252,7 @@ export function App(): JSX.Element {
     } catch (e) {
       // La colisión llega como "Ya existe: <ruta>" desde vault.rename. No
       // reintentamos ni sobrescribimos: avisamos en español vía toast.
-      setToast(e instanceof Error ? e.message : 'No se pudo mover el elemento.')
+      setToast(e instanceof Error ? e.message : t('No se pudo mover el elemento.'))
       return
     }
     // Reflejar en todos los paneles (tabs + nota activa) y en la selección,
@@ -1256,19 +1370,19 @@ export function App(): JSX.Element {
       const dirty = await window.geode.git.changes()
       if (dirty.length > 0) {
         // Mensaje explícito ⇒ no invoca la IA (coste sólo en guardados manuales).
-        await window.geode.git.commit('Instantánea de seguridad — ' + new Date().toLocaleString())
+        await window.geode.git.commit(t('Instantánea de seguridad — {date}', { date: new Date().toLocaleString(intlLocale()) }))
       }
       await window.geode.git.restoreTree(oid) // sólo working-dir; HEAD intacto
       setPreviewOid(null)
       restoreLayoutSnapshot()
       syncPanesToTree(await refreshTree(null))
       await refreshGraph()
-      setToast('Traído al presente como cambios sin guardar.')
+      setToast(t('Traído al presente como cambios sin guardar.'))
     } catch (e) {
       // Falla del snapshot de seguridad o de restoreTree: no dejar al usuario
       // atascado en la preview sin señal. HEAD no se movió (restoreTree sólo
       // toca el working-dir); puede reintentar o volver al presente.
-      setToast(e instanceof Error ? e.message : 'No se pudo traer esta versión al presente.')
+      setToast(e instanceof Error ? e.message : t('No se pudo traer esta versión al presente.'))
     }
   }, [previewOid, flushAll, restoreLayoutSnapshot, syncPanesToTree, refreshTree, refreshGraph])
 
@@ -1285,7 +1399,7 @@ export function App(): JSX.Element {
 
   /** Confirmación del diálogo: crea la versión (commit permanente). */
   const doCommit = useCallback(async (message: string) => {
-    const fallback = `Versión ${new Date().toLocaleString()}`
+    const fallback = t('Versión {date}', { date: new Date().toLocaleString(intlLocale()) })
     host.emit('note:beforeSave', { path: openPathRef.current })
     await window.geode.git.commit(message || fallback)
     setCommitChanges(null)
@@ -1305,9 +1419,9 @@ export function App(): JSX.Element {
     const pending = await window.geode.git.changes()
     if (pending.length > 0) {
       const ok = window.confirm(
-        `Tenés ${pending.length} cambio(s) sin guardar como versión.\n` +
-          'Si vas a otra versión ahora, se descartan.\n\n' +
-          'Cancelá y usá "Guardar versión" para conservarlos.'
+        pending.length === 1
+          ? t('Tenés {n} cambio sin guardar como versión.\nSi vas a otra versión ahora, se descarta.\n\nCancelá y usá "Guardar versión" para conservarlo.', { n: pending.length })
+          : t('Tenés {n} cambios sin guardar como versión.\nSi vas a otra versión ahora, se descartan.\n\nCancelá y usá "Guardar versión" para conservarlos.', { n: pending.length })
       )
       if (!ok) return
     }
@@ -1322,7 +1436,7 @@ export function App(): JSX.Element {
     await flushAll()
     // No perder cambios sin versionar: se guardan como una versión antes del merge.
     if ((await window.geode.git.changes()).length > 0) {
-      await window.geode.git.commit(`Cambios ${new Date().toLocaleString()}`)
+      await window.geode.git.commit(t('Cambios {date}', { date: new Date().toLocaleString(intlLocale()) }))
     }
     await window.geode.git.mergeBranch()
     syncPanesToTree(await refreshTree())
@@ -1342,8 +1456,9 @@ export function App(): JSX.Element {
       if (
         pending.length > 0 &&
         !window.confirm(
-          `Tenés ${pending.length} cambio(s) sin guardar como versión.\n` +
-            'Crear la rama desde otra versión los descarta.\n\n¿Continuar?'
+          pending.length === 1
+            ? t('Tenés {n} cambio sin guardar como versión.\nCrear la rama desde otra versión lo descarta.\n\n¿Continuar?', { n: pending.length })
+            : t('Tenés {n} cambios sin guardar como versión.\nCrear la rama desde otra versión los descarta.\n\n¿Continuar?', { n: pending.length })
         )
       ) {
         return
@@ -1352,7 +1467,7 @@ export function App(): JSX.Element {
     try {
       await window.geode.git.createBranch(fromOid, name)
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo crear la rama')
+      window.alert(e instanceof Error ? e.message : t('No se pudo crear la rama'))
       return
     }
     syncPanesToTree(await refreshTree())
@@ -1365,7 +1480,7 @@ export function App(): JSX.Element {
     try {
       await window.geode.git.addTag(oid, name)
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo agregar la etiqueta')
+      window.alert(e instanceof Error ? e.message : t('No se pudo agregar la etiqueta'))
       return
     }
     await refreshGraph()
@@ -1399,7 +1514,7 @@ export function App(): JSX.Element {
       await window.geode.git.deleteBranch(name)
     } catch (e) {
       const detalle = e instanceof Error ? e.message : ''
-      setDeleteBranchError(detalle ? `No se pudo borrar la rama. ${detalle}` : 'No se pudo borrar la rama.')
+      setDeleteBranchError(detalle ? t('No se pudo borrar la rama. {detail}', { detail: detalle }) : t('No se pudo borrar la rama.'))
       return
     } finally {
       deletingBranchRef.current = false
@@ -1418,7 +1533,7 @@ export function App(): JSX.Element {
    *  panel indicado (o el activo). Recuerda el editor destino para insertar ahí. */
   const requestAi = useCallback((paneId?: string) => {
     if (!aiConfig?.ready) {
-      window.alert('Configurá la IA en Ajustes (⚙): elegí un motor y, si usás OpenRouter, la API key y el modelo.')
+      window.alert(t('Configurá la IA en Ajustes (⚙): elegí un motor y, si usás OpenRouter, la API key y el modelo.'))
       return
     }
     const ed = paneId ? paneHandles.current.get(paneId)?.getEditor() ?? null : getActiveEditor()
@@ -1536,6 +1651,14 @@ export function App(): JSX.Element {
       await openNoteAt(path)
     },
     toggleGraph,
+    quickOpen: () => setSwitcherOpen(true),
+    toggleBookmark: () => {
+      if (openPath && isNotePath(openPath)) toggleBookmark(openPath)
+    },
+    exportPdf: () => {
+      if (openPath && isNotePath(openPath)) void exportPdf(openPath)
+    },
+    hasOpenNote: !!openPath && isNotePath(openPath),
     splitRight: () => splitPane(activePaneIdRef.current, 'row'),
     splitDown: () => splitPane(activePaneIdRef.current, 'col'),
     createBranch: () => { if (graph?.head.oid) setBranchFrom(graph.head.oid) },
@@ -1605,11 +1728,11 @@ export function App(): JSX.Element {
           offExternal = activateExternalViaBridge(host, entries, runtimeSource)
         } catch (e) {
           console.error('[plugins] no se pudo cargar el runtime del sandbox:', e)
-          setToast('No se pudieron cargar los plugins instalados.')
+          setToast(t('No se pudieron cargar los plugins instalados.'))
         }
       }
       if (errors.length > 0) {
-        setToast(`Plugins con error: ${errors.map((e) => e.id).join(', ')}`)
+        setToast(t('Plugins con error: {ids}', { ids: errors.map((e) => e.id).join(', ') }))
       }
     })()
 
@@ -1618,18 +1741,21 @@ export function App(): JSX.Element {
     // integrar, push, árbol de versiones) NO viven acá: se registran sólo en
     // Modo Avanzado (efecto dedicado) para no filtrar jerga git en el default.
     const cmds = [
-      host.registerCommand({ id: 'core.saveVersion', title: 'Guardar versión', category: 'Núcleo', run: () => api().saveVersion() }),
-      host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
-      host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
-      host.registerCommand({ id: 'core.search', title: 'Buscar en todas las notas', category: 'Núcleo', run: () => api().openSearch() }),
-      host.registerCommand({ id: 'core.dictate', title: 'Dictar (empezar / terminar)', category: 'Núcleo', run: () => api().toggleDictation() }),
-      host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
-      host.registerCommand({ id: 'core.previewBeside', title: 'Abrir vista previa al lado (en vivo)', category: 'Vista', run: () => api().previewBeside(), isEnabled: () => api().hasOpenPath }),
-      host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', run: () => api().splitRight() }),
-      host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
+      host.registerCommand({ id: 'core.saveVersion', title: t('Guardar versión'), category: t('Núcleo'), run: () => api().saveVersion() }),
+      host.registerCommand({ id: 'core.newNote', title: t('Nueva nota'), category: t('Núcleo'), run: () => api().newNote() }),
+      host.registerCommand({ id: 'core.newFolder', title: t('Nueva carpeta'), category: t('Núcleo'), run: () => api().newFolder() }),
+      host.registerCommand({ id: 'core.quickOpen', title: t('Abrir nota por nombre'), category: t('Núcleo'), run: () => api().quickOpen() }),
+      host.registerCommand({ id: 'core.toggleBookmark', title: t('Agregar o quitar de favoritas'), category: t('Núcleo'), run: () => api().toggleBookmark(), isEnabled: () => api().hasOpenNote }),
+      host.registerCommand({ id: 'core.exportPdf', title: t('Exportar nota a PDF'), category: t('Núcleo'), run: () => api().exportPdf(), isEnabled: () => api().hasOpenNote }),
+      host.registerCommand({ id: 'core.search', title: t('Buscar en todas las notas'), category: t('Núcleo'), run: () => api().openSearch() }),
+      host.registerCommand({ id: 'core.dictate', title: t('Dictar (empezar / terminar)'), category: t('Núcleo'), run: () => api().toggleDictation() }),
+      host.registerCommand({ id: 'core.togglePreview', title: t('Alternar vista previa'), category: t('Vista'), run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
+      host.registerCommand({ id: 'core.previewBeside', title: t('Abrir vista previa al lado (en vivo)'), category: t('Vista'), run: () => api().previewBeside(), isEnabled: () => api().hasOpenPath }),
+      host.registerCommand({ id: 'core.splitRight', title: t('Dividir editor a la derecha'), category: t('Vista'), run: () => api().splitRight() }),
+      host.registerCommand({ id: 'core.splitDown', title: t('Dividir editor abajo'), category: t('Vista'), run: () => api().splitDown() }),
       // Re-lanzar el recorrido guiado: Capa 0 (categoría 'Ayuda'), NUNCA en el
       // bloque git avanzado. Re-verlo no resetea 'seen' (launch no persiste).
-      host.registerCommand({ id: 'core.tour', title: 'Ver el recorrido guiado', category: 'Ayuda', run: () => tourRef.current() })
+      host.registerCommand({ id: 'core.tour', title: t('Ver el recorrido guiado'), category: t('Ayuda'), run: () => tourRef.current() })
     ]
     return () => {
       cancelled = true
@@ -1647,10 +1773,10 @@ export function App(): JSX.Element {
     if (!advanced) return
     const api = (): typeof commandApiRef.current => commandApiRef.current
     const gitCmds = [
-      host.registerCommand({ id: 'core.toggleGraph', title: 'Alternar árbol de versiones', category: 'Vista', run: () => api().toggleGraph() }),
-      host.registerCommand({ id: 'core.createBranch', title: 'Crear rama desde la versión actual', category: 'Git', run: () => api().createBranch(), isEnabled: () => api().hasHead }),
-      host.registerCommand({ id: 'core.merge', title: 'Integrar rama a su base', category: 'Git', run: () => api().merge(), isEnabled: () => api().canMerge }),
-      host.registerCommand({ id: 'core.push', title: 'Push a GitHub', category: 'Git', run: () => api().push(), isEnabled: () => api().pushEnabled })
+      host.registerCommand({ id: 'core.toggleGraph', title: t('Alternar árbol de versiones'), category: t('Vista'), run: () => api().toggleGraph() }),
+      host.registerCommand({ id: 'core.createBranch', title: t('Crear rama desde la versión actual'), category: t('Git'), run: () => api().createBranch(), isEnabled: () => api().hasHead }),
+      host.registerCommand({ id: 'core.merge', title: t('Integrar rama a su base'), category: t('Git'), run: () => api().merge(), isEnabled: () => api().canMerge }),
+      host.registerCommand({ id: 'core.push', title: t('Push a GitHub'), category: t('Git'), run: () => api().push(), isEnabled: () => api().pushEnabled })
     ]
     return () => gitCmds.forEach((c) => c.dispose())
   }, [advanced, host])
@@ -1668,6 +1794,9 @@ export function App(): JSX.Element {
       } else if (isShortcut(e, 'commandPalette')) {
         e.preventDefault()
         setPaletteOpen(true)
+      } else if (isShortcut(e, 'quickOpen')) {
+        e.preventDefault()
+        setSwitcherOpen(true)
       } else if (isShortcut(e, 'splitRight')) {
         e.preventDefault()
         void splitPane(activePaneIdRef.current, 'row')
@@ -1692,8 +1821,7 @@ export function App(): JSX.Element {
         <div className="welcome-drag" />
         <h1>Geode</h1>
         <p className="tagline error">
-          El puente con el sistema (preload) no cargó. Reiniciá la app; si persiste,
-          revisá la consola del proceso principal.
+          {t('El puente con el sistema (preload) no cargó. Reiniciá la app; si persiste, revisá la consola del proceso principal.')}
         </p>
       </div>
     )
@@ -1706,12 +1834,12 @@ export function App(): JSX.Element {
           <WindowControls />
         </div>
         <h1>Geode</h1>
-        <p className="tagline">Escribí sin miedo a perder nada.</p>
+        <p className="tagline">{t('Escribí sin miedo a perder nada.')}</p>
         <input
           ref={welcomeInputRef}
           className="text-input"
           style={{ width: 320, WebkitAppRegion: 'no-drag' } as CSSProperties}
-          aria-label="Nombre de tu primer cuaderno"
+          aria-label={t('Nombre de tu primer cuaderno')}
           value={vaultName}
           autoFocus
           disabled={creating}
@@ -1727,12 +1855,12 @@ export function App(): JSX.Element {
           {creating ? (
             <>
               <RefreshCw size={16} className="spin" />
-              Creando tu cuaderno…
+              {t('Creando tu cuaderno…')}
             </>
           ) : (
             <>
               <NotebookPen size={16} />
-              Crear mi primer cuaderno
+              {t('Crear mi primer cuaderno')}
             </>
           )}
         </button>
@@ -1744,11 +1872,11 @@ export function App(): JSX.Element {
         <div className="welcome-actions" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
           <button className="link-btn" disabled={creating} onClick={() => void createLocalVault(true)}>
             <FolderCog size={14} />
-            Elegir otra ubicación
+            {t('Elegir otra ubicación')}
           </button>
           <button className="link-btn" disabled={creating} onClick={() => void openVault()}>
             <FolderOpen size={14} />
-            Abrir una carpeta existente
+            {t('Abrir una carpeta existente')}
           </button>
         </div>
       </div>
@@ -1761,30 +1889,30 @@ export function App(): JSX.Element {
     <>
       <button
         className="icon-btn"
-        title={`Buscar en todas las notas (${labelOf('search', shortcutBindings)})`}
-        aria-label="Buscar en todas las notas"
+        title={t('Buscar en todas las notas ({key})', { key: labelOf('search', shortcutBindings) })}
+        aria-label={t('Buscar en todas las notas')}
         onClick={() => commandApiRef.current.openSearch()}
       >
         <Search size={14} />
       </button>
       <button
         className="icon-btn"
-        title={selected?.isDir ? `Nueva nota en "${selected.path}"` : 'Nueva nota'}
+        title={selected?.isDir ? t('Nueva nota en "{path}"', { path: selected.path }) : t('Nueva nota')}
         onClick={() => void newNoteIn(createTargetDir())}
       >
         <FilePlus size={14} />
       </button>
       <button
         className="icon-btn"
-        title={selected?.isDir ? `Nueva carpeta en "${selected.path}"` : 'Nueva carpeta'}
+        title={selected?.isDir ? t('Nueva carpeta en "{path}"', { path: selected.path }) : t('Nueva carpeta')}
         onClick={() => void newFolderIn(createTargetDir())}
       >
         <FolderPlus size={14} />
       </button>
       <button
         className="icon-btn"
-        title={previewOid != null ? 'No disponible durante el viaje en el tiempo' : 'Actualizar notas'}
-        aria-label="Actualizar notas"
+        title={previewOid != null ? t('No disponible durante el viaje en el tiempo') : t('Actualizar notas')}
+        aria-label={t('Actualizar notas')}
         disabled={previewOid != null}
         onClick={() => void refreshFromDisk()}
       >
@@ -1792,14 +1920,14 @@ export function App(): JSX.Element {
       </button>
       <button
         className="icon-btn"
-        title={sortAsc ? 'Orden A→Z (click: Z→A)' : 'Orden Z→A (click: A→Z)'}
+        title={sortAsc ? t('Orden A→Z (click: Z→A)') : t('Orden Z→A (click: A→Z)')}
         onClick={() => setSortAsc((v) => !v)}
       >
         <ArrowDownUp size={14} />
       </button>
       <button
         className="icon-btn"
-        title={allExpanded ? 'Colapsar todo' : 'Expandir todo'}
+        title={allExpanded ? t('Colapsar todo') : t('Expandir todo')}
         onClick={toggleCollapseAll}
       >
         {allExpanded ? <FoldVertical size={14} /> : <UnfoldVertical size={14} />}
@@ -1822,8 +1950,8 @@ export function App(): JSX.Element {
           <div className="tb-actions">
             <button
               className="tb-btn icon"
-              title={`Paleta de comandos (${labelOf('commandPalette', shortcutBindings)})`}
-              aria-label="Paleta de comandos"
+              title={t('Paleta de comandos ({key})', { key: labelOf('commandPalette', shortcutBindings) })}
+              aria-label={t('Paleta de comandos')}
               onClick={() => setPaletteOpen(true)}
             >
               <CommandIcon size={15} />
@@ -1831,8 +1959,8 @@ export function App(): JSX.Element {
             {advanced && hasHead && (
               <button
                 className="tb-btn icon"
-                title="Crear una rama desde esta versión"
-                aria-label="Crear una rama desde esta versión"
+                title={t('Crear una rama desde esta versión')}
+                aria-label={t('Crear una rama desde esta versión')}
                 onClick={() => graph?.head.oid && setBranchFrom(graph.head.oid)}
               >
                 <GitBranchPlus size={15} />
@@ -1841,8 +1969,8 @@ export function App(): JSX.Element {
             {advanced && canMerge && (
               <button
                 className="tb-btn icon"
-                title="Integrar la rama a su rama de origen"
-                aria-label="Integrar la rama a su rama de origen"
+                title={t('Integrar la rama a su rama de origen')}
+                aria-label={t('Integrar la rama a su rama de origen')}
                 onClick={() => void mergeBranch()}
               >
                 <GitMerge size={15} />
@@ -1850,8 +1978,8 @@ export function App(): JSX.Element {
             )}
             <button
               className="tb-btn icon cta"
-              title={`Crear versión (${labelOf('saveVersion', shortcutBindings)})`}
-              aria-label="Crear versión"
+              title={t('Crear versión ({key})', { key: labelOf('saveVersion', shortcutBindings) })}
+              aria-label={t('Crear versión')}
               data-tour="guardar"
               onClick={() => void openCommitDialog()}
             >
@@ -1860,8 +1988,8 @@ export function App(): JSX.Element {
             {advanced && (
               <button
                 className={`tb-btn icon${graphOpen ? ' active' : ''}`}
-                title="Árbol de versiones"
-                aria-label="Árbol de versiones"
+                title={t('Árbol de versiones')}
+                aria-label={t('Árbol de versiones')}
                 onClick={toggleGraph}
               >
                 <GitBranch size={15} />
@@ -1904,9 +2032,9 @@ export function App(): JSX.Element {
           {searchOpen && (
             <SidebarSection
               id="buscar"
-              title="BUSCAR"
+              title={t('BUSCAR')}
               actions={
-                <button className="icon-btn" title="Cerrar búsqueda" aria-label="Cerrar búsqueda" onClick={() => setSearchOpen(false)}>
+                <button className="icon-btn" title={t('Cerrar búsqueda')} aria-label={t('Cerrar búsqueda')} onClick={() => setSearchOpen(false)}>
                   <X size={14} />
                 </button>
               }
@@ -1920,7 +2048,7 @@ export function App(): JSX.Element {
               />
             </SidebarSection>
           )}
-          <SidebarSection id="notas" title="EXPLORADOR" flex actions={notesActions}>
+          <SidebarSection id="notas" title={t('EXPLORADOR')} flex actions={notesActions}>
             {tree.length > 0 ? (
               // Contenedor que llena el alto: un click en su zona vacía (fuera de
               // cualquier nodo) deselecciona, y con `selected` en null los botones
@@ -1972,13 +2100,25 @@ export function App(): JSX.Element {
               </div>
             ) : (
               <div className="tree-empty">
-                <p className="tree-empty-title">Bóveda vacía</p>
-                <p>Creá una nota o una carpeta con las acciones de la cabecera de esta sección.</p>
+                <p className="tree-empty-title">{t('Bóveda vacía')}</p>
+                <p>{t('Creá una nota o una carpeta con las acciones de la cabecera de esta sección.')}</p>
               </div>
             )}
           </SidebarSection>
 
-          <SidebarSection id="enlaces" title="ENLACES ENTRANTES">
+          {bookmarks.length > 0 && (
+            <SidebarSection id="favoritas" title={t('FAVORITAS')}>
+              <BookmarksPanel
+                paths={bookmarks.filter((p) => allFiles.includes(p))}
+                openPath={openPath}
+                disabled={previewOid != null}
+                onOpen={(p) => void openNoteAt(p)}
+                onRemove={(p) => saveBookmarks(bookmarks.filter((b) => b !== p))}
+              />
+            </SidebarSection>
+          )}
+
+          <SidebarSection id="enlaces" title={t('ENLACES ENTRANTES')}>
             <BacklinksPanel
               path={openPath && isNotePath(openPath) ? openPath : null}
               refreshKey={backlinksKey}
@@ -1987,7 +2127,7 @@ export function App(): JSX.Element {
             />
           </SidebarSection>
 
-          <SidebarSection id="etiquetas" title="ETIQUETAS">
+          <SidebarSection id="etiquetas" title={t('ETIQUETAS')}>
             <TagsPanel
               refreshKey={backlinksKey}
               disabled={previewOid != null}
@@ -1995,7 +2135,7 @@ export function App(): JSX.Element {
             />
           </SidebarSection>
 
-          <SidebarSection id="timeline" title="LÍNEA DE TIEMPO">
+          <SidebarSection id="timeline" title={t('LÍNEA DE TIEMPO')}>
             {/* Ancla Capa 0 del paso "historial". Vive dentro de la sección para
                 que, si está colapsada, el TourOverlay pueda expandirla (busca el
                 toggle en el .sidebar-section más cercano) y re-medir. */}
@@ -2010,7 +2150,7 @@ export function App(): JSX.Element {
                 />
               ) : (
                 <div className="tree-empty">
-                  <p>Cargando línea de tiempo…</p>
+                  <p>{t('Cargando línea de tiempo…')}</p>
                 </div>
               )}
             </div>
@@ -2030,7 +2170,7 @@ export function App(): JSX.Element {
           className="sidebar-resizer"
           role="separator"
           aria-orientation="vertical"
-          title="Arrastrar para redimensionar"
+          title={t('Arrastrar para redimensionar')}
           onPointerDown={startSidebarResize}
           onDoubleClick={() => {
             setSidebarWidth(250)
@@ -2090,12 +2230,12 @@ export function App(): JSX.Element {
             <div className="status-left">
               {openPath ? (
                 <>
-                  <span>{stats.words} palabras</span>
-                  <span>{stats.chars} caracteres</span>
-                  <span>{stats.lines} líneas</span>
+                  <span>{stats.words === 1 ? t('{n} palabra', { n: stats.words }) : t('{n} palabras', { n: stats.words })}</span>
+                  <span>{stats.chars === 1 ? t('{n} carácter', { n: stats.chars }) : t('{n} caracteres', { n: stats.chars })}</span>
+                  <span>{stats.lines === 1 ? t('{n} línea', { n: stats.lines }) : t('{n} líneas', { n: stats.lines })}</span>
                 </>
               ) : (
-                <span>Ninguna nota abierta</span>
+                <span>{t('Ninguna nota abierta')}</span>
               )}
               {(() => {
                 const s = statusLabel(status, backedUp, pushCount)
@@ -2160,16 +2300,16 @@ export function App(): JSX.Element {
                     <div className="pop-title">
                       <Terminal size={13} /> {CLI_SPECS[aiConfig.engine].name}
                     </div>
-                    <div className="pop-row"><span>Programa</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
-                    <div className="pop-row"><span>Pago</span><b>Tu suscripción</b></div>
+                    <div className="pop-row"><span>{t('Programa')}</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
+                    <div className="pop-row"><span>{t('Pago')}</span><b>{t('Tu suscripción')}</b></div>
                     <div className="pop-row">
-                      <span>Modelo</span>
-                      <b>{aiConfig.cliModels[aiConfig.engine] ?? `El de ${CLI_SPECS[aiConfig.engine].program}`}</b>
+                      <span>{t('Modelo')}</span>
+                      <b>{aiConfig.cliModels[aiConfig.engine] ?? t('El de {program}', { program: CLI_SPECS[aiConfig.engine].program })}</b>
                     </div>
                     {aiConfig.hasKey && (
                       <div className="pop-row">
-                        <span>Dictado (OpenRouter)</span>
-                        <b>{aiUsage ? `${formatUsd(aiUsage.usage)} gastado` : '—'}</b>
+                        <span>{t('Dictado (OpenRouter)')}</span>
+                        <b>{aiUsage ? t('{amount} gastado', { amount: formatUsd(aiUsage.usage) }) : '—'}</b>
                       </div>
                     )}
                   </div>
@@ -2187,39 +2327,39 @@ export function App(): JSX.Element {
                     <div className="pop-title"><Coins size={13} /> OpenRouter</div>
                     {aiUsage ? (
                       <>
-                        <div className="pop-row"><span>Gastado</span><b>{formatUsd(aiUsage.usage)}</b></div>
+                        <div className="pop-row"><span>{t('Gastado')}</span><b>{formatUsd(aiUsage.usage)}</b></div>
                         <div className="pop-row">
-                          <span>Límite</span>
-                          <b>{aiUsage.limit != null ? formatUsd(aiUsage.limit) : 'sin límite'}</b>
+                          <span>{t('Límite')}</span>
+                          <b>{aiUsage.limit != null ? formatUsd(aiUsage.limit) : t('sin límite')}</b>
                         </div>
                         {aiUsage.limit != null && (
                           <div className="pop-row">
-                            <span>Restante</span>
+                            <span>{t('Restante')}</span>
                             <b>{formatUsd(Math.max(0, aiUsage.limit - aiUsage.usage))}</b>
                           </div>
                         )}
-                        <div className="pop-row"><span>Modelo</span><b>{aiConfig.model ?? '—'}</b></div>
+                        <div className="pop-row"><span>{t('Modelo')}</span><b>{aiConfig.model ?? '—'}</b></div>
                       </>
                     ) : aiUsageErr ? (
-                      <div className="pop-note pop-err">No se pudo leer el uso: {aiUsageErr}</div>
+                      <div className="pop-note pop-err">{t('No se pudo leer el uso: {error}', { error: aiUsageErr })}</div>
                     ) : (
-                      <div className="pop-note">Cargando uso…</div>
+                      <div className="pop-note">{t('Cargando uso…')}</div>
                     )}
                   </div>
                 </div>
               )}
 
               {appInfo && (
-                <div className="status-item" title="Versión de Geode">
+                <div className="status-item" title={t('Versión de Geode')}>
                   <Info size={14} />
                   <span>v{appInfo.appVersion}</span>
                   <div className="status-pop">
                     <div className="pop-title"><Info size={13} /> Geode</div>
-                    <div className="pop-row"><span>Versión</span><b>{appInfo.appVersion}</b></div>
+                    <div className="pop-row"><span>{t('Versión')}</span><b>{appInfo.appVersion}</b></div>
                     <div className="pop-row"><span>Electron</span><b>{appInfo.electronVersion}</b></div>
                     <div className="pop-row"><span>Chromium</span><b>{appInfo.chromeVersion}</b></div>
                     <div className="pop-row"><span>Node</span><b>{appInfo.nodeVersion}</b></div>
-                    <div className="pop-row"><span>Plataforma</span><b>{appInfo.platform}</b></div>
+                    <div className="pop-row"><span>{t('Plataforma')}</span><b>{appInfo.platform}</b></div>
                   </div>
                 </div>
               )}
@@ -2249,7 +2389,7 @@ export function App(): JSX.Element {
             // push real que ya hizo enable() dentro del wizard.
             await refreshGithub()
             // Éxito honesto (STAT-01): sólo acá, tras el push real terminado.
-            setToast('Listo: tu cuaderno está a salvo en la nube.')
+            setToast(t('Listo: tu cuaderno está a salvo en la nube.'))
           }}
         />
       )}
@@ -2344,10 +2484,10 @@ export function App(): JSX.Element {
               // Menú de la zona vacía (raíz): solo crear nota o carpeta en la raíz.
               <>
                 <li onClick={() => { setMenu(null); void newNoteIn('') }}>
-                  <FilePlus size={14} /> Nueva nota
+                  <FilePlus size={14} /> {t('Nueva nota')}
                 </li>
                 <li onClick={() => { setMenu(null); void newFolderIn('') }}>
-                  <FolderPlus size={14} /> Nueva carpeta
+                  <FolderPlus size={14} /> {t('Nueva carpeta')}
                 </li>
               </>
             ) : (
@@ -2359,26 +2499,37 @@ export function App(): JSX.Element {
                     {n.isDir && (
                       <>
                         <li onClick={() => { setMenu(null); void newNoteIn(n.path) }}>
-                          <FilePlus size={14} /> Nueva nota
+                          <FilePlus size={14} /> {t('Nueva nota')}
                         </li>
                         <li onClick={() => { setMenu(null); void newFolderIn(n.path) }}>
-                          <FolderPlus size={14} /> Nueva carpeta
+                          <FolderPlus size={14} /> {t('Nueva carpeta')}
                         </li>
                         <li className="ctx-sep" />
                       </>
                     )}
                     <li onClick={() => { setMenu(null); void window.geode.vault.revealInExplorer(n.path) }}>
-                      <FolderOpen size={14} /> Mostrar en el explorador
+                      <FolderOpen size={14} /> {t('Mostrar en el explorador')}
                     </li>
                     <li onClick={() => { setMenu(null); void duplicateNode(n) }}>
-                      <Copy size={14} /> Duplicar
+                      <Copy size={14} /> {t('Duplicar')}
                     </li>
+                    {!n.isDir && isNotePath(n.path) && (
+                      <>
+                        <li onClick={() => { setMenu(null); toggleBookmark(n.path) }}>
+                          {bookmarks.includes(n.path) ? <StarOff size={14} /> : <Star size={14} />}{' '}
+                          {bookmarks.includes(n.path) ? t('Quitar de favoritas') : t('Agregar a favoritas')}
+                        </li>
+                        <li onClick={() => { setMenu(null); void exportPdf(n.path) }}>
+                          <FileDown size={14} /> {t('Exportar a PDF')}
+                        </li>
+                      </>
+                    )}
                     <li className="ctx-sep" />
                     <li onClick={() => { setRenameError(null); setRenameSeed(null); setEditingPath(n.path); setMenu(null) }}>
-                      <Pencil size={14} /> Renombrar
+                      <Pencil size={14} /> {t('Renombrar')}
                     </li>
                     <li className="ctx-danger" onClick={() => { setMenu(null); void deleteNode(n) }}>
-                      <Trash2 size={14} /> Eliminar
+                      <Trash2 size={14} /> {t('Eliminar')}
                     </li>
                   </>
                 )
@@ -2389,6 +2540,25 @@ export function App(): JSX.Element {
       )}
 
       {paletteOpen && <CommandPalette host={host} onClose={() => setPaletteOpen(false)} />}
+      {switcherOpen && (
+        <NoteSwitcher
+          files={allFiles}
+          recent={recent}
+          bookmarks={bookmarks}
+          onOpen={(p) => void openNoteAt(p)}
+          onCreate={(name) => void openLink(name, openPathRef.current ?? '')}
+          onClose={() => setSwitcherOpen(false)}
+        />
+      )}
+      {printing && (
+        <PrintView
+          path={printing.path}
+          content={printing.content}
+          files={allFiles}
+          loadNote={(p) => window.geode.vault.readNote(p)}
+          onReady={() => void finishPdf()}
+        />
+      )}
       <QuickPick host={host} />
       {/* Recorrido guiado: se monta por portal a document.body, así que el sitio
           de montaje solo importa para el ciclo de vida de React. */}
@@ -2493,18 +2663,18 @@ function statusLabel(
 ): StatusDescriptor | null {
   switch (status) {
     case 'saving':
-      return { text: 'Guardando…', Icon: Loader2, spin: true }
+      return { text: t('Guardando…'), Icon: Loader2, spin: true }
     case 'saved':
       // Autoguardado en disco, sin commit: sólo vive en este dispositivo.
-      return { text: 'Guardado en este dispositivo', Icon: HardDrive }
+      return { text: t('Guardado en este dispositivo'), Icon: HardDrive }
     case 'clean':
       // El árbol de trabajo coincide con HEAD. Sólo entonces la nube es honesta.
       if (backedUp) {
         return pushCount === 0
-          ? { text: 'Todo en la nube', Icon: Cloud }
-          : { text: 'Guardado en este dispositivo', Icon: HardDrive }
+          ? { text: t('Todo en la nube'), Icon: Cloud }
+          : { text: t('Guardado en este dispositivo'), Icon: HardDrive }
       }
-      return { text: 'Guardado', Icon: Check }
+      return { text: t('Guardado'), Icon: Check }
     default:
       return null
   }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { ChevronsUpDown, Check, GitBranch, AlertTriangle } from 'lucide-react'
 import type { GitBranchRef } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 /** Nombre de la rama de producción (coincide con PROD del servicio git). */
 const PROD = 'main'
@@ -38,13 +39,13 @@ export function BranchSwitcher({ branches, head, onSwitch, menuUp }: BranchSwitc
   )
 
   const chipClass = `branch-switch ${detached ? 'detached' : isProd ? 'prod' : 'work'}`
-  const label = detached ? 'versión anterior' : current ?? '—'
+  const label = detached ? t('versión anterior') : current ?? '—'
 
   return (
     <div className="branch-switcher">
       <button
         className={chipClass}
-        title={detached ? 'HEAD en una versión anterior — elegí una rama' : 'Cambiar de rama'}
+        title={detached ? t('HEAD en una versión anterior — elegí una rama') : t('Cambiar de rama')}
         onClick={() => setOpen((o) => !o)}
       >
         {detached ? <AlertTriangle size={12} /> : <GitBranch size={12} />}
@@ -67,7 +68,7 @@ export function BranchSwitcher({ branches, head, onSwitch, menuUp }: BranchSwitc
               >
                 <GitBranch size={12} className="tag-filter-icon" />
                 <span className="vault-menu-name">{b.name}</span>
-                {b.name === PROD && <span className="branch-tag prod">prod</span>}
+                {b.name === PROD && <span className="branch-tag prod">{t('prod')}</span>}
                 {b.name === current && <Check size={14} />}
               </li>
             ))}

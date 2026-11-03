@@ -3,6 +3,8 @@ import type { JSX } from 'react'
 import { FileText } from 'lucide-react'
 import type { Backlink } from '@shared/ipc'
 import { displayName } from '@shared/links'
+import { t } from '@shared/i18n'
+import { tx } from './i18n'
 
 export interface BacklinksPanelProps {
   /** Nota activa (null = ninguna). */
@@ -43,14 +45,14 @@ export function BacklinksPanel({ path, refreshKey, disabled, onOpen }: Backlinks
     }
   }, [path, refreshKey, disabled])
 
-  if (disabled) return <div className="tree-empty"><p>Disponible en el presente.</p></div>
-  if (!path) return <div className="tree-empty"><p>Abrí una nota para ver qué notas la enlazan.</p></div>
-  if (links === null) return <div className="tree-empty"><p>Buscando enlaces…</p></div>
+  if (disabled) return <div className="tree-empty"><p>{t('Disponible en el presente.')}</p></div>
+  if (!path) return <div className="tree-empty"><p>{t('Abrí una nota para ver qué notas la enlazan.')}</p></div>
+  if (links === null) return <div className="tree-empty"><p>{t('Buscando enlaces…')}</p></div>
   if (links.length === 0) {
     return (
       <div className="tree-empty">
-        <p>Ninguna nota enlaza a «{displayName(path)}» todavía.</p>
-        <p>Escribí <code>[[{displayName(path)}]]</code> en otra nota para conectarlas.</p>
+        <p>{t('Ninguna nota enlaza a «{name}» todavía.', { name: displayName(path) })}</p>
+        <p>{tx('Escribí {link} en otra nota para conectarlas.', { link: <code>[[{displayName(path)}]]</code> })}</p>
       </div>
     )
   }

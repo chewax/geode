@@ -3908,6 +3908,78 @@ kbd {
   padding: 0 5px;
 }
 
+/* Fórmulas (plugin integrado de KaTeX). */
+.md-preview .plugin-block-math { text-align: center; overflow-x: auto; overflow-y: hidden; }
+.md-preview .math-display { display: block; text-align: center; margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; }
+.md-preview .math-inline.plugin-block-error,
+.md-preview .math-display.plugin-block-error {
+  border: 0; padding: 0; font-size: inherit;
+  color: #e53e3e; text-decoration: underline dotted; cursor: help;
+}
+
+/* Notas al pie. */
+.md-preview .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.md-preview sup a[data-footnote-ref] { text-decoration: none; padding: 0 1px; }
+.md-preview section.footnotes {
+  margin-top: 2em; padding-top: 0.6em; border-top: 1px solid var(--border);
+  font-size: 0.9em; color: var(--muted);
+}
+.md-preview section.footnotes ol { padding-left: 1.4em; }
+.md-preview a[data-footnote-backref] { text-decoration: none; margin-left: 4px; }
+
+/* Ctrl+O: abrir nota por nombre. */
+.switcher-item { display: flex; align-items: center; gap: 8px; }
+.switcher-item .switcher-icon { flex-shrink: 0; color: var(--muted); }
+.switcher-item .switcher-icon.starred { color: #d69e2e; }
+.switcher-item .palette-title b { color: var(--accent); font-weight: 600; }
+
+/* Favoritas. */
+.bookmarks-list { list-style: none; margin: 0; padding: 2px 0 6px; }
+.bookmark-item { display: flex; align-items: center; padding-right: 6px; }
+.bookmark-item:hover { background: var(--panel-2); }
+.bookmark-item.active .bookmark-name { color: var(--accent); }
+.bookmark-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  background: none; border: 0; color: var(--text); padding: 4px 4px 4px 18px;
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.bookmark-open svg { flex-shrink: 0; color: var(--muted); }
+.bookmark-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bookmark-dir { margin-left: auto; padding-left: 8px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.bookmark-remove { opacity: 0; }
+.bookmark-item:hover .bookmark-remove { opacity: 1; }
+
+/* Exportar a PDF: la copia de impresión vive fuera de pantalla y sólo se ve al imprimir. */
+.print-root { position: fixed; left: -10000px; top: 0; width: 760px; }
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --panel: #f5f4f0;
+    --panel-2: #eceae4;
+    --border: #d9d5cb;
+    --muted: #5d5a66;
+    --accent: #5b30c9;
+    --text: #1a1820;
+  }
+  html, body { height: auto; background: #fff; overflow: visible; }
+  body > *:not(.print-root) { display: none !important; }
+  .print-root { position: static; width: auto; }
+  .print-root .md-preview { padding: 0; max-width: none; overflow: visible; height: auto; }
+  .print-root pre, .print-root blockquote, .print-root table, .print-root img, .print-root .plugin-block { break-inside: avoid; }
+  .print-root h1, .print-root h2, .print-root h3 { break-after: avoid; }
+  .print-root a { color: var(--accent); }
+}
+
+/* Ayuda de sintaxis del panel de búsqueda. */
+.search-hint { padding: 4px 14px 10px; font-size: 12px; color: var(--muted); }
+.search-hint p { margin: 4px 0; }
+.search-hint ul { list-style: none; margin: 0; padding: 0; }
+.search-hint li { margin: 3px 0; }
+.search-hint code { font-size: 11.5px; padding: 1px 5px; border-radius: 4px; background: var(--panel-2); color: var(--text); margin-right: 4px; }
 /* ── Ajustes: atajos de teclado reasignables ──────────────────────────────── */
 .modal-sub .link-btn { font-size: inherit; }
 .shortcut-list {

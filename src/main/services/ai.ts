@@ -1,4 +1,5 @@
 import type { AiModel, AiUsage, NamedVersion } from '@shared/ipc'
+import { getLocale, t } from '@shared/i18n'
 
 /**
  * Generación de mensajes de commit por IA (ver ARCHITECTURE.md §3).
@@ -13,7 +14,7 @@ export interface AiMessageProvider {
 
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 
-export const SYSTEM_PROMPT = `Sos un asistente que resume, en español, qué se hizo en un conjunto de notas personales, para etiquetar una versión guardada.
+export const SYSTEM_PROMPT = `Sos un asistente que resume qué se hizo en un conjunto de notas personales, para etiquetar una versión guardada.
 
 Te paso un diff (formato unificado) de los cambios. Devolvé SOLO el resumen, en UNA SOLA LÍNEA (sin saltos de línea, sin viñetas, sin comillas, sin bloques de código, sin prefijos tipo "feat:"/"fix:"). Va a mostrarse en un grafo de versiones, así que tiene que ser corto: idealmente 60-80 caracteres, nunca más de ~100.
 
@@ -31,10 +32,10 @@ El usuario te da una instrucción y (opcionalmente) un texto seleccionado o el c
 Devolvé ÚNICAMENTE el texto que hay que insertar en el documento, listo para pegar:
 - En markdown cuando corresponda, pero sin envolverlo en bloques de código.
 - Sin preámbulos, sin explicaciones, sin comillas alrededor.
-- Escribí en el mismo idioma del contexto (por defecto, español).
+- Escribí en el mismo idioma del contexto.
 - Si la instrucción es reescribir/resumir/traducir el texto seleccionado, devolvé SOLO la nueva versión de ese texto.`
 
-export const NAMED_VERSION_PROMPT = `Sos un asistente que, en español, le pone nombre a una versión guardada de notas personales.
+export const NAMED_VERSION_PROMPT = `Sos un asistente que le pone nombre a una versión guardada de notas personales.
 
 Te paso un diff en formato unificado. Leelo así:
 - Las líneas que empiezan con "+" son lo que se AGREGÓ en este guardado.
@@ -55,6 +56,38 @@ Qué evitar:
 - No describas el edit de forma mecánica ("se agregó una frase"); explicá el CONTENIDO de lo que cambió.
 - NO rotules las secciones: no escribas "Título:" ni "Descripción:" como rótulos. El título va suelto (sin viñeta); la descripción va en viñetas.
 - No asumas que algo se hizo o se completó. Si lo agregado es una lista de pendientes/ideas, describilo como tal, no como trabajo ya realizado.`
+
+/**
+ * Instrucción de idioma de la respuesta según el idioma de la interfaz. Se agrega
+ * al final de los prompts de nombre/resumen de versión: el título que se guarda
+ * en la línea de tiempo sale en el idioma del usuario. Se evalúa en cada llamada
+ * (nunca al importar), así un cambio de idioma aplica a la próxima generación.
+ */
+function languageInstruction(): string {
+  return getLocale() === 'en'
+    ? 'IMPORTANT: Write your whole answer in English.'
+    : 'IMPORTANTE: respondé siempre en español.'
+}
+
+/**
+ * Idioma por defecto del asistente de escritura: el del contexto manda; si no hay
+ * texto ni contexto que seguir, el de la interfaz.
+ */
+export function writerLanguageDefault(): string {
+  return getLocale() === 'en'
+    ? 'If there is no selected text or context to follow, write in English.'
+    : 'Si no hay texto seleccionado ni contexto que seguir, escribí en español.'
+}
+
+/** Prompt del dictado. En español conserva la pista rioplatense; en otro idioma, neutro. */
+function transcribePrompt(): string {
+  return TRANSCRIBE_PROMPT.replace('{hint}', getLocale() === 'es' ? ' (normalmente español rioplatense)' : '')
+}
+
+/** Prompt de sistema con la instrucción de idioma al final. */
+export function withLanguage(prompt: string): string {
+  return `${prompt}\n\n${languageInstruction()}`
+}
 
 /**
  * Lo que sabe hacer cualquier motor de texto (OpenRouter o un CLI con
@@ -97,20 +130,23 @@ export function parseNamedVersion(raw: string): NamedVersion {
   const firstIdx = lines.findIndex((l) => l.trim().length > 0)
   if (firstIdx === -1) return { title: '', description: '' }
   // Algunos modelos rotulan las secciones pese al formato pedido; quitamos solo
-  // el rótulo ("Título:"/"Descripción:", con o sin viñeta delante). NO tocamos
+  // el rótulo ("Título:"/"Descripción:" o sus equivalentes en inglés, con o sin viñeta delante). NO tocamos
   // las viñetas legítimas: la descripción es un punteo.
-  const title = toOneLine(lines[firstIdx]).replace(/^t[ií]tulo\s*:\s*/i, '').trim()
+  const title = toOneLine(lines[firstIdx]).replace(/^(?:t[ií]tulo|title)\s*:\s*/i, '').trim()
   const description = lines
     .slice(firstIdx + 1)
     .join('\n')
     .trim()
-    .replace(/^[-*]?\s*(?:descripci[oó]n|resumen)\s*:\s*/i, '')
+    .replace(/^[-*]?\s*(?:descripci[oó]n|resumen|description|summary)\s*:\s*/i, '')
     .trim()
   return { title, description }
 }
 
-/** Instrucción del dictado: transcripción literal, en el idioma hablado. */
-const TRANSCRIBE_PROMPT = `Sos un transcriptor. Transcribí EXACTAMENTE lo que se dice en el audio, en el idioma en que se habla (normalmente español rioplatense).
+/**
+ * Instrucción del dictado: transcripción literal, en el idioma hablado (nunca se
+ * fuerza un idioma). `{hint}` es una pista opcional según el idioma de la interfaz.
+ */
+const TRANSCRIBE_PROMPT = `Sos un transcriptor. Transcribí EXACTAMENTE lo que se dice en el audio, en el idioma en que se habla{hint}.
 - Devolvé SOLO el texto transcripto, con puntuación y mayúsculas correctas.
 - No resumas, no traduzcas, no agregues comentarios ni comillas.
 - Si la persona dicta signos ("punto", "coma", "nuevo párrafo"), aplicalos.
@@ -126,7 +162,7 @@ export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
     const res = await fetch(`${OPENROUTER}/models`, {
       headers: this.key ? { Authorization: `Bearer ${this.key}` } : {}
     })
-    if (!res.ok) throw new Error(`OpenRouter /models devolvió ${res.status}`)
+    if (!res.ok) throw new Error(t('OpenRouter /models devolvió {status}', { status: res.status }))
     const json = (await res.json()) as {
       data?: {
         id: string
@@ -150,7 +186,7 @@ export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
   async generateMessage(diff: string): Promise<string> {
     const raw = await this.chat(
       [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: withLanguage(SYSTEM_PROMPT) },
         { role: 'user', content: diff }
       ],
       300,
@@ -168,7 +204,7 @@ export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
   async generateNamedVersion(diff: string, signal?: AbortSignal): Promise<NamedVersion> {
     const raw = await this.chat(
       [
-        { role: 'system', content: NAMED_VERSION_PROMPT },
+        { role: 'system', content: withLanguage(NAMED_VERSION_PROMPT) },
         { role: 'user', content: diff }
       ],
       500,
@@ -186,7 +222,7 @@ export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
   async generateText(instruction: string, selection: string, before: string): Promise<string> {
     return this.chat(
       [
-        { role: 'system', content: WRITER_PROMPT },
+        { role: 'system', content: `${WRITER_PROMPT}\n- ${writerLanguageDefault()}` },
         { role: 'user', content: writerUserMessage(instruction, selection, before) }
       ],
       1000,
@@ -202,7 +238,7 @@ export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
   async transcribe(wavBase64: string, signal?: AbortSignal): Promise<string> {
     const raw = await this.chat(
       [
-        { role: 'system', content: TRANSCRIBE_PROMPT },
+        { role: 'system', content: transcribePrompt() },
         {
           role: 'user',
           content: [
@@ -246,7 +282,7 @@ export class OpenRouterProvider implements AiMessageProvider, AiTextProvider {
     const raw = json.choices?.[0]?.message?.content?.trim()
     if (!raw) {
       if (allowEmpty) return ''
-      throw new Error('El modelo devolvió una respuesta vacía')
+      throw new Error(t('El modelo devolvió una respuesta vacía'))
     }
     return raw
   }
@@ -297,7 +333,7 @@ export function mapAiError(e: unknown): Error {
   // "No endpoints found"). Es el motivo más común de este boundary.
   if (lower.includes('404') || lower.includes('no endpoints found')) {
     return new Error(
-      'La sugerencia de IA no está disponible: el modelo configurado ya no existe en OpenRouter. Revisá el modelo en Ajustes → IA.'
+      t('La sugerencia de IA no está disponible: el modelo configurado ya no existe en OpenRouter. Revisá el modelo en Ajustes → IA.')
     )
   }
 
@@ -309,7 +345,7 @@ export function mapAiError(e: unknown): Error {
     lower.includes('auth')
   ) {
     return new Error(
-      'La sugerencia de IA no está disponible: la API key de OpenRouter fue rechazada. Revisá la API key en Ajustes → IA.'
+      t('La sugerencia de IA no está disponible: la API key de OpenRouter fue rechazada. Revisá la API key en Ajustes → IA.')
     )
   }
 
@@ -321,13 +357,13 @@ export function mapAiError(e: unknown): Error {
     lower.includes('fetch failed')
   ) {
     return new Error(
-      'La sugerencia de IA no está disponible: no se pudo contactar a OpenRouter. Probá de nuevo en un momento.'
+      t('La sugerencia de IA no está disponible: no se pudo contactar a OpenRouter. Probá de nuevo en un momento.')
     )
   }
 
   // Cualquier otro fallo: genérico, sin filtrar el crudo del proveedor.
   return new Error(
-    'La sugerencia de IA no está disponible en este momento. Podés escribir el nombre y la descripción a mano.'
+    t('La sugerencia de IA no está disponible en este momento. Podés escribir el nombre y la descripción a mano.')
   )
 }
 
@@ -345,14 +381,16 @@ export async function getOpenRouterUsage(key: string): Promise<AiUsage> {
   } catch (e) {
     throw new Error(
       ctrl.signal.aborted
-        ? 'OpenRouter no respondió (timeout de 10s)'
-        : `No se pudo contactar OpenRouter: ${(e as Error).message}`
+        ? t('OpenRouter no respondió (timeout de 10s)')
+        : t('No se pudo contactar OpenRouter: {error}', { error: (e as Error).message })
     )
   } finally {
     clearTimeout(timer)
   }
   if (!res.ok) {
-    throw new Error(`OpenRouter /auth/key devolvió ${res.status}: ${await res.text()}`)
+    throw new Error(
+      t('OpenRouter /auth/key devolvió {status}: {body}', { status: res.status, body: await res.text() })
+    )
   }
   const j = (await res.json()) as {
     data?: { label?: string; usage?: number; limit?: number | null }

@@ -1,5 +1,6 @@
 import { BrowserWindow, globalShortcut, ipcMain, screen, session } from 'electron'
 import { IPC, type DictationCommand, type DictationStatus } from '@shared/ipc'
+import { t } from '@shared/i18n'
 import { shortcutDef, shortcutLabel } from '@shared/shortcuts'
 
 /**
@@ -170,19 +171,23 @@ export function setupDictation(
     switch (status?.state) {
       case 'listening':
         recording = true
-        showOverlay('listening', status.message || 'Escuchando…', `${acceleratorLabel()} para terminar`)
+        showOverlay(
+          'listening',
+          status.message || t('Escuchando…'),
+          t('{shortcut} para terminar', { shortcut: acceleratorLabel() })
+        )
         break
       case 'transcribing':
         recording = false
-        showOverlay('transcribing', status.message || 'Transcribiendo…')
+        showOverlay('transcribing', status.message || t('Transcribiendo…'))
         break
       case 'done':
         recording = false
-        showOverlay('done', status.message || 'Listo', '', 2200)
+        showOverlay('done', status.message || t('Listo'), '', 2200)
         break
       case 'error':
         recording = false
-        showOverlay('error', status.message || 'No se pudo dictar', '', 4500)
+        showOverlay('error', status.message || t('No se pudo dictar'), '', 4500)
         break
       default:
         recording = false

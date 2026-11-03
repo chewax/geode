@@ -1,4 +1,5 @@
 import type { GeodePlugin } from '../types'
+import { t } from '@shared/i18n'
 
 /** Fecha de hoy en formato ISO corto (YYYY-MM-DD). */
 function isoDate(): string {
@@ -11,19 +12,23 @@ function isoDate(): string {
  */
 export const insertDatePlugin: GeodePlugin = {
   id: 'insert-date',
-  name: 'Insertar fecha',
-  description: 'Inserta la fecha (y hora) de hoy en el cursor desde la paleta',
+  get name() {
+    return t('Insertar fecha')
+  },
+  get description() {
+    return t('Inserta la fecha (y hora) de hoy en el cursor desde la paleta')
+  },
   activate(ctx) {
     ctx.commands.register({
       id: 'insert-date.today',
-      title: 'Insertar fecha de hoy (YYYY-MM-DD)',
-      category: 'Editor',
+      title: t('Insertar fecha de hoy (YYYY-MM-DD)'),
+      category: t('Editor'),
       run: () => ctx.editor.insertAtCursor(isoDate())
     })
     ctx.commands.register({
       id: 'insert-date.datetime',
-      title: 'Insertar fecha y hora',
-      category: 'Editor',
+      title: t('Insertar fecha y hora'),
+      category: t('Editor'),
       run: () => ctx.editor.insertAtCursor(new Date().toLocaleString())
     })
   }

@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { GitBranch } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 interface ConfirmDeleteBranchDialogProps {
   /** Nombre de la rama que se va a borrar. */
@@ -47,29 +48,30 @@ export function ConfirmDeleteBranchDialog({
         }}
       >
         <h2>
-          <GitBranch size={18} /> ¿Borrar la rama &quot;{name}&quot;?
+          <GitBranch size={18} /> {t('¿Borrar la rama "{name}"?', { name })}
         </h2>
         {merged ? (
           <p className="modal-sub">
-            La rama ya está fusionada: se puede descartar sin perder versiones.
+            {t('La rama ya está fusionada: se puede descartar sin perder versiones.')}
           </p>
         ) : (
           <p className="modal-sub">
-            Esta rama tiene versiones que no están en su base. Si la borrás, esas versiones se
-            pierden.
+            {t(
+              'Esta rama tiene versiones que no están en su base. Si la borrás, esas versiones se pierden.'
+            )}
           </p>
         )}
         {error && <p className="modal-error">{error}</p>}
         <div className="modal-actions">
           {/* Foco por defecto en la acción no destructiva. */}
           <button autoFocus onClick={onClose}>
-            Cancelar
+            {t('Cancelar')}
           </button>
           {merged ? (
-            <button onClick={onConfirm}>Borrar rama</button>
+            <button onClick={onConfirm}>{t('Borrar rama')}</button>
           ) : (
             <button className="danger" onClick={onConfirm}>
-              Borrar rama
+              {t('Borrar rama')}
             </button>
           )}
         </div>

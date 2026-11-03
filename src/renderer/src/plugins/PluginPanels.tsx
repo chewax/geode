@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import type { PluginHost } from './host'
 import type { BridgeMessage, ExternalPanelDef } from './types'
 import { iconByName } from './iconByName'
+import { t } from '@shared/i18n'
 
 /**
  * Panel de un plugin EXTERNO: su UI se renderiza DENTRO de su iframe (aislado). El
@@ -104,7 +105,7 @@ function ExternalPanel({
           {iconByName(def.icon, 14)}
           {def.title}
         </span>
-        <button className="icon-btn" title="Cerrar panel" onClick={() => host.togglePanel(def.id)}>
+        <button className="icon-btn" title={t('Cerrar panel')} onClick={() => host.togglePanel(def.id)}>
           <X size={14} />
         </button>
       </header>
@@ -136,7 +137,7 @@ export function PluginPanels({ host }: { host: PluginHost }): JSX.Element | null
             </span>
             <button
               className="icon-btn"
-              title="Cerrar panel"
+              title={t('Cerrar panel')}
               onClick={() => host.togglePanel(panel.id)}
             >
               <X size={14} />

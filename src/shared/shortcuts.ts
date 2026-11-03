@@ -9,6 +9,7 @@
  *
  * Lógica pura (sin DOM ni Electron) para poder testearla y usarla en ambos lados.
  */
+import { t } from './i18n'
 
 /** Dónde actúa el atajo: en todo el sistema, en la ventana de Geode o dentro del editor. */
 export type ShortcutScope = 'global' | 'app' | 'editor'
@@ -17,6 +18,7 @@ export type ShortcutId =
   | 'dictation'
   | 'saveVersion'
   | 'commandPalette'
+  | 'quickOpen'
   | 'search'
   | 'dailyNote'
   | 'splitRight'
@@ -35,19 +37,23 @@ export interface ShortcutDef {
   default: string
 }
 
-/** Catálogo de atajos reasignables, en el orden en que se muestran. */
+/**
+ * Catálogo de atajos reasignables, en el orden en que se muestran. Los títulos
+ * son getters: se traducen al usarlos, no al importar el módulo.
+ */
 export const SHORTCUTS: readonly ShortcutDef[] = [
-  { id: 'dictation', title: 'Dictar (empezar / terminar)', scope: 'global', default: 'CommandOrControl+Alt+Space' },
-  { id: 'saveVersion', title: 'Guardar versión', scope: 'app', default: 'CommandOrControl+S' },
-  { id: 'commandPalette', title: 'Paleta de comandos', scope: 'app', default: 'CommandOrControl+P' },
-  { id: 'search', title: 'Buscar en todas las notas', scope: 'app', default: 'CommandOrControl+Shift+F' },
-  { id: 'dailyNote', title: 'Abrir la nota de hoy', scope: 'app', default: 'CommandOrControl+Shift+D' },
-  { id: 'splitRight', title: 'Dividir editor a la derecha', scope: 'app', default: 'CommandOrControl+\\' },
-  { id: 'aiPrompt', title: 'Pedirle a la IA', scope: 'editor', default: 'CommandOrControl+K' },
-  { id: 'bold', title: 'Negrita', scope: 'editor', default: 'CommandOrControl+B' },
-  { id: 'italic', title: 'Cursiva', scope: 'editor', default: 'CommandOrControl+I' },
-  { id: 'strikethrough', title: 'Tachado', scope: 'editor', default: 'CommandOrControl+Shift+X' },
-  { id: 'inlineCode', title: 'Código en línea', scope: 'editor', default: 'CommandOrControl+E' }
+  { id: 'dictation', get title() { return t('Dictar (empezar / terminar)') }, scope: 'global', default: 'CommandOrControl+Alt+Space' },
+  { id: 'saveVersion', get title() { return t('Guardar versión') }, scope: 'app', default: 'CommandOrControl+S' },
+  { id: 'commandPalette', get title() { return t('Paleta de comandos') }, scope: 'app', default: 'CommandOrControl+P' },
+  { id: 'quickOpen', get title() { return t('Abrir nota por nombre') }, scope: 'app', default: 'CommandOrControl+O' },
+  { id: 'search', get title() { return t('Buscar en todas las notas') }, scope: 'app', default: 'CommandOrControl+Shift+F' },
+  { id: 'dailyNote', get title() { return t('Abrir la nota de hoy') }, scope: 'app', default: 'CommandOrControl+Shift+D' },
+  { id: 'splitRight', get title() { return t('Dividir editor a la derecha') }, scope: 'app', default: 'CommandOrControl+\\' },
+  { id: 'aiPrompt', get title() { return t('Pedirle a la IA') }, scope: 'editor', default: 'CommandOrControl+K' },
+  { id: 'bold', get title() { return t('Negrita') }, scope: 'editor', default: 'CommandOrControl+B' },
+  { id: 'italic', get title() { return t('Cursiva') }, scope: 'editor', default: 'CommandOrControl+I' },
+  { id: 'strikethrough', get title() { return t('Tachado') }, scope: 'editor', default: 'CommandOrControl+Shift+X' },
+  { id: 'inlineCode', get title() { return t('Código en línea') }, scope: 'editor', default: 'CommandOrControl+E' }
 ]
 
 /** Mapa id → atajo efectivo (accelerator). */
@@ -139,20 +145,20 @@ function split(accel: string): { mods: Modifier[]; key: string } {
 }
 
 /**
- * Valida un atajo para un ámbito. Devuelve un mensaje en español si no sirve,
+ * Valida un atajo para un ámbito. Devuelve un mensaje (traducido) si no sirve,
  * o null si está bien.
  */
 export function validateShortcut(accel: string, scope: ShortcutScope): string | null {
   const norm = normalizeAccelerator(accel)
-  if (!norm) return 'Esa combinación no se reconoce.'
+  if (!norm) return t('Esa combinación no se reconoce.')
   const { mods, key } = split(norm)
   const isFn = /^F\d+$/.test(key)
   const strong = mods.some((m) => m !== 'Shift')
   if (!strong && !isFn) {
-    return 'Usá al menos Ctrl, Alt o Cmd: una tecla sola chocaría con la escritura.'
+    return t('Usá al menos Ctrl, Alt o Cmd: una tecla sola chocaría con la escritura.')
   }
   if (scope === 'global' && !strong) {
-    return 'Un atajo global necesita Ctrl, Alt o Cmd para no robarle teclas a otras apps.'
+    return t('Un atajo global necesita Ctrl, Alt o Cmd para no robarle teclas a otras apps.')
   }
   return null
 }
@@ -261,7 +267,7 @@ export function shortcutLabel(accel: string, isMac: boolean): string {
     ? { CommandOrControl: 'Cmd', Control: 'Ctrl', Alt: 'Option', Shift: 'Shift', Super: 'Cmd' }
     : { CommandOrControl: 'Ctrl', Control: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Super: 'Super' }
   const keyName =
-    key === 'Space' ? 'Espacio'
+    key === 'Space' ? t('Espacio')
       : key === 'Plus' ? '+'
         : key === 'Up' ? '↑' : key === 'Down' ? '↓' : key === 'Left' ? '←' : key === 'Right' ? '→'
           : key === 'Escape' ? 'Esc'

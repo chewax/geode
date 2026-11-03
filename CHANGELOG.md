@@ -7,6 +7,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Agregado
+- **Interfaz en inglés**: Ajustes → General → Idioma (o el del sistema). La IA responde en el idioma elegido.
+- **Abrir nota por nombre** (Ctrl+O, reasignable): búsqueda difusa, recientes y favoritas primero; crea la nota si no existe.
+- **Fórmulas matemáticas** (`$…$` y `$$…$$`) con KaTeX, como plugin integrado que se puede desactivar.
+- **Notas al pie** (`[^1]`).
+- **Búsqueda por propiedades**: `estado:pendiente`, `cliente:"Acme"`, `fecha:>2026-01-01`, `prioridad:` y negación con `-`.
+- **Exportar a PDF** una nota, con el mismo dibujo que la vista previa.
+- **Favoritas** por bóveda, en el menú del explorador, la paleta y la barra lateral.
 - **Memoria para IA (MCP)**: servidor MCP incluido para que Claude, Cursor u otros asistentes usen la bóveda como memoria (buscar, leer, escribir, editar, agregar e historial). Cada escritura de la IA es una versión con su propio autor; se configura desde Ajustes → Memoria para IA.
 - **Organizar con IA**: el servidor MCP suma `move_note` (mover o renombrar notas y carpetas actualizando los enlaces), `archive_note` (archivar en lugar de borrar), `list_tags`, `backlinks` y la búsqueda por `#etiqueta`.
 - Candado entre procesos por bóveda (`.geode/write.lock`): la app, los servidores MCP y el sync nunca escriben el repo a la vez.
@@ -34,6 +41,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Licencia: el proyecto pasa a publicarse bajo **MPL 2.0**.
 
 ### Corregido
+- Viajar en el tiempo con notas abiertas que todavía no existían ya no registra errores en la consola.
 - Los colores hexadecimales (`#fff`, `#1e1e2e`) ya no se cuentan como etiquetas.
 - Las notas con un punto en el nombre («Plan v1.0») se resuelven bien como destino de enlaces.
 - Los enlaces entrantes se actualizan después de renombrar.

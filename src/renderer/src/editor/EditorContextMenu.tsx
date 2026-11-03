@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n'
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { createPortal } from 'react-dom'
@@ -174,23 +175,23 @@ export function EditorContextMenu({ view, at, onClose, onCreateLinkedNote }: Edi
         {!readOnly && (
           <>
             {item(
-              'Crear nota enlazada',
+              t('Crear nota enlazada'),
               <FilePlus2 size={14} />,
               createLinked,
               canLink,
               undefined,
               canLink
-                ? 'Convierte la selección en un enlace [[…]] y crea esa nota'
-                : 'Seleccioná una palabra o frase (de una sola línea) para crear una nota enlazada'
+                ? t('Convierte la selección en un enlace [[…]] y crea esa nota')
+                : t('Seleccioná una palabra o frase (de una sola línea) para crear una nota enlazada')
             )}
             <li className="ctx-sep" />
-            {item('Cortar', <Scissors size={14} />, cut, hasSel, `${MOD}X`)}
+            {item(t('Cortar'), <Scissors size={14} />, cut, hasSel, `${MOD}X`)}
           </>
         )}
-        {item('Copiar', <Copy size={14} />, copy, hasSel, `${MOD}C`)}
-        {!readOnly && item('Pegar', <ClipboardPaste size={14} />, paste, true, `${MOD}V`)}
+        {item(t('Copiar'), <Copy size={14} />, copy, hasSel, `${MOD}C`)}
+        {!readOnly && item(t('Pegar'), <ClipboardPaste size={14} />, paste, true, `${MOD}V`)}
         <li className="ctx-sep" />
-        {item('Seleccionar todo', <TextSelect size={14} />, selectAll, view.state.doc.length > 0, `${MOD}A`)}
+        {item(t('Seleccionar todo'), <TextSelect size={14} />, selectAll, view.state.doc.length > 0, `${MOD}A`)}
       </ul>
     </div>,
     document.body

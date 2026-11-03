@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { HelpCircle, Settings as SettingsIcon } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 export interface ActivityBarProps {
   /** Abre el diálogo de ajustes. */
@@ -17,7 +18,7 @@ export interface ActivityBarProps {
  */
 export function ActivityBar({ onOpenSettings, onShowTour }: ActivityBarProps): JSX.Element {
   return (
-    <nav className="activity-bar" aria-label="Barra de actividad">
+    <nav className="activity-bar" aria-label={t('Barra de actividad')}>
       {/* Zona superior: reservada para conmutadores de vista (fases próximas). */}
       <div className="activity-bar-top" />
 
@@ -25,16 +26,16 @@ export function ActivityBar({ onOpenSettings, onShowTour }: ActivityBarProps): J
       <div className="activity-bar-bottom">
         <button
           className="activity-btn"
-          title="Ver el recorrido guiado"
-          aria-label="Ver el recorrido guiado"
+          title={t('Ver el recorrido guiado')}
+          aria-label={t('Ver el recorrido guiado')}
           onClick={onShowTour}
         >
           <HelpCircle size={20} />
         </button>
         <button
           className="activity-btn"
-          title="Ajustes"
-          aria-label="Ajustes"
+          title={t('Ajustes')}
+          aria-label={t('Ajustes')}
           onClick={onOpenSettings}
         >
           <SettingsIcon size={20} />

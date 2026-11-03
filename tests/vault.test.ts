@@ -129,4 +129,15 @@ describe('VaultService — bóvedas de Obsidian', () => {
       { tag: 'trabajo/urgente', count: 1 }
     ])
   })
+
+  it('search filtra por propiedades y combina con texto', async () => {
+    await writeFile(join(dir, 'P1.md'), '---\nestado: pendiente\nprioridad: 3\n---\nLlamar al cliente')
+    await writeFile(join(dir, 'P2.md'), '---\nestado: hecho\nprioridad: 1\n---\nLlamar al proveedor')
+    await writeFile(join(dir, 'P3.md'), 'Sin propiedades, pero dice estado pendiente')
+    const solo = await vault.search('estado:pendiente')
+    expect(solo.map((r) => r.path)).toEqual(['P1.md'])
+    expect(solo[0].matches[0]).toMatchObject({ line: 1, text: 'estado:' })
+    expect((await vault.search('llamar -estado:pendiente')).map((r) => r.path)).toEqual(['P2.md'])
+    expect((await vault.search('prioridad:>2 cliente')).map((r) => r.path)).toEqual(['P1.md'])
+  })
 })

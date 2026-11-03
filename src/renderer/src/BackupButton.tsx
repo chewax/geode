@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { Cloud, CloudOff, CloudUpload, RefreshCw } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 /**
  * Botón de respaldo persistente de la status bar (BACKUP-01/04). Absorbe el
@@ -57,24 +58,24 @@ export function BackupButton({
   switch (kind) {
     case 'respaldando':
       icon = <RefreshCw size={14} className="spin" style={{ color: 'var(--accent)' }} />
-      text = 'Respaldando…'
+      text = t('Respaldando…')
       break
     case 'error':
       icon = <CloudOff size={14} className="st-warn" />
-      text = 'No se pudo respaldar'
+      text = t('No se pudo respaldar')
       break
     case 'al-dia':
       icon = <Cloud size={14} className="st-ok" />
-      text = 'Todo en la nube'
+      text = t('Todo en la nube')
       break
     case 'sin-subir':
       // Conectado pero con cambios sin subir: estado honesto, nunca "a salvo".
       icon = <CloudUpload size={14} />
-      text = 'Sin subir'
+      text = t('Sin subir')
       break
     default:
       icon = <Cloud size={14} className="st-off" />
-      text = 'Sin respaldo'
+      text = t('Sin respaldo')
   }
 
   // Sin respaldo o error → reabre el wizard; respaldada → fuerza una copia
@@ -97,33 +98,32 @@ export function BackupButton({
       {pushCount > 0 && <span className="push-badge">{pushCount}</span>}
       <span className="status-pop">
         <span className="pop-title">
-          <Cloud size={13} /> Respaldo en la nube
+          <Cloud size={13} /> {t('Respaldo en la nube')}
         </span>
         {kind === 'error' ? (
           // Estado "error": mostramos la copy humana del fallo (BACKUP-05) e
           // invitamos a reintentar. Nunca el mensaje crudo de la API.
           <span className="pop-note st-warn">
-            {failedMessage ??
-              'No se pudo respaldar ahora. Tocá para volver a intentarlo.'}
+            {failedMessage ?? t('No se pudo respaldar ahora. Tocá para volver a intentarlo.')}
           </span>
         ) : backedUp ? (
           <>
             <span className="pop-row">
-              <span>Cuenta</span>
+              <span>{t('Cuenta')}</span>
               <b>{login ?? '—'}</b>
             </span>
             <span className="pop-row">
-              <span>Sin respaldar</span>
+              <span>{t('Sin respaldar')}</span>
               <b>{pushCount}</b>
             </span>
             <span className="pop-row">
-              <span>Copia automática</span>
-              <b>{autoPush ? 'activada' : 'desactivada'}</b>
+              <span>{t('Copia automática')}</span>
+              <b>{autoPush ? t('activada') : t('desactivada')}</b>
             </span>
           </>
         ) : (
           <span className="pop-note">
-            Todavía sin respaldo. Tocá para respaldar tu cuaderno en la nube.
+            {t('Todavía sin respaldo. Tocá para respaldar tu cuaderno en la nube.')}
           </span>
         )}
       </span>

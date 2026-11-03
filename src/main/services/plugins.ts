@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { HOST_API_VERSION } from '@shared/ipc'
 import type { InstalledPlugin, PluginManifest } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 /**
  * Plugins externos (ver docs/PLUGINS.md y docs/PLUGINS-ARQUITECTURA.md).
@@ -54,20 +55,25 @@ function compatibilityError(manifest: PluginManifest): string | null {
   const apiVersion = manifest.apiVersion as unknown
   if (apiVersion !== undefined) {
     if (typeof apiVersion !== 'number' || !Number.isInteger(apiVersion) || apiVersion < 1) {
-      return `apiVersion inválido: se espera un entero ≥ 1 (recibido ${JSON.stringify(apiVersion)})`
+      return t('apiVersion inválido: se espera un entero ≥ 1 (recibido {value})', { value: JSON.stringify(apiVersion) })
     }
     if (apiVersion > HOST_API_VERSION) {
-      return `Requiere API de plugins v${apiVersion}; esta versión de Geode soporta v${HOST_API_VERSION}`
+      return t('Requiere API de plugins v{required}; esta versión de Geode soporta v{supported}', {
+        required: apiVersion,
+        supported: HOST_API_VERSION
+      })
     }
   }
   const minAppVersion = manifest.minAppVersion as unknown
   if (minAppVersion !== undefined) {
     if (typeof minAppVersion !== 'string') {
-      return `minAppVersion inválido: se espera una cadena "x.y.z" (recibido ${JSON.stringify(minAppVersion)})`
+      return t('minAppVersion inválido: se espera una cadena "x.y.z" (recibido {value})', {
+        value: JSON.stringify(minAppVersion)
+      })
     }
     const appVersion = app.getVersion()
     if (compareSemver(minAppVersion, appVersion) > 0) {
-      return `Requiere Geode ≥ ${minAppVersion} (versión actual ${appVersion})`
+      return t('Requiere Geode ≥ {required} (versión actual {current})', { required: minAppVersion, current: appVersion })
     }
   }
   return null
@@ -99,7 +105,7 @@ export async function listPlugins(
           manifest: { ...fallbackManifest(entry.name), ...manifest },
           dir: pdir,
           enabled: false,
-          error: 'Manifiesto incompleto: faltan id, name o main'
+          error: t('Manifiesto incompleto: faltan id, name o main')
         })
         continue
       }
@@ -118,7 +124,7 @@ export async function listPlugins(
         manifest: fallbackManifest(entry.name),
         dir: pdir,
         enabled: false,
-        error: `No se pudo leer plugin.json: ${(e as Error).message}`
+        error: t('No se pudo leer plugin.json: {error}', { error: (e as Error).message })
       })
     }
   }
@@ -141,12 +147,12 @@ export async function readPluginSource(
   enabledMap: Record<string, boolean>
 ): Promise<string> {
   const plugin = (await listPlugins(enabledMap)).find((p) => p.manifest.id === id)
-  if (!plugin) throw new Error(`Plugin no encontrado: ${id}`)
+  if (!plugin) throw new Error(t('Plugin no encontrado: {id}', { id }))
 
   // El entry no puede salir de la carpeta del plugin (path traversal).
   const main = plugin.manifest.main
   if (isAbsolute(main) || main.split(/[\\/]/).includes('..')) {
-    throw new Error('El campo "main" del manifiesto no puede ser absoluto ni salir de la carpeta')
+    throw new Error(t('El campo "main" del manifiesto no puede ser absoluto ni salir de la carpeta'))
   }
   return readFile(join(plugin.dir, main), 'utf8')
 }

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 export interface SidebarSectionProps {
   /** Identificador estable; sirve de clave de persistencia del colapso. */
@@ -57,7 +58,9 @@ export function SidebarSection({
           type="button"
           className="sidebar-section-toggle"
           aria-expanded={!collapsed}
-          aria-label={collapsed ? `Expandir sección ${title}` : `Colapsar sección ${title}`}
+          aria-label={
+            collapsed ? t('Expandir sección {title}', { title }) : t('Colapsar sección {title}', { title })
+          }
           onClick={toggle}
         >
           {collapsed ? (

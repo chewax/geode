@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { X, Cloud, CloudOff, RefreshCw } from 'lucide-react'
 import type { DeviceFlowStart } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 /**
  * Wizard de "Respaldar en la nube": guía al usuario a conectar (o crear) una
@@ -90,8 +91,8 @@ export function BackupWizard({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="nv-head">
-          <h2>Respaldar en la nube</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Cerrar">
+          <h2>{t('Respaldar en la nube')}</h2>
+          <button className="icon-btn" onClick={onClose} aria-label={t('Cerrar')}>
             <X size={16} />
           </button>
         </div>
@@ -99,10 +100,10 @@ export function BackupWizard({
         {device ? (
           // ── Device flow: código + espera, sin jerga OAuth ──
           <div className="device-box">
-            <p>Escribí este código en la página que se abrió para conectar tu cuenta:</p>
+            <p>{t('Escribí este código en la página que se abrió para conectar tu cuenta:')}</p>
             <div className="device-code">{device.userCode}</div>
             <p className="hint">
-              <RefreshCw size={16} className="spin" /> Esperando que autorices…
+              <RefreshCw size={16} className="spin" /> {t('Esperando que autorices…')}
             </p>
           </div>
         ) : connected ? (
@@ -110,11 +111,11 @@ export function BackupWizard({
           <div className="device-box">
             {busy ? (
               <p>
-                <RefreshCw size={16} className="spin" /> Guardando tu primera copia en la nube…
+                <RefreshCw size={16} className="spin" /> {t('Guardando tu primera copia en la nube…')}
               </p>
             ) : (
               <button className="primary" autoFocus onClick={() => void runEnable()}>
-                <Cloud size={16} /> Reintentar
+                <Cloud size={16} /> {t('Reintentar')}
               </button>
             )}
           </div>
@@ -122,12 +123,14 @@ export function BackupWizard({
           // ── Elección de camino: cuenta existente o crear una gratis ──
           <div className="nv-body">
             <p className="modal-sub">
-              Para respaldar tu cuaderno necesitás una cuenta. Es gratis y solo vos podés ver tus
-              copias.
+              {t(
+                'Para respaldar tu cuaderno necesitás una cuenta. Es gratis y solo vos podés ver tus copias.'
+              )}
             </p>
             <p className="hint">
-              Usamos GitHub, un servicio gratuito y seguro para guardar tus copias. Tus cuadernos
-              quedan privados: solo vos los ves.
+              {t(
+                'Usamos GitHub, un servicio gratuito y seguro para guardar tus copias. Tus cuadernos quedan privados: solo vos los ves.'
+              )}
             </p>
 
             <div className="nv-actions">
@@ -137,11 +140,11 @@ export function BackupWizard({
                 disabled={connecting}
                 onClick={() => void connect()}
               >
-                {connecting ? <RefreshCw size={16} className="spin" /> : <Cloud size={16} />} Ya
-                tengo cuenta
+                {connecting ? <RefreshCw size={16} className="spin" /> : <Cloud size={16} />}{' '}
+                {t('Ya tengo cuenta')}
               </button>
               <button className="link-btn" onClick={() => void startSignup()}>
-                Crear una gratis
+                {t('Crear una gratis')}
               </button>
             </div>
 
@@ -149,15 +152,15 @@ export function BackupWizard({
               // La checklist permanece visible al volver del navegador (no se
               // desmonta): guía los 2 pasos y ofrece el CTA "Conectar cuenta".
               <div className="device-box">
-                <p>1. Creá tu cuenta gratis en la página que se abrió en tu navegador.</p>
-                <p>2. Cuando termines, volvé acá y tocá "Conectar cuenta".</p>
+                <p>{t('1. Creá tu cuenta gratis en la página que se abrió en tu navegador.')}</p>
+                <p>{t('2. Cuando termines, volvé acá y tocá "Conectar cuenta".')}</p>
                 <button
                   className="primary"
                   disabled={connecting}
                   onClick={() => void connect()}
                 >
                   {connecting ? <RefreshCw size={16} className="spin" /> : <Cloud size={16} />}{' '}
-                  Conectar cuenta
+                  {t('Conectar cuenta')}
                 </button>
               </div>
             )}

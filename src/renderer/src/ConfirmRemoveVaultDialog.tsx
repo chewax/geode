@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { JSX } from 'react'
 import { FolderX } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 interface ConfirmRemoveVaultDialogProps {
   /** Nombre visible de la bóveda que se da de baja. */
@@ -43,11 +44,12 @@ export function ConfirmRemoveVaultDialog({
         }}
       >
         <h2>
-          <FolderX size={18} /> ¿Quitar la bóveda &quot;{vaultName}&quot; de la lista?
+          <FolderX size={18} /> {t('¿Quitar la bóveda "{name}" de la lista?', { name: vaultName })}
         </h2>
         <p className="modal-sub">
-          Se saca del selector de bóvedas. Tus archivos y todo el historial quedan intactos en el
-          disco.
+          {t(
+            'Se saca del selector de bóvedas. Tus archivos y todo el historial quedan intactos en el disco.'
+          )}
         </p>
         <label className="remove-vault-check">
           <input
@@ -55,25 +57,26 @@ export function ConfirmRemoveVaultDialog({
             checked={fromDisk}
             onChange={(e) => setFromDisk(e.target.checked)}
           />
-          Eliminar también los archivos del disco
+          {t('Eliminar también los archivos del disco')}
         </label>
         {fromDisk && (
           <p className="modal-sub">
-            Se mueve a la papelera del sistema (recuperable). Se borra la carpeta completa, incluido
-            el historial de versiones.
+            {t(
+              'Se mueve a la papelera del sistema (recuperable). Se borra la carpeta completa, incluido el historial de versiones.'
+            )}
           </p>
         )}
         <div className="modal-actions">
           {/* Foco por defecto en la acción no destructiva. */}
           <button autoFocus onClick={onClose}>
-            Cancelar
+            {t('Cancelar')}
           </button>
           {fromDisk ? (
             <button className="danger" onClick={() => onConfirm(true)}>
-              Quitar y enviar a la papelera
+              {t('Quitar y enviar a la papelera')}
             </button>
           ) : (
-            <button onClick={() => onConfirm(false)}>Quitar de la lista</button>
+            <button onClick={() => onConfirm(false)}>{t('Quitar de la lista')}</button>
           )}
         </div>
       </div>

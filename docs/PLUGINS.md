@@ -168,6 +168,7 @@ const d = ctx.markdown.registerCodeBlock('progreso', (texto) => {
 - Si tu función lanza un error, la nota muestra «No se pudo dibujar el bloque…» con tu mensaje: usá mensajes claros en español.
 - Tenés 10 segundos para responder; después el bloque muestra un error.
 - El resultado se sanea: se permiten HTML y SVG (incluido `<style>` dentro del SVG), no scripts ni eventos.
+- **Lenguajes reservados para fórmulas:** `math` recibe los bloques `$$…$$` (y ` ```math `) y `math-inline` recibe las fórmulas `$…$` dentro del texto; lo que devuelvas para `math-inline` se muestra en línea. Geode los dibuja con KaTeX (plugin integrado «Fórmulas matemáticas»); si lo desactivás, tu plugin puede registrarlos (por ejemplo con MathJax).
 
 ### Eventos
 

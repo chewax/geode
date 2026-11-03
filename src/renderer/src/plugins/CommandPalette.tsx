@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import { Search } from 'lucide-react'
 import type { PluginHost } from './host'
 import type { Command } from './types'
+import { t } from '@shared/i18n'
 import { COMMAND_SHORTCUTS, labelOf, useShortcuts } from '../shortcuts'
 
 interface CommandPaletteProps {
@@ -62,13 +63,13 @@ export function CommandPalette({ host, onClose }: CommandPaletteProps): JSX.Elem
           <input
             ref={inputRef}
             value={query}
-            placeholder="Buscar un comando…"
+            placeholder={t('Buscar un comando…')}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
         <ul className="palette-list">
           {results.length === 0 ? (
-            <li className="palette-empty">Sin comandos para "{query}"</li>
+            <li className="palette-empty">{t('Sin comandos para «{query}»', { query })}</li>
           ) : (
             results.map((cmd, i) => (
               <CommandRow

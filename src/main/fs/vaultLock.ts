@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { mkdir, open, readFile, stat, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { t } from '@shared/i18n'
 
 /**
  * Candado ENTRE PROCESOS por bóveda (`.geode/write.lock`).
@@ -120,7 +121,7 @@ export async function withVaultLock<T>(
     }
     if (Date.now() > deadline) {
       if (opts.onTimeout === 'proceed') break
-      throw new Error('La bóveda está ocupada por otra operación; probá de nuevo en unos segundos')
+      throw new Error(t('La bóveda está ocupada por otra operación; probá de nuevo en unos segundos'))
     }
     await new Promise((r) => setTimeout(r, POLL_MS))
   }

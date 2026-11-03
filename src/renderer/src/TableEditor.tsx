@@ -14,6 +14,7 @@ import {
   Trash2
 } from 'lucide-react'
 import type { Align, MdTable } from '@shared/mdtable'
+import { t } from '@shared/i18n'
 
 export interface TableEditorProps {
   table: MdTable
@@ -34,16 +35,16 @@ function clone(t: MdTable): MdTable {
  * alineado en el mismo lugar de la nota (Ctrl+Z en el editor lo deshace).
  */
 export function TableEditor({ table, onSave, onClose }: TableEditorProps): JSX.Element {
-  const [t, setT] = useState<MdTable>(() => clone(table))
+  const [tbl, setTbl] = useState<MdTable>(() => clone(table))
   const gridRef = useRef<HTMLDivElement>(null)
-  const cols = t.header.length
+  const cols = tbl.header.length
 
   useEffect(() => {
     gridRef.current?.querySelector<HTMLInputElement>('input')?.focus()
   }, [])
 
   const update = (fn: (draft: MdTable) => void): void =>
-    setT((prev) => {
+    setTbl((prev) => {
       const next = clone(prev)
       fn(next)
       return next
@@ -67,7 +68,7 @@ export function TableEditor({ table, onSave, onClose }: TableEditorProps): JSX.E
     })
   const addCol = (at: number): void =>
     update((d) => {
-      d.header.splice(at, 0, `Columna ${d.header.length + 1}`)
+      d.header.splice(at, 0, t('Columna {n}', { n: d.header.length + 1 }))
       d.align.splice(at, 0, null)
       d.rows.forEach((r) => r.splice(at, 0, ''))
     })
@@ -95,13 +96,13 @@ export function TableEditor({ table, onSave, onClose }: TableEditorProps): JSX.E
   const onCellKey = (e: KeyboardEvent<HTMLInputElement>, row: number, col: number): void => {
     if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
       e.preventDefault()
-      if (row + 1 >= t.rows.length) addRow(t.rows.length)
+      if (row + 1 >= tbl.rows.length) addRow(tbl.rows.length)
       window.setTimeout(() => {
         gridRef.current?.querySelector<HTMLInputElement>(`input[data-cell="${row + 1}:${col}"]`)?.focus()
       }, 0)
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      onSave(t)
+      onSave(tbl)
     }
   }
 
@@ -115,38 +116,38 @@ export function TableEditor({ table, onSave, onClose }: TableEditorProps): JSX.E
         className="modal table-editor"
         role="dialog"
         aria-modal="true"
-        aria-label="Editar tabla"
+        aria-label={t('Editar tabla')}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose()
         }}
       >
         <h2>
-          <Table size={18} /> Editar tabla
+          <Table size={18} /> {t('Editar tabla')}
         </h2>
         <p className="modal-sub">
-          Enter baja a la celda de abajo · Ctrl+Enter aplica · los cambios se pueden deshacer con Ctrl+Z en la nota.
+          {t('Enter baja a la celda de abajo · Ctrl+Enter aplica · los cambios se pueden deshacer con Ctrl+Z en la nota.')}
         </p>
 
         <div className="te-scroll">
           <div className="te-grid" ref={gridRef} style={{ gridTemplateColumns: `28px repeat(${cols}, minmax(120px, 1fr))` }}>
             {/* Fila de controles de columna */}
             <span />
-            {t.header.map((_, c) => (
+            {tbl.header.map((_, c) => (
               <div key={`ctl-${c}`} className="te-colctl">
-                <button className="icon-btn" title="Alineación" onClick={() => cycleAlign(c)}>
-                  {AlignIcon(t.align[c])}
+                <button className="icon-btn" title={t('Alineación')} onClick={() => cycleAlign(c)}>
+                  {AlignIcon(tbl.align[c])}
                 </button>
-                <button className="icon-btn" title="Mover a la izquierda" disabled={c === 0} onClick={() => moveCol(c, -1)}>
+                <button className="icon-btn" title={t('Mover a la izquierda')} disabled={c === 0} onClick={() => moveCol(c, -1)}>
                   <ArrowLeft size={13} />
                 </button>
-                <button className="icon-btn" title="Mover a la derecha" disabled={c === cols - 1} onClick={() => moveCol(c, 1)}>
+                <button className="icon-btn" title={t('Mover a la derecha')} disabled={c === cols - 1} onClick={() => moveCol(c, 1)}>
                   <ArrowRight size={13} />
                 </button>
-                <button className="icon-btn" title="Agregar columna a la derecha" onClick={() => addCol(c + 1)}>
+                <button className="icon-btn" title={t('Agregar columna a la derecha')} onClick={() => addCol(c + 1)}>
                   <Columns3 size={13} />
                 </button>
-                <button className="icon-btn danger-ghost" title="Quitar columna" disabled={cols <= 1} onClick={() => delCol(c)}>
+                <button className="icon-btn danger-ghost" title={t('Quitar columna')} disabled={cols <= 1} onClick={() => delCol(c)}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -154,26 +155,26 @@ export function TableEditor({ table, onSave, onClose }: TableEditorProps): JSX.E
 
             {/* Encabezado */}
             <span className="te-rowno">#</span>
-            {t.header.map((h, c) => (
+            {tbl.header.map((h, c) => (
               <input
                 key={`h-${c}`}
-                className={`te-cell te-head align-${t.align[c] ?? 'left'}`}
+                className={`te-cell te-head align-${tbl.align[c] ?? 'left'}`}
                 data-cell={`-1:${c}`}
                 value={unescape(h)}
-                aria-label={`Encabezado de la columna ${c + 1}`}
+                aria-label={t('Encabezado de la columna {n}', { n: c + 1 })}
                 onChange={(e) => setCell(-1, c, e.target.value)}
                 onKeyDown={(e) => onCellKey(e, -1, c)}
               />
             ))}
 
             {/* Filas */}
-            {t.rows.map((row, r) => (
+            {tbl.rows.map((row, r) => (
               <RowCells
                 key={`r-${r}`}
                 row={row}
                 r={r}
-                total={t.rows.length}
-                align={t.align}
+                total={tbl.rows.length}
+                align={tbl.align}
                 unescape={unescape}
                 onChange={setCell}
                 onKey={onCellKey}
@@ -186,18 +187,18 @@ export function TableEditor({ table, onSave, onClose }: TableEditorProps): JSX.E
         </div>
 
         <div className="te-actions">
-          <button onClick={() => addRow(t.rows.length)}>
-            <Rows3 size={14} /> Agregar fila
+          <button onClick={() => addRow(tbl.rows.length)}>
+            <Rows3 size={14} /> {t('Agregar fila')}
           </button>
           <button onClick={() => addCol(cols)}>
-            <Columns3 size={14} /> Agregar columna
+            <Columns3 size={14} /> {t('Agregar columna')}
           </button>
         </div>
 
         <div className="modal-actions">
-          <button onClick={onClose}>Cancelar</button>
-          <button className="primary" onClick={() => onSave(t)}>
-            Aplicar
+          <button onClick={onClose}>{t('Cancelar')}</button>
+          <button className="primary" onClick={() => onSave(tbl)}>
+            {t('Aplicar')}
           </button>
         </div>
       </div>
@@ -223,16 +224,16 @@ function RowCells(props: {
       <div className="te-rowctl">
         <span className="te-rowno">{r + 1}</span>
         <div className="te-rowmenu">
-          <button className="icon-btn" title="Subir fila" disabled={r === 0} onClick={() => onMove(r, -1)}>
+          <button className="icon-btn" title={t('Subir fila')} disabled={r === 0} onClick={() => onMove(r, -1)}>
             <ArrowUp size={12} />
           </button>
-          <button className="icon-btn" title="Bajar fila" disabled={r === total - 1} onClick={() => onMove(r, 1)}>
+          <button className="icon-btn" title={t('Bajar fila')} disabled={r === total - 1} onClick={() => onMove(r, 1)}>
             <ArrowDown size={12} />
           </button>
-          <button className="icon-btn" title="Agregar fila debajo" onClick={() => onAdd(r + 1)}>
+          <button className="icon-btn" title={t('Agregar fila debajo')} onClick={() => onAdd(r + 1)}>
             <Rows3 size={12} />
           </button>
-          <button className="icon-btn danger-ghost" title="Quitar fila" onClick={() => onDelete(r)}>
+          <button className="icon-btn danger-ghost" title={t('Quitar fila')} onClick={() => onDelete(r)}>
             <Trash2 size={12} />
           </button>
         </div>
@@ -243,7 +244,7 @@ function RowCells(props: {
           className={`te-cell align-${align[c] ?? 'left'}`}
           data-cell={`${r}:${c}`}
           value={unescape(cell)}
-          aria-label={`Fila ${r + 1}, columna ${c + 1}`}
+          aria-label={t('Fila {row}, columna {col}', { row: r + 1, col: c + 1 })}
           onChange={(e) => onChange(r, c, e.target.value)}
           onKeyDown={(e) => onKey(e, r, c)}
         />

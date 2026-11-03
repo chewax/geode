@@ -6,6 +6,7 @@
  * clasifica y devuelve SOLO uno de 4 strings fijos, sin interpolar el crudo
  * (threat T-12-01 / T-12-03, ASVS V7 Information Disclosure).
  */
+import { t } from '@shared/i18n'
 
 /** Familia de fallo del respaldo; determina la copy y la superficie de la UI. */
 export type BackupErrorKind = 'name-taken' | 'auth' | 'offline' | 'unknown'
@@ -25,12 +26,14 @@ export class BackupError extends Error {
 }
 
 // Los 4 mensajes LOCKED de UI-SPEC.md:159-164. NO editar sin actualizar el spec.
-const MSG_OFFLINE =
-  'No hay internet. Tu cuaderno sigue guardado en este dispositivo; se respaldará cuando vuelva la conexión.'
-const MSG_AUTH = 'Se perdió la conexión con tu cuenta. Reconectá para seguir respaldando.'
-const MSG_NAME_TAKEN = 'Ya tenés un respaldo con ese nombre. Probá con otro nombre de cuaderno.'
-const MSG_UNKNOWN =
-  'No se pudo respaldar ahora. Tu cuaderno sigue guardado en este dispositivo; volvé a intentarlo en un momento.'
+// Son funciones (no constantes) para traducir al usarlas, nunca al importar.
+const msgOffline = (): string =>
+  t('No hay internet. Tu cuaderno sigue guardado en este dispositivo; se respaldará cuando vuelva la conexión.')
+const msgAuth = (): string => t('Se perdió la conexión con tu cuenta. Reconectá para seguir respaldando.')
+const msgNameTaken = (): string =>
+  t('Ya tenés un respaldo con ese nombre. Probá con otro nombre de cuaderno.')
+const msgUnknown = (): string =>
+  t('No se pudo respaldar ahora. Tu cuaderno sigue guardado en este dispositivo; volvé a intentarlo en un momento.')
 
 /** Códigos de error de red de Node (fetch de createRepo o transport de push). */
 const NETWORK_CODES = new Set(['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED'])
@@ -64,18 +67,18 @@ export function mapBackupError(e: unknown): BackupError {
 
   // 1. Red / sin internet
   if (NETWORK_CODES.has(err?.code ?? '') || /network|fetch failed|ENOTFOUND/i.test(msg)) {
-    return new BackupError('offline', MSG_OFFLINE)
+    return new BackupError('offline', msgOffline())
   }
 
   // 2. Status HTTP: campo de createRepo, HttpError de git, o texto (último recurso)
   const status = err?.status ?? err?.data?.statusCode ?? Number(/\b(4\d\d)\b/.exec(msg)?.[1] ?? 0)
   if (status === 401 || status === 403) {
-    return new BackupError('auth', MSG_AUTH)
+    return new BackupError('auth', msgAuth())
   }
   if (status === 422 || /already exists/i.test(msg)) {
-    return new BackupError('name-taken', MSG_NAME_TAKEN)
+    return new BackupError('name-taken', msgNameTaken())
   }
 
   // 3. Desconocido: genérico, sin filtrar texto de API
-  return new BackupError('unknown', MSG_UNKNOWN)
+  return new BackupError('unknown', msgUnknown())
 }

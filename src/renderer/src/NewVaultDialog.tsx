@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { CloudDownload, CloudOff, Plus, X, Lock, Globe, RefreshCw, Cloud } from 'lucide-react'
 import type { DeviceFlowStart, GithubRepoInfo, VaultInfo } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 /**
  * Diálogo de "Traer un cuaderno respaldado": traer un cuaderno respaldado en la
@@ -94,8 +95,8 @@ export function NewVaultDialog({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal newvault-modal" onClick={(e) => e.stopPropagation()}>
         <div className="nv-head">
-          <h2>Traer un cuaderno respaldado</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Cerrar">
+          <h2>{t('Traer un cuaderno respaldado')}</h2>
+          <button className="icon-btn" onClick={onClose} aria-label={t('Cerrar')}>
             <X size={16} />
           </button>
         </div>
@@ -103,20 +104,20 @@ export function NewVaultDialog({
         {!connected ? (
           <div className="nv-connect">
             <p className="modal-sub">
-              Para traer un cuaderno de la nube, conectá tu cuenta.
+              {t('Para traer un cuaderno de la nube, conectá tu cuenta.')}
             </p>
             {device ? (
               <div className="nv-device">
                 <p>
-                  Escribí este código en la página que se abrió:
+                  {t('Escribí este código en la página que se abrió:')}
                   <b className="nv-code"> {device.userCode}</b>
                 </p>
-                <p className="hint">Esperando autorización…</p>
+                <p className="hint">{t('Esperando autorización…')}</p>
               </div>
             ) : (
               <button className="primary" disabled={connecting} onClick={() => void connect()}>
-                {connecting ? <RefreshCw size={14} className="spin" /> : <Cloud size={14} />} Conectar mi
-                cuenta
+                {connecting ? <RefreshCw size={14} className="spin" /> : <Cloud size={14} />}{' '}
+                {t('Conectar mi cuenta')}
               </button>
             )}
           </div>
@@ -124,19 +125,19 @@ export function NewVaultDialog({
           <>
             <div className="nv-tabs">
               <button className={mode === 'clone' ? 'active' : ''} onClick={() => setMode('clone')}>
-                <CloudDownload size={14} /> Traer uno respaldado
+                <CloudDownload size={14} /> {t('Traer uno respaldado')}
               </button>
               <button className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}>
-                <Plus size={14} /> Crear cuaderno respaldado
+                <Plus size={14} /> {t('Crear cuaderno respaldado')}
               </button>
             </div>
 
             {mode === 'clone' ? (
               <div className="nv-body">
                 {!repos ? (
-                  <p className="plugin-empty">Buscando tus cuadernos respaldados…</p>
+                  <p className="plugin-empty">{t('Buscando tus cuadernos respaldados…')}</p>
                 ) : repos.length === 0 ? (
-                  <p className="plugin-empty">Todavía no tenés cuadernos respaldados en tu cuenta.</p>
+                  <p className="plugin-empty">{t('Todavía no tenés cuadernos respaldados en tu cuenta.')}</p>
                 ) : (
                   <ul className="nv-repos">
                     {repos.map((r) => (
@@ -149,11 +150,11 @@ export function NewVaultDialog({
                         <span className="nv-repo-vis">
                           {r.private ? (
                             <>
-                              <Lock size={11} /> privado
+                              <Lock size={11} /> {t('privado')}
                             </>
                           ) : (
                             <>
-                              <Globe size={11} /> público
+                              <Globe size={11} /> {t('público')}
                             </>
                           )}
                         </span>
@@ -162,21 +163,21 @@ export function NewVaultDialog({
                   </ul>
                 )}
                 <div className="nv-actions">
-                  <button onClick={onClose}>Cancelar</button>
+                  <button onClick={onClose}>{t('Cancelar')}</button>
                   <button className="primary" disabled={!selected || busy} onClick={() => void doClone()}>
-                    {busy ? <RefreshCw size={14} className="spin" /> : <CloudDownload size={14} />} Traer y abrir
+                    {busy ? <RefreshCw size={14} className="spin" /> : <CloudDownload size={14} />} {t('Traer y abrir')}
                   </button>
                 </div>
-                <p className="hint">Vas a elegir una carpeta vacía en tu equipo donde guardar la copia.</p>
+                <p className="hint">{t('Vas a elegir una carpeta vacía en tu equipo donde guardar la copia.')}</p>
               </div>
             ) : (
               <div className="nv-body">
-                <label className="nv-label">Nombre del cuaderno</label>
+                <label className="nv-label">{t('Nombre del cuaderno')}</label>
                 <input
                   className="nv-input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="mi-cuaderno"
+                  placeholder={t('mi-cuaderno')}
                   autoFocus
                 />
                 <label className="nv-check">
@@ -185,15 +186,15 @@ export function NewVaultDialog({
                     checked={isPrivate}
                     onChange={(e) => setIsPrivate(e.target.checked)}
                   />
-                  Privado (solo vos lo ves)
+                  {t('Privado (solo vos lo ves)')}
                 </label>
                 <div className="nv-actions">
-                  <button onClick={onClose}>Cancelar</button>
+                  <button onClick={onClose}>{t('Cancelar')}</button>
                   <button className="primary" disabled={!name.trim() || busy} onClick={() => void doCreate()}>
-                    {busy ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />} Crear y abrir
+                    {busy ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />} {t('Crear y abrir')}
                   </button>
                 </div>
-                <p className="hint">Vas a elegir dónde guardar el cuaderno en tu equipo.</p>
+                <p className="hint">{t('Vas a elegir dónde guardar el cuaderno en tu equipo.')}</p>
               </div>
             )}
           </>

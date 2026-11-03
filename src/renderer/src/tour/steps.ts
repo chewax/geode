@@ -1,5 +1,6 @@
 import { PencilLine, Save, Cloud, History } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { t } from '@shared/i18n'
 
 /**
  * Modelo de los 4 pasos del recorrido guiado de primera vez (Capa 0):
@@ -27,34 +28,53 @@ export interface TourStep {
  * Los 4 pasos, en orden. Copy verbatim de la UI-SPEC (LOCKED). El paso
  * "respaldo" solo describe el botón: NO afirma que el cuaderno ya esté a salvo
  * (respeta STAT-01, copy instructiva en condicional futuro).
+ *
+ * `title` y `body` son getters: el idioma se fija después de cargar los módulos,
+ * así que la traducción se resuelve al leerlos (en render), nunca al importar.
  */
 export const TOUR_STEPS: TourStep[] = [
   {
     anchor: 'escribir',
     icon: PencilLine,
-    title: 'Escribí sin miedo',
-    body: 'Este es tu cuaderno. Escribí lo que quieras acá: se guarda solo y nunca vas a perder nada.',
+    get title(): string {
+      return t('Escribí sin miedo')
+    },
+    get body(): string {
+      return t('Este es tu cuaderno. Escribí lo que quieras acá: se guarda solo y nunca vas a perder nada.')
+    },
     placement: 'bottom'
   },
   {
     anchor: 'guardar',
     icon: Save,
-    title: 'Marcá una versión',
-    body: 'Cuando algo te importe, guardá una versión desde acá. Vas a poder volver a este momento más adelante.',
+    get title(): string {
+      return t('Marcá una versión')
+    },
+    get body(): string {
+      return t('Cuando algo te importe, guardá una versión desde acá. Vas a poder volver a este momento más adelante.')
+    },
     placement: 'top'
   },
   {
     anchor: 'respaldo',
     icon: Cloud,
-    title: 'Respaldá en la nube',
-    body: 'Desde este botón guardás una copia de seguridad en la nube, por si algo le pasa a este dispositivo.',
+    get title(): string {
+      return t('Respaldá en la nube')
+    },
+    get body(): string {
+      return t('Desde este botón guardás una copia de seguridad en la nube, por si algo le pasa a este dispositivo.')
+    },
     placement: 'top'
   },
   {
     anchor: 'historial',
     icon: History,
-    title: 'Volvé cuando quieras',
-    body: 'Acá está el historial de tu cuaderno. Podés mirar los cambios y volver a cualquier versión anterior.',
+    get title(): string {
+      return t('Volvé cuando quieras')
+    },
+    get body(): string {
+      return t('Acá está el historial de tu cuaderno. Podés mirar los cambios y volver a cualquier versión anterior.')
+    },
     placement: 'left'
   }
 ]

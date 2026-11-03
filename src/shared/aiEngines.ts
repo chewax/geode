@@ -1,8 +1,10 @@
 import type { CliEngine } from './ipc'
+import { t } from './i18n'
 
 /**
  * Datos de los CLIs de IA que Geode sabe usar (compartidos entre el main, que
  * los ejecuta, y los Ajustes, que muestran cómo instalarlos e iniciar sesión).
+ * Los textos visibles son getters: se traducen al usarlos, no al importar.
  */
 export interface CliSpec {
   /** Ejecutable en el PATH. */
@@ -43,11 +45,11 @@ export const CLI_SPECS: Record<CliEngine, CliSpec> = {
     program: 'Claude Code',
     install: 'npm install -g @anthropic-ai/claude-code',
     login: 'claude',
-    plan: 'tu suscripción a Claude (Pro o Max)',
+    get plan() { return t('tu suscripción a Claude (Pro o Max)') },
     models: [
-      { id: 'sonnet', label: 'Sonnet (equilibrado)' },
-      { id: 'opus', label: 'Opus (el más capaz)' },
-      { id: 'haiku', label: 'Haiku (el más rápido)' },
+      { id: 'sonnet', get label() { return t('Sonnet (equilibrado)') } },
+      { id: 'opus', get label() { return t('Opus (el más capaz)') } },
+      { id: 'haiku', get label() { return t('Haiku (el más rápido)') } },
       { id: 'fable', label: 'Fable' }
     ],
     modelExample: 'claude-sonnet-5-5'
@@ -58,7 +60,7 @@ export const CLI_SPECS: Record<CliEngine, CliSpec> = {
     program: 'Codex CLI',
     install: 'npm install -g @openai/codex',
     login: 'codex login',
-    plan: 'tu suscripción a ChatGPT (Plus, Pro o Business)',
+    get plan() { return t('tu suscripción a ChatGPT (Plus, Pro o Business)') },
     // Codex no tiene alias: los nombres cambian seguido, se escriben a mano.
     models: [],
     modelExample: 'gpt-5.5'
@@ -69,12 +71,12 @@ export const CLI_SPECS: Record<CliEngine, CliSpec> = {
     program: 'Gemini CLI',
     install: 'npm install -g @google/gemini-cli',
     login: 'gemini',
-    plan: 'tu cuenta de Google',
+    get plan() { return t('tu cuenta de Google') },
     models: [
-      { id: 'auto', label: 'Automático' },
-      { id: 'pro', label: 'Pro (el más capaz)' },
-      { id: 'flash', label: 'Flash (rápido)' },
-      { id: 'flash-lite', label: 'Flash-Lite (el más rápido)' }
+      { id: 'auto', get label() { return t('Automático') } },
+      { id: 'pro', get label() { return t('Pro (el más capaz)') } },
+      { id: 'flash', get label() { return t('Flash (rápido)') } },
+      { id: 'flash-lite', get label() { return t('Flash-Lite (el más rápido)') } }
     ],
     modelExample: 'gemini-2.5-pro'
   }

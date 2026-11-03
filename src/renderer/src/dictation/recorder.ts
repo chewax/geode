@@ -1,4 +1,5 @@
 import { DICTATION_SAMPLE_RATE, encodeWav, rms, toBase64 } from './wav'
+import { t } from '@shared/i18n'
 
 /** Grabación en curso: `stop` devuelve el audio como WAV base64 (o null si no hubo voz). */
 export interface Recording {
@@ -23,10 +24,10 @@ export async function startRecording(): Promise<Recording> {
     const name = (e as { name?: string })?.name
     throw new Error(
       name === 'NotFoundError'
-        ? 'No se encontró ningún micrófono.'
+        ? t('No se encontró ningún micrófono.')
         : name === 'NotAllowedError'
-          ? 'Geode no tiene permiso para usar el micrófono.'
-          : 'No se pudo abrir el micrófono.'
+          ? t('Geode no tiene permiso para usar el micrófono.')
+          : t('No se pudo abrir el micrófono.')
     )
   }
   const recorder = new MediaRecorder(stream)
@@ -56,7 +57,7 @@ export async function startRecording(): Promise<Recording> {
               seconds: (Date.now() - startedAt) / 1000
             })
           } catch {
-            reject(new Error('No se pudo procesar el audio grabado.'))
+            reject(new Error(t('No se pudo procesar el audio grabado.')))
           }
         }
         if (recorder.state !== 'inactive') recorder.stop()

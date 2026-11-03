@@ -9,6 +9,7 @@ import diff3Merge from 'diff3'
 import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
 import { isAttachmentPath } from '@shared/attachments'
 import { atomicWrite } from '../fs/atomic'
+import { t } from '@shared/i18n'
 import { withVaultLock } from '../fs/vaultLock'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
@@ -65,9 +66,10 @@ function cloudCopyPath(dir: string, filepath: string): string {
   const m = /^(.*?)(\.[^./\\]+)?$/.exec(filepath)
   const stem = m?.[1] ?? filepath
   const ext = m?.[2] ?? ''
-  let candidate = `${stem} (versión de la nube)${ext}`
+  const suffix = t('versión de la nube')
+  let candidate = `${stem} (${suffix})${ext}`
   for (let n = 2; fs.existsSync(join(dir, candidate)); n++) {
-    candidate = `${stem} (versión de la nube ${n})${ext}`
+    candidate = `${stem} (${suffix} ${n})${ext}`
   }
   return candidate
 }
@@ -419,7 +421,7 @@ export class GitService {
   ): Promise<string> {
     const name = sanitizeTagName(rawName) || (await this.nextWorkBranch(dir))
     const existing = await git.listBranches({ fs, dir })
-    if (existing.includes(name)) throw new Error(`Ya existe una rama "${name}"`)
+    if (existing.includes(name)) throw new Error(t('Ya existe una rama "{name}"', { name }))
 
     const base = opts.base ?? (await this.resolveBase(dir, fromOid, await this.currentBranch(dir)))
     await git.writeRef({ fs, dir, ref: `refs/heads/${name}`, value: fromOid, force: false })
@@ -451,15 +453,15 @@ export class GitService {
 
   private async mergeBranchLocked(dir: string): Promise<void> {
     const branch = await this.currentBranch(dir)
-    if (!branch) throw new Error('HEAD detached: no hay rama para integrar')
+    if (!branch) throw new Error(t('HEAD detached: no hay rama para integrar'))
 
     const meta = await this.readBranchMeta(dir)
     const base = meta[branch]?.base
-    if (!base) throw new Error(`La rama "${branch}" no tiene una base a la cual integrar`)
-    if (base === branch) throw new Error('La rama es su propia base')
+    if (!base) throw new Error(t('La rama "{branch}" no tiene una base a la cual integrar', { branch }))
+    if (base === branch) throw new Error(t('La rama es su propia base'))
 
     const baseTip = await git.resolveRef({ fs, dir, ref: base }).catch(() => null)
-    if (!baseTip) throw new Error(`La rama base "${base}" ya no existe`)
+    if (!baseTip) throw new Error(t('La rama base "{base}" ya no existe', { base }))
     const branchTip = await git.resolveRef({ fs, dir, ref: branch })
 
     const [mergeBase] = await git.findMergeBase({ fs, dir, oids: [baseTip, branchTip] })
@@ -631,9 +633,9 @@ export class GitService {
    */
   async addTag(dir: string, oid: string, rawName: string): Promise<string> {
     const name = sanitizeTagName(rawName)
-    if (!name) throw new Error('Nombre de etiqueta inválido')
+    if (!name) throw new Error(t('Nombre de etiqueta inválido'))
     const existing = await git.listTags({ fs, dir })
-    if (existing.includes(name)) throw new Error(`Ya existe una etiqueta "${name}"`)
+    if (existing.includes(name)) throw new Error(t('Ya existe una etiqueta "{name}"', { name }))
     await git.tag({ fs, dir, ref: name, object: oid })
     return name
   }
@@ -649,7 +651,7 @@ export class GitService {
    * borra — así se puede descartar sin tener que mergearla.
    */
   async deleteBranch(dir: string, name: string): Promise<void> {
-    if (name === PROD) throw new Error('No se puede borrar la rama principal (main)')
+    if (name === PROD) throw new Error(t('No se puede borrar la rama principal (main)'))
     const meta = await this.readBranchMeta(dir)
 
     if (name === (await git.currentBranch({ fs, dir, fullname: false }))) {
@@ -723,7 +725,7 @@ export class GitService {
    */
   async push(dir: string, url: string, token: string): Promise<{ branch: string; oid: string }> {
     const branch = await git.currentBranch({ fs, dir, fullname: false })
-    if (!branch) throw new Error('HEAD está en una versión anterior (detached): no hay rama para pushear')
+    if (!branch) throw new Error(t('HEAD está en una versión anterior (detached): no hay rama para pushear'))
 
     await git.push({
       fs,
@@ -773,7 +775,7 @@ export class GitService {
 
   private async syncOnce(dir: string, url: string, token: string): Promise<SyncResult> {
     const branch = await git.currentBranch({ fs, dir, fullname: false })
-    if (!branch) throw new Error('HEAD está en una versión anterior (detached): no hay rama para pushear')
+    if (!branch) throw new Error(t('HEAD está en una versión anterior (detached): no hay rama para pushear'))
     const onAuth = (): { username: string; password: string } => ({
       username: 'x-access-token',
       password: token
@@ -819,7 +821,7 @@ export class GitService {
     // Lo pendiente se versiona ANTES de mover el working dir (nada sin commit
     // puede perderse en el checkout). Si había algo, la rama ya no es
     // ancestro de la nube: pasa de fast-forward a merge 3-way, que es lo correcto.
-    if (await this.commit(dir, 'Cambios antes de sincronizar')) {
+    if (await this.commit(dir, t('Cambios antes de sincronizar'))) {
       localTip = await git.resolveRef({ fs, dir, ref: branch })
     }
     let binaryConflicts: string[] = []
@@ -847,8 +849,8 @@ export class GitService {
       await this.commit(
         dir,
         cloudCopies.length === 1
-          ? 'Versión de la nube de una nota en conflicto'
-          : `Versiones de la nube de ${cloudCopies.length} notas en conflicto`
+          ? t('Versión de la nube de una nota en conflicto')
+          : t('Versiones de la nube de {n} notas en conflicto', { n: cloudCopies.length })
       )
     }
     return { pulled: true, cloudCopies }
@@ -909,7 +911,7 @@ export class GitService {
     // Binarios (imágenes) cambiados en ambos lados: el driver solo ve texto, así
     // que se marcan y el caller restaura los bytes reales tras el checkout.
     const binaryConflicts: string[] = []
-    const message = 'Integrar cambios de la nube'
+    const message = t('Integrar cambios de la nube')
     const conflicts = new Map<string, string>() // ruta → contenido completo de la nube
 
     const mergeDriver: MergeDriverCallback = ({ contents, path }) => {
@@ -980,6 +982,20 @@ export class GitService {
   async readAt(dir: string, oid: string, filepath: string): Promise<string> {
     const { blob } = await git.readBlob({ fs, dir, oid, filepath })
     return new TextDecoder().decode(blob)
+  }
+
+  /**
+   * Como readAt, pero devuelve null si la nota no existía en ese commit (caso
+   * normal al viajar en el tiempo con notas abiertas que se crearon después).
+   * Cualquier otro error se propaga.
+   */
+  async readAtOrNull(dir: string, oid: string, filepath: string): Promise<string | null> {
+    try {
+      return await this.readAt(dir, oid, filepath)
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'NotFoundError') return null
+      throw e
+    }
   }
 
   /** Bytes crudos de un archivo tal como estaba en un commit (imágenes del pasado). */
@@ -1124,7 +1140,7 @@ export class GitService {
     const root = resolve(dir)
     const full = resolve(root, filepath)
     if (full !== root && !full.startsWith(root + sep)) {
-      throw new Error(`Ruta fuera del vault: ${filepath}`)
+      throw new Error(t('Ruta fuera del vault: {path}', { path: filepath }))
     }
     return full
   }

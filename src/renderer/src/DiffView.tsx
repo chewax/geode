@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { X, FilePlus2, FilePen, FileMinus2 } from 'lucide-react'
 import type { FileDiff } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 interface DiffViewProps {
   oid: string
@@ -27,23 +28,23 @@ export function DiffView({ oid, date, label, onClose }: DiffViewProps): JSX.Elem
       <div className="modal diff-modal" onClick={(e) => e.stopPropagation()}>
         <div className="diff-head">
           <h2>{headLabel(date, label)}</h2>
-          <button className="icon-btn" title="Cerrar" onClick={onClose}><X size={16} /></button>
+          <button className="icon-btn" title={t('Cerrar')} onClick={onClose}><X size={16} /></button>
         </div>
 
         {diffs === null ? (
-          <p className="modal-sub">Cargando cambios…</p>
+          <p className="modal-sub">{t('Cargando cambios…')}</p>
         ) : diffs.length === 0 ? (
-          <p className="modal-sub">Es la versión actual (o no difiere de ella).</p>
+          <p className="modal-sub">{t('Es la versión actual (o no difiere de ella).')}</p>
         ) : (
           <>
             <div className="diff-legend">
               <span className="diff-legend-item">
                 <span className="diff-swatch diff-swatch-add" aria-hidden="true" />
-                agregado
+                {t('agregado')}
               </span>
               <span className="diff-legend-item">
                 <span className="diff-swatch diff-swatch-del" aria-hidden="true" />
-                quitado
+                {t('quitado')}
               </span>
             </div>
             <div className="diff-files">
@@ -73,7 +74,7 @@ function FileDiffBlock({ file }: { file: FileDiff }): JSX.Element {
             return <div key={i} className="diff-ln divider" aria-hidden="true" />
           }
           const aria =
-            ln.kind === 'add' ? `agregado: ${ln.text}` : ln.kind === 'del' ? `quitado: ${ln.text}` : undefined
+            ln.kind === 'add' ? t('agregado: {text}', { text: ln.text }) : ln.kind === 'del' ? t('quitado: {text}', { text: ln.text }) : undefined
           return (
             <div key={i} className={`diff-ln ${ln.kind}`} aria-label={aria}>
               {ln.text || ' '}
@@ -116,12 +117,12 @@ function patchLines(patch: string): { kind: LnKind; text: string }[] {
  * el hash; si faltan fecha/nombre, cae a una etiqueta humana genérica.
  */
 function headLabel(date?: string, label?: string): string {
-  if (date && label) return `Cambios del ${date} — ${label}`
-  if (label) return `Cambios de la versión — ${label}`
-  if (date) return `Cambios del ${date}`
-  return 'Cambios de la versión'
+  if (date && label) return t('Cambios del {date} — {label}', { date, label })
+  if (label) return t('Cambios de la versión — {label}', { label })
+  if (date) return t('Cambios del {date}', { date })
+  return t('Cambios de la versión')
 }
 
 function statusLabel(s: FileDiff['status']): string {
-  return s === 'added' ? 'agregado' : s === 'deleted' ? 'borrado' : 'modificado'
+  return s === 'added' ? t('agregado') : s === 'deleted' ? t('borrado') : t('modificado')
 }

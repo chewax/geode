@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { atomicWrite } from '../fs/atomic'
 import type { AiEngine, CliEngine, TourState } from '@shared/ipc'
 import type { ShortcutOverrides } from '@shared/shortcuts'
+import type { LocalePref } from '@shared/i18n'
 
 /**
  * Ajustes de la app (no del vault). Viven en userData, fuera de todo repo.
@@ -11,6 +12,8 @@ import type { ShortcutOverrides } from '@shared/shortcuts'
  * en texto plano ni dentro del vault.
  */
 export interface Settings {
+  /** Idioma de la interfaz. Ausente = el del sistema. */
+  language?: LocalePref
   lastVault?: string
   /** Bóvedas abiertas alguna vez, más reciente primero. Para el selector de bóveda. */
   knownVaults?: string[]

@@ -61,6 +61,7 @@ export function labelOf(id: ShortcutId, bindings: ShortcutMap = state.bindings):
 /** Comandos de la paleta cuyo atajo es reasignable (id de comando → id de atajo). */
 export const COMMAND_SHORTCUTS: Record<string, ShortcutId> = {
   'core.saveVersion': 'saveVersion',
+  'core.quickOpen': 'quickOpen',
   'core.search': 'search',
   'core.dictate': 'dictation',
   'core.splitRight': 'splitRight',

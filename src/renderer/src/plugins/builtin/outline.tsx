@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { t } from '@shared/i18n'
 import type { JSX } from 'react'
 import { List } from 'lucide-react'
 import { useGeode } from '../react'
@@ -44,7 +45,7 @@ function Outline(): JSX.Element {
 
   const headings = useMemo(() => parseHeadings(content), [content])
   if (headings.length === 0) {
-    return <p className="plugin-empty">Sin encabezados en esta nota.</p>
+    return <p className="plugin-empty">{t('Sin encabezados en esta nota.')}</p>
   }
   return (
     <ul className="outline-list">
@@ -53,7 +54,7 @@ function Outline(): JSX.Element {
           key={`${h.from}-${h.text}`}
           className="outline-item"
           style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
-          title="Ir al encabezado"
+          title={t('Ir al encabezado')}
           onClick={() => geode.editor.revealRange(h.from, h.to)}
         >
           {h.text}
@@ -70,14 +71,18 @@ function Outline(): JSX.Element {
  */
 export const outlinePlugin: GeodePlugin = {
   id: 'outline',
-  name: 'Esquema',
-  description: 'Panel de esquema con los encabezados de la nota; salta al encabezado al hacer click',
+  get name() {
+    return t('Esquema')
+  },
+  get description() {
+    return t('Panel de esquema con los encabezados de la nota; salta al encabezado al hacer click')
+  },
   activate(ctx) {
-    ctx.panels.register({ id: 'outline', title: 'Esquema', icon: <List size={14} />, Component: Outline })
+    ctx.panels.register({ id: 'outline', title: t('Esquema'), icon: <List size={14} />, Component: Outline })
     ctx.commands.register({
       id: 'outline.toggle',
-      title: 'Alternar panel de esquema',
-      category: 'Vista',
+      title: t('Alternar panel de esquema'),
+      category: t('Vista'),
       run: () => ctx.panels.toggle('outline')
     })
   }

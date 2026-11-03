@@ -21,6 +21,7 @@ import {
   SquareCode,
   ListPlus
 } from 'lucide-react'
+import { t } from '@shared/i18n'
 import type { EditorHandle } from './editor/CodeMirrorEditor'
 import { labelOf, useShortcuts } from './shortcuts'
 import {
@@ -111,27 +112,27 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddPrope
   }
 
   return (
-    <div className="fmt-toolbar" role="toolbar" aria-label="Formato">
-      {btn(`Negrita (${labelOf('bold', bindings)})`, <Bold size={15} />, toggleWrap('**'))}
-      {btn(`Cursiva (${labelOf('italic', bindings)})`, <Italic size={15} />, toggleWrap('*'))}
-      {btn(`Tachado (${labelOf('strikethrough', bindings)})`, <Strikethrough size={15} />, toggleWrap('~~'))}
-      {btn(`Código (${labelOf('inlineCode', bindings)})`, <Code size={15} />, toggleWrap('`'))}
+    <div className="fmt-toolbar" role="toolbar" aria-label={t('Formato')}>
+      {btn(t('Negrita ({key})', { key: labelOf('bold', bindings) }), <Bold size={15} />, toggleWrap('**'))}
+      {btn(t('Cursiva ({key})', { key: labelOf('italic', bindings) }), <Italic size={15} />, toggleWrap('*'))}
+      {btn(t('Tachado ({key})', { key: labelOf('strikethrough', bindings) }), <Strikethrough size={15} />, toggleWrap('~~'))}
+      {btn(t('Código ({key})', { key: labelOf('inlineCode', bindings) }), <Code size={15} />, toggleWrap('`'))}
       <span className="fmt-sep" />
-      {btn('Título 1', <Heading1 size={15} />, toggleLinePrefix({ heading: 1 }))}
-      {btn('Título 2', <Heading2 size={15} />, toggleLinePrefix({ heading: 2 }))}
-      {btn('Título 3', <Heading3 size={15} />, toggleLinePrefix({ heading: 3 }))}
+      {btn(t('Título 1'), <Heading1 size={15} />, toggleLinePrefix({ heading: 1 }))}
+      {btn(t('Título 2'), <Heading2 size={15} />, toggleLinePrefix({ heading: 2 }))}
+      {btn(t('Título 3'), <Heading3 size={15} />, toggleLinePrefix({ heading: 3 }))}
       <span className="fmt-sep" />
-      {btn('Lista', <List size={15} />, toggleLinePrefix('bullet'))}
-      {btn('Lista numerada', <ListOrdered size={15} />, toggleLinePrefix('ordered'))}
-      {btn('Lista de tareas', <ListTodo size={15} />, toggleLinePrefix('task'))}
-      {btn('Cita', <Quote size={15} />, toggleLinePrefix('quote'))}
+      {btn(t('Lista'), <List size={15} />, toggleLinePrefix('bullet'))}
+      {btn(t('Lista numerada'), <ListOrdered size={15} />, toggleLinePrefix('ordered'))}
+      {btn(t('Lista de tareas'), <ListTodo size={15} />, toggleLinePrefix('task'))}
+      {btn(t('Cita'), <Quote size={15} />, toggleLinePrefix('quote'))}
       <span className="fmt-sep" />
-      {btn('Enlace web', <Link size={15} />, insertLink)}
-      {btn('Enlace a otra nota ([[ ]])', <Link2 size={15} />, insertWikilink)}
+      {btn(t('Enlace web'), <Link size={15} />, insertLink)}
+      {btn(t('Enlace a otra nota ([[ ]])'), <Link2 size={15} />, insertWikilink)}
       <button
         className="icon-btn fmt-btn"
-        title="Imagen"
-        aria-label="Insertar imagen"
+        title={t('Imagen')}
+        aria-label={t('Insertar imagen')}
         onMouseDown={(e) => {
           e.preventDefault()
           fileRef.current?.click()
@@ -154,8 +155,8 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddPrope
       <span className="fmt-table" ref={tableRef}>
         <button
           className={`icon-btn fmt-btn${tableOpen ? ' active' : ''}`}
-          title="Tabla"
-          aria-label="Tabla"
+          title={t('Tabla')}
+          aria-label={t('Tabla')}
           aria-expanded={tableOpen}
           onMouseDown={(e) => {
             e.preventDefault()
@@ -175,11 +176,11 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddPrope
                   onEditTable(current)
                 }}
               >
-                <TableProperties size={14} /> Editar esta tabla…
+                <TableProperties size={14} /> {t('Editar esta tabla…')}
               </button>
             )}
             <div className="fmt-grid-label">
-              {hover.r > 0 ? `${hover.c} × ${hover.r}` : 'Insertar tabla (columnas × filas)'}
+              {hover.r > 0 ? `${hover.c} × ${hover.r}` : t('Insertar tabla (columnas × filas)')}
             </div>
             <div className="fmt-grid" style={{ gridTemplateColumns: `repeat(${GRID}, 16px)` }}>
               {Array.from({ length: GRID * GRID }, (_, i) => {
@@ -204,13 +205,13 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddPrope
         )}
       </span>
       <span className="fmt-sep" />
-      {btn('Bloque de código', <SquareCode size={15} />, insertCodeBlock)}
-      {btn('Línea separadora', <Minus size={15} />, insertRule)}
+      {btn(t('Bloque de código'), <SquareCode size={15} />, insertCodeBlock)}
+      {btn(t('Línea separadora'), <Minus size={15} />, insertRule)}
       <span className="fmt-sep" />
       <button
         className="icon-btn fmt-btn"
-        title="Agregar propiedad (fecha, estado, etiquetas…)"
-        aria-label="Agregar propiedad"
+        title={t('Agregar propiedad (fecha, estado, etiquetas…)')}
+        aria-label={t('Agregar propiedad')}
         onMouseDown={(e) => {
           e.preventDefault()
           onAddProperty()

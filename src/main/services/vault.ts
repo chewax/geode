@@ -6,8 +6,10 @@ import { ATTACHMENTS_DIR, MAX_ATTACHMENT_BYTES, extOf, isAttachmentPath, isImage
 import { extractTags, tagMatches } from '@shared/obsidian'
 import { baseName, displayName, isNotePath, parseWikilinks, resolveLink, rewriteLinks, lineOf } from '@shared/links'
 import { foldQuery, searchText } from '@shared/search'
+import { matchesFilters, parseQuery, propertyLine } from '@shared/query'
+import { t } from '@shared/i18n'
 import { atomicWrite } from '../fs/atomic'
-import { sanitizeVaultName, SEED_BIENVENIDA } from '../fs/vaultName'
+import { sanitizeVaultName, seedBienvenida } from '../fs/vaultName'
 
 /** Carpetas que nunca se muestran en el árbol. */
 const IGNORED_DIRS = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
@@ -28,7 +30,7 @@ export class VaultService {
   async setRoot(root: string): Promise<VaultInfo> {
     const abs = resolve(root)
     const st = await stat(abs)
-    if (!st.isDirectory()) throw new Error(`No es una carpeta: ${abs}`)
+    if (!st.isDirectory()) throw new Error(t('No es una carpeta: {path}', { path: abs }))
     this.root = abs
     return this.getInfo()!
   }
@@ -40,7 +42,7 @@ export class VaultService {
 
   async openDialog(): Promise<VaultInfo | null> {
     const res = await dialog.showOpenDialog({
-      title: 'Elegí una carpeta como vault',
+      title: t('Elegí una carpeta como vault'),
       properties: ['openDirectory', 'createDirectory']
     })
     if (res.canceled || res.filePaths.length === 0) return null
@@ -71,11 +73,11 @@ export class VaultService {
    * vault. Bloquea path traversal (`../`) — clave para no leer/escribir fuera.
    */
   private resolveInside(relPath: string): string {
-    if (!this.root) throw new Error('No hay vault abierto')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
     const abs = resolve(this.root, relPath)
     const rel = relative(this.root, abs)
     if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`)) {
-      throw new Error(`Ruta fuera del vault: ${relPath}`)
+      throw new Error(t('Ruta fuera del vault: {path}', { path: relPath }))
     }
     return abs
   }
@@ -124,7 +126,7 @@ export class VaultService {
 
   /** Crea una nota nueva con nombre libre en `relDir` ('' = raíz). */
   async createNote(relDir = ''): Promise<TreeNode> {
-    if (!this.root) throw new Error('No hay vault abierto')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
     const base = 'Nueva nota'
 
     let name = `${base}.md`
@@ -140,7 +142,7 @@ export class VaultService {
 
   /** Crea una carpeta con nombre libre en `relDir` ('' = raíz). */
   async createFolder(relDir = ''): Promise<TreeNode> {
-    if (!this.root) throw new Error('No hay vault abierto')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
     const base = 'Nueva carpeta'
 
     let name = base
@@ -198,7 +200,7 @@ export class VaultService {
     // Si la siembra falla (p.ej. disco lleno), se limpia la carpeta recién creada
     // para no dejar un directorio vacío que fuerce el sufijo " (2)" en el reintento.
     try {
-      await atomicWrite(join(dir, 'Bienvenida.md'), SEED_BIENVENIDA)
+      await atomicWrite(join(dir, 'Bienvenida.md'), seedBienvenida())
     } catch (e) {
       await rm(dir, { recursive: true, force: true }).catch(() => {})
       throw e
@@ -231,7 +233,7 @@ export class VaultService {
     // ("Ya existe" sería falso positivo) — se hace el rename para aplicar el nuevo case.
     const sameFileDifferentCase = from.toLowerCase() === to.toLowerCase()
     if (!sameFileDifferentCase && (await this.exists(toRel))) {
-      throw new Error(`Ya existe: ${toRel}`)
+      throw new Error(t('Ya existe: {path}', { path: toRel }))
     }
     await rename(from, to)
   }
@@ -326,15 +328,24 @@ export class VaultService {
   async search(query: string, maxFiles = 200): Promise<SearchResult[]> {
     // `#tag` busca por etiqueta (como Obsidian), no como texto.
     if (/^#[^\s#]+$/.test(query.trim())) return this.searchTag(query.trim(), maxFiles)
-    const q = foldQuery(query)
-    if (!q) return []
+    // Filtros (`estado:pendiente`, `-#archivo`, `fecha:>2026-01-01`) + texto libre.
+    const { text: freeText, filters } = parseQuery(query)
+    const q = foldQuery(freeText)
+    if (!q && filters.length === 0) return []
     const paths = await this.listFiles()
     const texts = await this.readAllNotes(paths)
     const results: SearchResult[] = []
+    const propKeys = filters.filter((f) => f.kind === 'prop' && !f.negate).map((f) => (f as { key: string }).key)
     for (const [path, text] of texts) {
-      const nameMatch = foldQuery(displayName(path)).includes(q)
-      const matches = searchText(text, q)
-      if (nameMatch || matches.length > 0) results.push({ path, nameMatch, matches })
+      if (!matchesFilters(text, filters)) continue
+      if (q) {
+        const nameMatch = foldQuery(displayName(path)).includes(q)
+        const matches = searchText(text, q)
+        if (nameMatch || matches.length > 0) results.push({ path, nameMatch, matches })
+        continue
+      }
+      // Sólo filtros: se muestran las líneas de las propiedades que coincidieron.
+      results.push({ path, nameMatch: false, matches: propertyMatches(text, propKeys) })
     }
     results.sort(
       (a, b) =>
@@ -400,6 +411,30 @@ export class VaultService {
    * Configuración de Obsidian relevante (de `.obsidian/app.json`), si la carpeta
    * es una bóveda de Obsidian: dónde guardar adjuntos y qué estilo de enlace usar.
    */
+  /**
+   * Favoritas de la bóveda. Viven en `.geode/marcadores.json`: dentro de la
+   * carpeta (se mudan con ella) pero fuera del historial, como el resto de `.geode`.
+   */
+  async getBookmarks(): Promise<string[]> {
+    if (!this.root) return []
+    try {
+      const data = JSON.parse(await readFile(join(this.root, '.geode', 'marcadores.json'), 'utf8')) as unknown
+      return Array.isArray(data) ? data.filter((p): p is string => typeof p === 'string') : []
+    } catch {
+      return []
+    }
+  }
+
+  async setBookmarks(paths: unknown): Promise<void> {
+    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!Array.isArray(paths) || !paths.every((p) => typeof p === 'string')) throw new Error(t('Lista de marcadores inválida'))
+    // Sólo rutas dentro de la bóveda (resolveInside lanza si alguna sale).
+    for (const p of paths) this.resolveInside(p)
+    const unique = [...new Set(paths as string[])].slice(0, 500)
+    await mkdir(join(this.root, '.geode'), { recursive: true })
+    await atomicWrite(join(this.root, '.geode', 'marcadores.json'), JSON.stringify(unique, null, 2))
+  }
+
   async obsidianConfig(): Promise<{ isObsidian: boolean; attachmentFolder: string | null; useWikilinks: boolean }> {
     if (!this.root) return { isObsidian: false, attachmentFolder: null, useWikilinks: false }
     let isObsidian = false
@@ -502,7 +537,7 @@ export class VaultService {
   async createNoteAt(relPath: string, content: string): Promise<TreeNode> {
     const clean = relPath.replace(/\\/g, '/').replace(/^\/+/, '')
     const rel = isNotePath(clean) ? clean : `${clean}.md`
-    if (await this.exists(rel)) throw new Error(`Ya existe: ${rel}`)
+    if (await this.exists(rel)) throw new Error(t('Ya existe: {path}', { path: rel }))
     await atomicWrite(this.resolveInside(rel), content)
     return { name: baseName(rel), path: rel, isDir: false }
   }
@@ -513,16 +548,17 @@ export class VaultService {
    * caracteres ilegales se quitan y una colisión agrega sufijo (nunca pisa).
    */
   async saveAttachment(name: string, data: Uint8Array, notePath: string | null = null): Promise<string> {
-    if (!this.root) throw new Error('No hay vault abierto')
-    if (!isImagePath(name)) throw new Error('Solo se pueden adjuntar imágenes')
-    if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('La imagen es demasiado grande (máximo 25 MB)')
+    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!isImagePath(name)) throw new Error(t('Solo se pueden adjuntar imágenes'))
+    if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error(t('La imagen es demasiado grande (máximo 25 MB)'))
     const ext = extOf(name)
     let stem = baseName(name).slice(0, -(ext.length + 1))
     stem = stem.replace(/[<>:"/\\|?*\u0000-\u001f#^[\]]/g, '').trim()
     if (!stem || /^(image|imagen|clipboard|pasted|screenshot)$/i.test(stem)) {
       const d = new Date()
       const pad = (n: number): string => String(n).padStart(2, '0')
-      stem = `Pegado ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+      const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+      stem = t('Pegado {date}', { date })
     }
     const dir = await this.attachmentDirFor(notePath)
     const at = (file: string): string => (dir ? `${dir}/${file}` : file)
@@ -546,4 +582,18 @@ export class VaultService {
       return false
     }
   }
+}
+
+/** Coincidencias "sintéticas" en las líneas de las propiedades `keys` (búsqueda sólo por filtros). */
+function propertyMatches(text: string, keys: string[]): SearchResult['matches'] {
+  const lines = text.split('\n')
+  const out: SearchResult['matches'] = []
+  for (const key of new Set(keys)) {
+    const ln = propertyLine(text, key)
+    if (ln < 0) continue
+    const line = lines[ln].replace(/\r$/, '')
+    const len = line.indexOf(':') + 1
+    out.push({ line: ln, col: 0, length: len, before: '', text: line.slice(0, len), after: line.slice(len, len + 80) })
+  }
+  return out
 }

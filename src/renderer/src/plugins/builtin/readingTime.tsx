@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@shared/i18n'
 import type { JSX } from 'react'
 import { Clock } from 'lucide-react'
 import { useGeode } from '../react'
@@ -25,8 +26,8 @@ function ReadingTime(): JSX.Element | null {
   const words = content.trim() ? content.trim().split(/\s+/).length : 0
   const mins = Math.max(1, Math.round(words / WORDS_PER_MINUTE))
   return (
-    <span title={`Tiempo de lectura estimado (~${WORDS_PER_MINUTE} palabras/min)`}>
-      <Clock size={13} /> {mins} min
+    <span title={t('Tiempo de lectura estimado (~{wpm} palabras/min)', { wpm: WORDS_PER_MINUTE })}>
+      <Clock size={13} /> {t('{mins} min', { mins })}
     </span>
   )
 }
@@ -37,8 +38,12 @@ function ReadingTime(): JSX.Element | null {
  */
 export const readingTimePlugin: GeodePlugin = {
   id: 'reading-time',
-  name: 'Tiempo de lectura',
-  description: 'Muestra el tiempo estimado de lectura de la nota en la barra de estado',
+  get name() {
+    return t('Tiempo de lectura')
+  },
+  get description() {
+    return t('Muestra el tiempo estimado de lectura de la nota en la barra de estado')
+  },
   activate(ctx) {
     ctx.statusBar.addItem({ id: 'reading-time', Component: ReadingTime })
   }

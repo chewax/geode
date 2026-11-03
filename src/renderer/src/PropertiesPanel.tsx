@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX, KeyboardEvent } from 'react'
 import { ChevronDown, ChevronRight, Code2, Plus, Trash2, X } from 'lucide-react'
 import { deleteProperty, readProperties, renameProperty, setProperty, type PropValue } from '@shared/obsidian'
+import { t } from '@shared/i18n'
 
 export interface PropertiesPanelProps {
   /** Texto completo de la nota (con su frontmatter). */
@@ -42,7 +43,7 @@ export function PropertiesPanel(props: PropertiesPanelProps): JSX.Element | null
   if (list === null) {
     return (
       <div className="props-panel props-invalid">
-        Las propiedades de esta nota tienen un formato que Geode no puede leer. Podés corregirlas en el texto.
+        {t('Las propiedades de esta nota tienen un formato que Geode no puede leer. Podés corregirlas en el texto.')}
       </div>
     )
   }
@@ -63,12 +64,12 @@ export function PropertiesPanel(props: PropertiesPanelProps): JSX.Element | null
       <div className="props-head">
         <button className="props-toggle" onClick={() => setCollapsed((v) => !v)} aria-expanded={!collapsed}>
           {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-          Propiedades
+          {t('Propiedades')}
           <span className="props-count">{list.length}</span>
         </button>
         <button
           className={`icon-btn props-raw${showRaw ? ' active' : ''}`}
-          title={showRaw ? 'Ocultar el texto YAML' : 'Ver como texto (YAML)'}
+          title={showRaw ? t('Ocultar el texto YAML') : t('Ver como texto (YAML)')}
           onClick={onToggleRaw}
         >
           <Code2 size={13} />
@@ -92,7 +93,7 @@ export function PropertiesPanel(props: PropertiesPanelProps): JSX.Element | null
               <input
                 autoFocus
                 className="props-key-input"
-                placeholder="nombre (p. ej. estado)"
+                placeholder={t('nombre (p. ej. estado)')}
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
                 onBlur={commitNew}
@@ -107,7 +108,7 @@ export function PropertiesPanel(props: PropertiesPanelProps): JSX.Element | null
             </div>
           ) : (
             <button className="link-btn props-add" onClick={() => setAdding(true)}>
-              <Plus size={13} /> Agregar propiedad
+              <Plus size={13} /> {t('Agregar propiedad')}
             </button>
           )}
         </div>
@@ -133,7 +134,7 @@ function PropRow(p: {
       <input
         className="props-key-input"
         value={keyDraft}
-        aria-label="Nombre de la propiedad"
+        aria-label={t('Nombre de la propiedad')}
         onChange={(e) => setKeyDraft(e.target.value)}
         onBlur={() => keyDraft.trim() && keyDraft.trim() !== name && onRename(keyDraft.trim())}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
@@ -141,7 +142,7 @@ function PropRow(p: {
       <div className="props-value">
         <ValueEditor name={name} value={value} onSet={onSet} onOpenTag={onOpenTag} />
       </div>
-      <button className="icon-btn props-del" title="Quitar propiedad" onClick={onDelete}>
+      <button className="icon-btn props-del" title={t('Quitar propiedad')} onClick={onDelete}>
         <Trash2 size={12} />
       </button>
     </div>
@@ -187,12 +188,12 @@ function ValueEditor(p: {
             ) : (
               v
             )}
-            <button className="props-chip-x" title="Quitar" onClick={() => onSet(items.filter((x) => x !== v))}>
+            <button className="props-chip-x" title={t('Quitar')} onClick={() => onSet(items.filter((x) => x !== v))}>
               <X size={10} />
             </button>
           </span>
         ))}
-        <input className="props-chip-input" placeholder={items.length ? '' : 'Escribí y Enter…'} onKeyDown={add} />
+        <input className="props-chip-input" placeholder={items.length ? '' : t('Escribí y Enter…')} onKeyDown={add} />
       </div>
     )
   }

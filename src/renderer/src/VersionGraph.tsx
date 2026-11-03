@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { X, Cloud, Tag, Plus, Check, ListFilter, GitBranch, GitBranchPlus, GitCompare, Trash2, Eye, EyeOff, ChevronDown } from 'lucide-react'
 import type { GitBranchRef, GitCommitNode, GitGraph } from '@shared/ipc'
+import { intlLocale, t } from '@shared/i18n'
 
 interface VersionGraphProps {
   graph: GitGraph
@@ -56,8 +57,8 @@ export function VersionGraph({
   const [hiddenBranches, setHiddenBranches] = useState<string[]>([])
   const [branchMenuOpen, setBranchMenuOpen] = useState(false)
 
-  const toggleFilter = (t: string): void =>
-    setFilter((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]))
+  const toggleFilter = (tag: string): void =>
+    setFilter((f) => (f.includes(tag) ? f.filter((x) => x !== tag) : [...f, tag]))
   const toggleBranchHidden = (name: string): void =>
     setHiddenBranches((f) => (f.includes(name) ? f.filter((x) => x !== name) : [...f, name]))
 
@@ -71,10 +72,10 @@ export function VersionGraph({
       tipToBranch.set(b.tip, list)
     }
     const oidToTags = new Map<string, string[]>()
-    for (const t of graph.tags) {
-      const list = oidToTags.get(t.oid) ?? []
-      list.push(t.name)
-      oidToTags.set(t.oid, list)
+    for (const tag of graph.tags) {
+      const list = oidToTags.get(tag.oid) ?? []
+      list.push(tag.name)
+      oidToTags.set(tag.oid, list)
     }
     const maxLane = commits.reduce((m, c) => Math.max(m, c.lane), 0)
     const pushedSet = new Set(graph.pushed)
@@ -100,7 +101,7 @@ export function VersionGraph({
   }, [commits, onCurrentLine, branches, graph.tags, graph.pushed])
 
   const allTags = useMemo(
-    () => [...new Set(graph.tags.map((t) => t.name))].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(graph.tags.map((tag) => tag.name))].sort((a, b) => a.localeCompare(b)),
     [graph.tags]
   )
 
@@ -126,7 +127,7 @@ export function VersionGraph({
   // líneas), nunca se cambia a una lista tipo git log.
   const visible = commits.filter(
     (c) =>
-      (filter.length === 0 || tagsOf(c.oid).some((t) => filter.includes(t))) &&
+      (filter.length === 0 || tagsOf(c.oid).some((tag) => filter.includes(tag))) &&
       (!branchVisible || branchVisible.has(c.oid))
   )
 
@@ -197,7 +198,7 @@ export function VersionGraph({
         className={`graph-row${isHead ? ' head' : ''}${dim ? ' dim' : ''}`}
         style={graphRow ? { height: ROW } : undefined}
         onClick={() => !isHead && onSelect(c.oid)}
-        title={isHead ? 'Estás en esta versión' : 'Ir a esta versión (checkout)'}
+        title={isHead ? t('Estás en esta versión') : t('Ir a esta versión (checkout)')}
       >
         <div className="row-top">
           <span className="g-msg" title={c.message}>{c.message}</span>
@@ -206,24 +207,24 @@ export function VersionGraph({
               key={name}
               className={`chip branch-chip${name === head.branch ? ' current' : ''}`}
               style={{ borderColor: colorOf(c) }}
-              title={name === head.branch ? 'Rama actual' : `Rama ${name}`}
+              title={name === head.branch ? t('Rama actual') : t('Rama {name}', { name })}
             >
               <GitBranch size={10} /> {name}
             </span>
           ))}
-          {tags.map((t) => (
-            <span key={t} className="chip tag-chip"><Tag size={10} /> {t}</span>
+          {tags.map((tag) => (
+            <span key={tag} className="chip tag-chip"><Tag size={10} /> {tag}</span>
           ))}
           {isHead && <span className="chip head-chip">HEAD</span>}
           {model.pushedSet.has(c.oid) && (
-            <span className="chip pushed-chip" title="Última versión subida a GitHub">
-              <Cloud size={11} /> en GitHub
+            <span className="chip pushed-chip" title={t('Última versión subida a GitHub')}>
+              <Cloud size={11} /> {t('en GitHub')}
             </span>
           )}
           <button
             className="tag-btn"
-            title="Comparar con la versión actual"
-            aria-label="Comparar con la versión actual"
+            title={t('Comparar con la versión actual')}
+            aria-label={t('Comparar con la versión actual')}
             onClick={(e) => {
               e.stopPropagation()
               onShowDiff(c.oid)
@@ -233,8 +234,8 @@ export function VersionGraph({
           </button>
           <button
             className="tag-btn"
-            title="Crear rama desde esta versión"
-            aria-label="Crear rama desde esta versión"
+            title={t('Crear rama desde esta versión')}
+            aria-label={t('Crear rama desde esta versión')}
             onClick={(e) => {
               e.stopPropagation()
               onCreateBranch(c.oid)
@@ -244,8 +245,8 @@ export function VersionGraph({
           </button>
           <button
             className="tag-btn"
-            title="Etiquetas"
-            aria-label="Editar etiquetas"
+            title={t('Etiquetas')}
+            aria-label={t('Editar etiquetas')}
             onClick={(e) => {
               e.stopPropagation()
               setEditor({ oid: c.oid, x: e.clientX, y: e.clientY })
@@ -255,7 +256,7 @@ export function VersionGraph({
           </button>
         </div>
         <div className="g-meta">
-          {new Date(c.timestamp).toLocaleString()} · {c.oid.slice(0, 7)}
+          {new Date(c.timestamp).toLocaleString(intlLocale())} · {c.oid.slice(0, 7)}
         </div>
       </li>
     )
@@ -275,8 +276,8 @@ export function VersionGraph({
   return (
     <aside className="graph">
       <div className="graph-head">
-        <span>Árbol de versiones</span>
-        <button className="icon-btn" title="Cerrar" onClick={onClose}><X size={15} /></button>
+        <span>{t('Árbol de versiones')}</span>
+        <button className="icon-btn" title={t('Cerrar')} onClick={onClose}><X size={15} /></button>
       </div>
 
       {(allTags.length > 0 || branches.length > 1) && (
@@ -284,29 +285,32 @@ export function VersionGraph({
           {allTags.length > 0 && (
             <button
               className={`tag-filter-btn${filter.length ? ' on' : ''}`}
-              title="Filtrar por etiqueta"
+              title={t('Filtrar por etiqueta')}
               onClick={() => { setFilterMenuOpen((o) => !o); setBranchMenuOpen(false) }}
             >
-              <ListFilter size={13} /> Etiquetas{filter.length ? ` (${filter.length})` : ''}
+              <ListFilter size={13} /> {t('Etiquetas')}{filter.length ? ` (${filter.length})` : ''}
             </button>
           )}
           {branches.length > 1 && (
             <button
               className={`tag-filter-btn${hiddenBranches.length ? ' on' : ''}${branchMenuOpen ? ' open' : ''}`}
-              title="Mostrar, ocultar, podar o borrar ramas"
+              title={t('Mostrar, ocultar, podar o borrar ramas')}
               aria-haspopup="menu"
               aria-expanded={branchMenuOpen}
               onClick={() => { setBranchMenuOpen((o) => !o); setFilterMenuOpen(false) }}
             >
-              <GitBranch size={13} /> Ramas{hiddenBranches.length ? ` (${hiddenBranches.length} ocultas)` : ''}
+              <GitBranch size={13} />{' '}
+              {hiddenBranches.length
+                ? t('Ramas ({n} ocultas)', { n: hiddenBranches.length })
+                : t('Ramas')}
               <ChevronDown size={12} className="menu-caret" />
             </button>
           )}
 
-          {filter.map((t) => (
-            <span key={t} className="chip tag-chip removable">
-              <Tag size={10} /> {t}
-              <button className="chip-x" title="Quitar filtro" onClick={() => toggleFilter(t)}>
+          {filter.map((tag) => (
+            <span key={tag} className="chip tag-chip removable">
+              <Tag size={10} /> {tag}
+              <button className="chip-x" title={t('Quitar filtro')} onClick={() => toggleFilter(tag)}>
                 <X size={11} />
               </button>
             </span>
@@ -314,7 +318,7 @@ export function VersionGraph({
           {hiddenBranches.map((name) => (
             <span key={name} className="chip branch-filter-chip removable">
               <EyeOff size={10} /> {name}
-              <button className="chip-x" title="Mostrar de nuevo" onClick={() => toggleBranchHidden(name)}>
+              <button className="chip-x" title={t('Mostrar de nuevo')} onClick={() => toggleBranchHidden(name)}>
                 <X size={11} />
               </button>
             </span>
@@ -345,9 +349,9 @@ export function VersionGraph({
       )}
 
       {commits.length === 0 ? (
-        <p className="tree-empty">Todavía no hay versiones. Editá y guardá una nota.</p>
+        <p className="tree-empty">{t('Todavía no hay versiones. Editá y guardá una nota.')}</p>
       ) : visible.length === 0 ? (
-        <p className="tree-empty">Ninguna versión con ese filtro.</p>
+        <p className="tree-empty">{t('Ninguna versión con ese filtro.')}</p>
       ) : (
         <div className="graph-body" style={{ minHeight: svgH }}>
           <svg className="graph-svg" width={gutterW} height={svgH} style={{ width: gutterW }}>
@@ -419,7 +423,7 @@ interface TagEditorProps {
 /** Popover para agregar/quitar etiquetas de un commit. */
 function TagEditor({ x, y, tags, allTags, onAdd, onRemove, onClose }: TagEditorProps): JSX.Element {
   const [value, setValue] = useState('')
-  const suggestions = allTags.filter((t) => !tags.includes(t))
+  const suggestions = allTags.filter((tag) => !tags.includes(tag))
 
   const submit = (): void => {
     const v = value.trim()
@@ -439,14 +443,14 @@ function TagEditor({ x, y, tags, allTags, onAdd, onRemove, onClose }: TagEditorP
       onContextMenu={(e) => { e.preventDefault(); onClose() }}
     >
       <div className="tag-editor" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
-        <div className="tag-editor-title"><Tag size={13} /> Etiquetas</div>
+        <div className="tag-editor-title"><Tag size={13} /> {t('Etiquetas')}</div>
 
         {tags.length > 0 && (
           <div className="tag-editor-current">
-            {tags.map((t) => (
-              <span key={t} className="chip tag-chip removable">
-                {t}
-                <button className="chip-x" title="Quitar etiqueta" onClick={() => onRemove(t)}>
+            {tags.map((tag) => (
+              <span key={tag} className="chip tag-chip removable">
+                {tag}
+                <button className="chip-x" title={t('Quitar etiqueta')} onClick={() => onRemove(tag)}>
                   <X size={11} />
                 </button>
               </span>
@@ -458,7 +462,7 @@ function TagEditor({ x, y, tags, allTags, onAdd, onRemove, onClose }: TagEditorP
           <input
             className="tag-input"
             autoFocus
-            placeholder="Nueva etiqueta…"
+            placeholder={t('Nueva etiqueta…')}
             list="tag-suggestions"
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -470,10 +474,10 @@ function TagEditor({ x, y, tags, allTags, onAdd, onRemove, onClose }: TagEditorP
           <datalist id="tag-suggestions">
             {suggestions.map((s) => <option key={s} value={s} />)}
           </datalist>
-          <button className="icon-btn" title="Agregar" onClick={submit}><Plus size={15} /></button>
+          <button className="icon-btn" title={t('Agregar')} onClick={submit}><Plus size={15} /></button>
         </div>
 
-        <p className="tag-hint">Los espacios se convierten en guiones. Debe ser única.</p>
+        <p className="tag-hint">{t('Los espacios se convierten en guiones. Debe ser única.')}</p>
       </div>
     </div>
   )
@@ -495,7 +499,7 @@ interface TagFilterMenuProps {
 function TagFilterMenu({ allTags, selected, onToggle, onClear, onClose }: TagFilterMenuProps): JSX.Element {
   const [q, setQ] = useState('')
   const query = q.trim().toLowerCase()
-  const shown = query ? allTags.filter((t) => t.toLowerCase().includes(query)) : allTags
+  const shown = query ? allTags.filter((tag) => tag.toLowerCase().includes(query)) : allTags
 
   return (
     <>
@@ -504,7 +508,7 @@ function TagFilterMenu({ allTags, selected, onToggle, onClear, onClose }: TagFil
         <input
           className="tag-input"
           autoFocus
-          placeholder="Buscar etiqueta…"
+          placeholder={t('Buscar etiqueta…')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
@@ -513,24 +517,24 @@ function TagFilterMenu({ allTags, selected, onToggle, onClear, onClose }: TagFil
         />
         <ul className="tag-filter-list">
           {shown.length === 0 ? (
-            <li className="tag-filter-empty">Sin resultados</li>
+            <li className="tag-filter-empty">{t('Sin resultados')}</li>
           ) : (
-            shown.map((t) => (
+            shown.map((tag) => (
               <li
-                key={t}
-                className={selected.includes(t) ? 'sel' : ''}
-                onClick={() => onToggle(t)}
+                key={tag}
+                className={selected.includes(tag) ? 'sel' : ''}
+                onClick={() => onToggle(tag)}
               >
                 <Tag size={12} className="tag-filter-icon" />
-                <span className="vault-menu-name">{t}</span>
-                {selected.includes(t) && <Check size={14} />}
+                <span className="vault-menu-name">{tag}</span>
+                {selected.includes(tag) && <Check size={14} />}
               </li>
             ))
           )}
         </ul>
         {selected.length > 0 && (
           <button className="link-btn tag-filter-clear" onClick={onClear}>
-            Limpiar filtros ({selected.length})
+            {t('Limpiar filtros ({n})', { n: selected.length })}
           </button>
         )}
       </div>
@@ -578,14 +582,14 @@ function BranchMenu({
         <input
           className="tag-input"
           autoFocus
-          placeholder="Buscar rama…"
+          placeholder={t('Buscar rama…')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }}
         />
         <ul className="tag-filter-list">
           {shown.length === 0 ? (
-            <li className="tag-filter-empty">Sin resultados</li>
+            <li className="tag-filter-empty">{t('Sin resultados')}</li>
           ) : (
             shown.map((b) => {
               const isProd = b.name === PROD
@@ -597,7 +601,7 @@ function BranchMenu({
                 <li
                   key={b.name}
                   className={isHidden ? 'off' : ''}
-                  title={isHidden ? 'Oculta — click para mostrar' : 'Visible — click para ocultar'}
+                  title={isHidden ? t('Oculta — click para mostrar') : t('Visible — click para ocultar')}
                   onClick={() => onToggle(b.name)}
                 >
                   {isHidden ? (
@@ -606,18 +610,18 @@ function BranchMenu({
                     <Eye size={12} className="tag-filter-icon" />
                   )}
                   <span className="vault-menu-name">{b.name}</span>
-                  {isProd && <span className="branch-tag prod">prod</span>}
-                  {isCurrent && <span className="branch-tag current">actual</span>}
-                  {!isProd && merged && <span className="branch-tag merged">fusionada</span>}
+                  {isProd && <span className="branch-tag prod">{t('prod')}</span>}
+                  {isCurrent && <span className="branch-tag current">{t('actual')}</span>}
+                  {!isProd && merged && <span className="branch-tag merged">{t('fusionada')}</span>}
                   {canDelete && (
                     <button
                       className="branch-del"
-                      title={merged ? 'Borrar rama (ya fusionada)' : 'Borrar rama (no fusionada)'}
-                      aria-label={`Borrar la rama ${b.name}`}
+                      title={merged ? t('Borrar rama (ya fusionada)') : t('Borrar rama (no fusionada)')}
+                      aria-label={t('Borrar la rama {name}', { name: b.name })}
                       onClick={(e) => { e.stopPropagation(); onDelete(b.name) }}
                     >
                       <Trash2 size={13} />
-                      <span className="branch-del-label">Borrar</span>
+                      <span className="branch-del-label">{t('Borrar')}</span>
                     </button>
                   )}
                 </li>
@@ -627,7 +631,7 @@ function BranchMenu({
         </ul>
         {hidden.length > 0 && (
           <button className="link-btn tag-filter-clear" onClick={onShowAll}>
-            Mostrar todas ({hidden.length} ocultas)
+            {t('Mostrar todas ({n} ocultas)', { n: hidden.length })}
           </button>
         )}
       </div>

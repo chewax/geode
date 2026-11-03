@@ -10,6 +10,7 @@ import {
   parseTable,
   type MdTable
 } from '@shared/mdtable'
+import { t } from '@shared/i18n'
 
 /**
  * Comandos de formato Markdown para la barra de formato y los atajos. Cada uno
@@ -134,7 +135,7 @@ export function toggleLinePrefix(kind: 'bullet' | 'ordered' | 'task' | 'quote' |
 export const insertLink: Command = (view) => {
   if (view.state.readOnly) return false
   const { from, to } = view.state.selection.main
-  const text = view.state.sliceDoc(from, to) || 'texto'
+  const text = view.state.sliceDoc(from, to) || t('texto')
   const insert = `[${text}]()`
   view.dispatch({
     changes: { from, to, insert },
@@ -267,6 +268,8 @@ export function insertTable(cols: number, rows: number): Command {
     const nextNonEmpty = line.number < doc.lines && doc.line(line.number + 1).text.trim() !== ''
     const trail = empty ? (nextNonEmpty ? '\n' : '') : '\n'
     const table = emptyTable(cols, rows)
+    // Los encabezados de ejemplo los reemplaza el usuario: van en su idioma.
+    table.header = table.header.map((_, i) => t('Columna {n}', { n: i + 1 }))
     const text = formatTable(table)
     const insert = `${lead}${text}${trail}`
     view.dispatch({
@@ -285,10 +288,10 @@ export function insertTable(cols: number, rows: number): Command {
 function moveCell(dir: 1 | -1): Command {
   return (view) => {
     if (view.state.readOnly) return false
-    const t = tableAtCursor(view)
-    if (!t) return false
-    const cols = t.table.header.length
-    let { row, col } = t
+    const cur = tableAtCursor(view)
+    if (!cur) return false
+    const cols = cur.table.header.length
+    let { row, col } = cur
     col += dir
     if (col >= cols) {
       col = 0
@@ -299,8 +302,8 @@ function moveCell(dir: 1 | -1): Command {
     }
     if (row < -1) return true // ya en la primera celda
     // Pasarse de la última celda agrega una fila (como en las planillas).
-    if (row >= t.table.rows.length) t.table.rows.push(Array.from({ length: cols }, () => ''))
-    writeTable(view, t.from, t.to, t.table, row, col)
+    if (row >= cur.table.rows.length) cur.table.rows.push(Array.from({ length: cols }, () => ''))
+    writeTable(view, cur.from, cur.to, cur.table, row, col)
     return true
   }
 }
@@ -308,12 +311,12 @@ function moveCell(dir: 1 | -1): Command {
 /** Enter dentro de una tabla: nueva fila debajo, cursor en su primera celda. */
 const tableEnter: Command = (view) => {
   if (view.state.readOnly) return false
-  const t = tableAtCursor(view)
-  if (!t || !view.state.selection.main.empty) return false
-  const cols = t.table.header.length
-  const at = t.row < 0 ? 0 : t.row + 1
-  t.table.rows.splice(at, 0, Array.from({ length: cols }, () => ''))
-  writeTable(view, t.from, t.to, t.table, at, 0)
+  const cur = tableAtCursor(view)
+  if (!cur || !view.state.selection.main.empty) return false
+  const cols = cur.table.header.length
+  const at = cur.row < 0 ? 0 : cur.row + 1
+  cur.table.rows.splice(at, 0, Array.from({ length: cols }, () => ''))
+  writeTable(view, cur.from, cur.to, cur.table, at, 0)
   return true
 }
 

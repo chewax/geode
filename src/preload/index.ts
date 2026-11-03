@@ -47,7 +47,10 @@ const api: GeodeApi = {
     saveAttachment: (name, data, notePath) => ipcRenderer.invoke(IPC.vaultSaveAttachment, name, data, notePath ?? null),
     tags: () => ipcRenderer.invoke(IPC.vaultTags),
     obsidianConfig: () => ipcRenderer.invoke(IPC.vaultObsidianConfig),
+    getBookmarks: () => ipcRenderer.invoke(IPC.vaultBookmarksGet),
+    setBookmarks: (paths) => ipcRenderer.invoke(IPC.vaultBookmarksSet, paths),
     openExternal: (path) => ipcRenderer.invoke(IPC.vaultOpenExternal, path),
+    exportPdf: (name) => ipcRenderer.invoke(IPC.vaultExportPdf, name),
     onExternalChange: (cb) => {
       const handler = (_e: IpcRendererEvent, info: ExternalChange): void => cb(info)
       ipcRenderer.on(IPC.vaultExternalChange, handler)
@@ -97,6 +100,10 @@ const api: GeodeApi = {
     getOnboarding: () => ipcRenderer.invoke(IPC.backupOnboardingGet),
     setOnboarding: (state) => ipcRenderer.invoke(IPC.backupOnboardingSet, state),
     openSignup: () => ipcRenderer.invoke(IPC.backupOpenSignup)
+  },
+  i18n: {
+    get: () => ipcRenderer.invoke(IPC.i18nGet),
+    set: (pref) => ipcRenderer.invoke(IPC.i18nSet, pref)
   },
   tour: {
     get: () => ipcRenderer.invoke(IPC.tourGet),

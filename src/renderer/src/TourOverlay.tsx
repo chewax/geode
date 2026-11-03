@@ -2,6 +2,7 @@ import { useLayoutEffect, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, JSX } from 'react'
 import { createPortal } from 'react-dom'
 import type { TourStep } from './tour/steps'
+import { t } from '@shared/i18n'
 
 /**
  * TourOverlay — superficie del recorrido guiado de primera vez (Fase 13).
@@ -225,27 +226,27 @@ export function TourOverlay({
         <div className="tour-card-footer">
           <div className="tour-actions">
             <span className="tour-progress">
-              Paso {stepIndex + 1} de {total}
+              {t('Paso {n} de {total}', { n: stepIndex + 1, total })}
             </span>
             {!isLast && (
               <button className="link-btn" onClick={onSkip}>
-                Saltar
+                {t('Saltar')}
               </button>
             )}
           </div>
           <div className="tour-actions">
             {!isFirst && (
               <button className="link-btn" onClick={onPrev}>
-                Anterior
+                {t('Anterior')}
               </button>
             )}
             {isLast ? (
               <button className="primary" onClick={onFinish}>
-                Listo
+                {t('Listo')}
               </button>
             ) : (
               <button className="primary" onClick={onNext}>
-                Siguiente
+                {t('Siguiente')}
               </button>
             )}
           </div>

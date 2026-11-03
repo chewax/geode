@@ -1,0 +1,37 @@
+name: Proponer una idea
+description: Una función nueva o una mejora.
+labels: ["propuesta"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resolvería
+      description: Contá la situación en la que lo necesitás. Ej.: «Cuando tengo muchas notas de proyecto, no puedo ver cuáles están pendientes».
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Cómo te lo imaginás
+      description: Cómo debería funcionar, desde el punto de vista de quien usa Geode.
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas
+      description: Otras formas de resolverlo, o cómo lo resuelven otras apps.
+  - type: dropdown
+    id: plugin
+    attributes:
+      label: ¿Podría ser un plugin?
+      options:
+        - No sé
+        - Sí, podría ser un plugin
+        - No, tiene que ser parte de Geode
+  - type: checkboxes
+    id: ayuda
+    attributes:
+      label: Contribución
+      options:
+        - label: Me gustaría ayudar a implementarlo

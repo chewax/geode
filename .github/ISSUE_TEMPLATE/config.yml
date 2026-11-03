@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Preguntas y charlas
+    url: https://github.com/chewax/geode/discussions
+    about: Dudas de uso, ideas en borrador o mostrar lo que hiciste con Geode.
+  - name: Reportar una vulnerabilidad
+    url: https://github.com/chewax/geode/security/advisories/new
+    about: Reportes de seguridad, en privado.

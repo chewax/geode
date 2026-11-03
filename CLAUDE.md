@@ -13,7 +13,7 @@ Geode is a local-first Markdown notes app (Electron + React + TypeScript) that u
 - **Tech stack**: Electron + React + TypeScript; isomorphic-git (no native git binary) — local-first, no backend yet.
 - **Security**: Sandboxed renderer (contextIsolation=true, nodeIntegration=false); preload MUST be CommonJS (`.cjs`) — do not convert to ESM.
 - **Compatibility**: Racy-git landmine — commit/change detection must hash real content vs HEAD blobs, never revert to statusMatrix (loses same-size same-second edits).
-- **UX**: Icons are Lucide (monochrome currentColor), never emojis. Code comments and UI strings are in Spanish.
+- **UX**: Icons are Lucide (monochrome currentColor), never emojis. Code comments are in Spanish. UI strings are written in Spanish as the source text and wrapped in `t()` / `tx()` from `@shared/i18n` (English in `src/shared/i18n/en/*.ts`; `tests/i18n.test.ts` enforces it). Never call `t()` at module top level.
 - **Cost**: AI (OpenRouter) inference cost is user-visible; auto-snapshots must not invoke AI so cost scales with manual saves, not elapsed time.
 
 <!-- GSD:project-end -->

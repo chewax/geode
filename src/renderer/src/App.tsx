@@ -750,6 +750,27 @@ export function App(): JSX.Element {
     setActivePaneId(newPaneId)
   }, [])
 
+  /**
+   * Vista previa al lado: divide el panel, muestra la MISMA nota en vista previa
+   * a la derecha y deja el foco en el editor (la previa se actualiza en vivo).
+   */
+  const previewBeside = useCallback(async (paneId: string) => {
+    await paneHandles.current.get(paneId)?.flush()
+    const { tree, newPaneId } = splitLeaf(panesRef.current, paneId, 'row')
+    setPanes(tree)
+    setActivePaneId(paneId)
+    // El panel nuevo registra su handle al montarse: se espera un poco.
+    let tries = 40
+    const turnOn = (): void => {
+      const h = paneHandles.current.get(newPaneId)
+      if (h) {
+        if (!h.isPreview()) h.togglePreview()
+        paneHandles.current.get(paneId)?.getEditor()?.focus()
+      } else if (tries-- > 0) window.setTimeout(turnOn, 25)
+    }
+    window.setTimeout(turnOn, 0)
+  }, [])
+
   const onPaneNoteOpen = useCallback((paneId: string, path: string, text: string) => {
     paneContentRef.current.set(paneId, text)
     if (paneId === activePaneIdRef.current) {
@@ -766,6 +787,13 @@ export function App(): JSX.Element {
 
   const onPaneNoteChange = useCallback((paneId: string, path: string, doc: string) => {
     paneContentRef.current.set(paneId, doc)
+    // Vista en vivo: los otros paneles con la MISMA nota (p. ej. editor a la
+    // izquierda y vista previa a la derecha) se actualizan mientras se escribe.
+    for (const [id, handle] of paneHandles.current) {
+      if (id === paneId) continue
+      handle.syncFromOtherPane(path, doc)
+      if (findLeaf(panesRef.current, id)?.active === path) paneContentRef.current.set(id, doc)
+    }
     // Cualquier edición fija la preview de ese panel. Solo reconstruimos el árbol
     // de paneles si realmente hay algo que fijar (evita churn en cada tecla en
     // layouts divididos, donde mapLeaves siempre aloca un root nuevo, IN-01).
@@ -1439,6 +1467,7 @@ export function App(): JSX.Element {
     newNote: () => void newNoteIn(''),
     newFolder: () => void newFolderIn(''),
     togglePreview: () => paneHandles.current.get(activePaneIdRef.current)?.togglePreview(),
+    previewBeside: () => void previewBeside(activePaneIdRef.current),
     openSearch: () => {
       setSearchOpen(true)
       setSearchFocus((n) => n + 1)
@@ -1544,6 +1573,7 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.search', title: 'Buscar en todas las notas', category: 'Núcleo', shortcut: 'Ctrl+Shift+F', run: () => api().openSearch() }),
       host.registerCommand({ id: 'core.dictate', title: 'Dictar (empezar / terminar)', category: 'Núcleo', shortcut: 'Ctrl+Alt+Espacio', run: () => api().toggleDictation() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
+      host.registerCommand({ id: 'core.previewBeside', title: 'Abrir vista previa al lado (en vivo)', category: 'Vista', run: () => api().previewBeside(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
       host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),
       // Re-lanzar el recorrido guiado: Capa 0 (categoría 'Ayuda'), NUNCA en el
@@ -1973,6 +2003,7 @@ export function App(): JSX.Element {
               onReorderTab={reorderTabIn}
               onDropTab={(drag, dst, zone) => void dropTab(drag, dst, zone)}
               onSplit={splitPane}
+              onPreviewBeside={(id) => void previewBeside(id)}
               onNoteOpen={onPaneNoteOpen}
               onNoteChange={onPaneNoteChange}
               onSaved={onPaneSaved}

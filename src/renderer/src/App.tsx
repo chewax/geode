@@ -1630,8 +1630,9 @@ export function App(): JSX.Element {
   // sola vez pero invocan los callbacks/estado actuales (sin closures viejas).
   const commandApi = {
     saveVersion: () => void openCommitDialog(),
-    newNote: () => void newNoteIn(''),
-    newFolder: () => void newFolderIn(''),
+    // Igual que los botones del árbol: dentro de la carpeta seleccionada (o la raíz).
+    newNote: () => void newNoteIn(createTargetDir()),
+    newFolder: () => void newFolderIn(createTargetDir()),
     togglePreview: () => paneHandles.current.get(activePaneIdRef.current)?.togglePreview(),
     previewBeside: () => void previewBeside(activePaneIdRef.current),
     openSearch: () => {
@@ -1665,6 +1666,7 @@ export function App(): JSX.Element {
     merge: () => void mergeBranch(),
     push: () => void doPush(),
     hasOpenPath: !!openPath,
+    hasVault: !!vault,
     hasHead,
     canMerge,
     pushEnabled: backedUp && pushCount > 0 && !pushing
@@ -1797,6 +1799,13 @@ export function App(): JSX.Element {
       } else if (isShortcut(e, 'quickOpen')) {
         e.preventDefault()
         setSwitcherOpen(true)
+      } else if (isShortcut(e, 'newNote')) {
+        e.preventDefault()
+        // Sin bóveda abierta no hay dónde crear (la pantalla de inicio ofrece abrir una).
+        if (commandApiRef.current.hasVault) commandApiRef.current.newNote()
+      } else if (isShortcut(e, 'newFolder')) {
+        e.preventDefault()
+        if (commandApiRef.current.hasVault) commandApiRef.current.newFolder()
       } else if (isShortcut(e, 'splitRight')) {
         e.preventDefault()
         void splitPane(activePaneIdRef.current, 'row')
@@ -1897,14 +1906,14 @@ export function App(): JSX.Element {
       </button>
       <button
         className="icon-btn"
-        title={selected?.isDir ? t('Nueva nota en "{path}"', { path: selected.path }) : t('Nueva nota')}
+        title={`${selected?.isDir ? t('Nueva nota en "{path}"', { path: selected.path }) : t('Nueva nota')} (${labelOf('newNote', shortcutBindings)})`}
         onClick={() => void newNoteIn(createTargetDir())}
       >
         <FilePlus size={14} />
       </button>
       <button
         className="icon-btn"
-        title={selected?.isDir ? t('Nueva carpeta en "{path}"', { path: selected.path }) : t('Nueva carpeta')}
+        title={`${selected?.isDir ? t('Nueva carpeta en "{path}"', { path: selected.path }) : t('Nueva carpeta')} (${labelOf('newFolder', shortcutBindings)})`}
         onClick={() => void newFolderIn(createTargetDir())}
       >
         <FolderPlus size={14} />

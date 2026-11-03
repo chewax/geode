@@ -82,6 +82,7 @@ Geode es una app de escritorio para tomar notas en **Markdown**, en archivos com
 - **Diagramas Mermaid** integrados.
 - **Respaldo en la nube** gratis en un repositorio privado de GitHub, con **sync entre computadoras** que resuelve conflictos sin perder nada.
 - **Plugins** de la comunidad, **aislados** del resto de la app.
+- **Memoria para IA**: conectá Claude, Cursor u otro asistente por **MCP** y usá tu bóveda como su memoria. Cada cambio de la IA queda versionado y se puede deshacer ([más](docs/MCP.md)).
 - **Tema claro y oscuro**, interfaz en español.
 
 </td>
@@ -104,6 +105,7 @@ Geode toma muchas ideas de [Obsidian](https://obsidian.md) y es compatible con s
 | Volver a cualquier momento | **Línea de tiempo de toda la bóveda** | Historial por archivo |
 | Respaldo y sync | **Gratis**, en tu GitHub privado | Sync (pago) o plugins |
 | Enlaces, etiquetas, propiedades | Sí, compatibles | Sí |
+| Memoria para IA (MCP) | **Integrada, versionada y reversible** | Plugins de la comunidad |
 | Plugins de terceros | Aislados (sandbox) | Acceso completo |
 | Código fuente | **Abierto** (MPL 2.0) | Cerrado |
 | Ecosistema y app móvil | En crecimiento (sin móvil todavía) | Muy grande, con móvil |

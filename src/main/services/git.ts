@@ -9,6 +9,7 @@ import diff3Merge from 'diff3'
 import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
 import { isAttachmentPath } from '@shared/attachments'
 import { atomicWrite } from '../fs/atomic'
+import { withVaultLock } from '../fs/vaultLock'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
 const IGNORED_TOP = new Set(['.git', '.geode', 'node_modules', '.obsidian'])
@@ -259,6 +260,10 @@ export class GitService {
    * hasheamos el contenido real de cada archivo (hashBlob) vs los blobs de HEAD.
    */
   async commit(dir: string, message: string): Promise<string | null> {
+    return withVaultLock(dir, () => this.commitAll(dir, message), { owner: 'geode:commit' })
+  }
+
+  private async commitAll(dir: string, message: string): Promise<string | null> {
     const changes = await this.pendingChanges(dir)
     if (changes.length === 0) return null
 
@@ -279,6 +284,71 @@ export class GitService {
     }
 
     return git.commit({ fs, dir, message, author: this.author() })
+  }
+
+  /**
+   * Commit ACOTADO a `paths`: versiona solo esas rutas (lo demás pendiente del
+   * working dir queda sin tocar, para el próximo snapshot). Lo usa el servidor MCP:
+   * cuando la IA escribe una nota, su commit lleva SOLO lo que escribió la IA, con
+   * su propio autor, y nunca se lleva ediciones del usuario de otras notas.
+   *
+   * Misma detección anti racy-git que `commit`: hash del contenido real vs el blob
+   * de HEAD. Devuelve null si ninguna de las rutas cambió.
+   */
+  async commitPaths(
+    dir: string,
+    paths: string[],
+    message: string,
+    author?: { name: string; email: string }
+  ): Promise<string | null> {
+    return withVaultLock(
+      dir,
+      async () => {
+        const headBlobs = await this.headBlobs(dir)
+        const toAdd: string[] = []
+        const toRemove: string[] = []
+        for (const filepath of new Set(paths)) {
+          const abs = this.resolveInside(dir, filepath)
+          let workOid: string | null = null
+          try {
+            workOid = (await git.hashBlob({ object: await readFile(abs) })).oid
+          } catch {
+            workOid = null // no existe en disco
+          }
+          const headBlob = headBlobs.get(filepath) ?? null
+          if (workOid === headBlob) continue
+          if (workOid === null) toRemove.push(filepath)
+          else toAdd.push(filepath)
+        }
+        if (toAdd.length === 0 && toRemove.length === 0) return null
+
+        const head = await this.headOid(dir)
+        if (head && !(await this.currentBranch(dir))) {
+          await this.createBranch(dir, head, '', { noCheckout: true })
+        }
+        if (toAdd.length > 0) await git.add({ fs, dir, filepath: toAdd })
+        for (const filepath of toRemove) await git.remove({ fs, dir, filepath })
+        return git.commit({ fs, dir, message, author: author ?? this.author() })
+      },
+      { owner: 'geode:commit-paths' }
+    )
+  }
+
+  /** Oid de blob git de un contenido (la "versión" de una nota para el MCP). */
+  async blobOid(content: string | Uint8Array): Promise<string> {
+    const object = typeof content === 'string' ? Buffer.from(content, 'utf8') : content
+    return (await git.hashBlob({ object })).oid
+  }
+
+  /** Oid del blob de `filepath` en HEAD, o null si no está versionado. */
+  async headBlobOid(dir: string, filepath: string): Promise<string | null> {
+    const head = await this.headOid(dir)
+    if (!head) return null
+    try {
+      return (await git.readBlob({ fs, dir, oid: head, filepath })).oid
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -376,6 +446,10 @@ export class GitService {
    * la rama, sin merge 3-way.
    */
   async mergeBranch(dir: string): Promise<void> {
+    return withVaultLock(dir, () => this.mergeBranchLocked(dir), { owner: 'geode:merge' })
+  }
+
+  private async mergeBranchLocked(dir: string): Promise<void> {
     const branch = await this.currentBranch(dir)
     if (!branch) throw new Error('HEAD detached: no hay rama para integrar')
 
@@ -430,6 +504,10 @@ export class GitService {
    * antes, para no perder nada.
    */
   async checkout(dir: string, oid: string): Promise<void> {
+    return withVaultLock(dir, () => this.checkoutLocked(dir, oid), { owner: 'geode:checkout' })
+  }
+
+  private async checkoutLocked(dir: string, oid: string): Promise<void> {
     const branches = await git.listBranches({ fs, dir })
     const ordered = ['main', ...branches.filter((b) => b !== 'main')]
 
@@ -705,8 +783,12 @@ export class GitService {
     const remoteTip = await this.fetchBranchTip(dir, url, branch, onAuth)
 
     // 2. Integrar lo traído, si la nube tiene algo que acá no está.
+    //    Solo esta parte toca refs/index/working dir: va bajo el candado de la
+    //    bóveda (el fetch y el push no, para no trabar al MCP mientras hay red).
     const { pulled, cloudCopies } = remoteTip
-      ? await this.integrateRemote(dir, branch, remoteTip)
+      ? await withVaultLock(dir, () => this.integrateRemote(dir, branch, remoteTip), {
+          owner: 'geode:sync'
+        })
       : { pulled: false, cloudCopies: [] as string[] }
 
     // 3. Pushear: ahora la rama contiene todo lo de la nube, así que es fast-forward.
@@ -1011,6 +1093,10 @@ export class GitService {
    * y binario-safe; se saltan los archivos que ya coinciden para no ensuciar.
    */
   async restoreTree(dir: string, oid: string): Promise<void> {
+    return withVaultLock(dir, () => this.restoreTreeLocked(dir, oid), { owner: 'geode:restore' })
+  }
+
+  private async restoreTreeLocked(dir: string, oid: string): Promise<void> {
     const target = await this.treeBlobs(dir, oid) // ruta→blobOid del commit pasado
     const current = await this.workBlobs(dir) // ruta→hash del working dir (IGNORE-filtrado, racy-safe)
 

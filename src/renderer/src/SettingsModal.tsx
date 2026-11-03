@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, KeyRound, Terminal, Copy, Keyboard } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, KeyRound, Terminal, Copy, Keyboard, Brain } from 'lucide-react'
 import type {
   AiCliStatus,
   CliEngine,
@@ -16,6 +16,7 @@ import { CLI_ENGINES, CLI_SPECS } from '@shared/aiEngines'
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
+import { McpSettings } from './McpSettings'
 import { ShortcutsSettings } from './ShortcutsSettings'
 import { labelOf, useShortcuts } from './shortcuts'
 
@@ -25,7 +26,7 @@ interface SettingsModalProps {
 }
 
 /** Secciones del panel de ajustes (aside izquierdo). */
-type Section = 'general' | 'shortcuts' | 'ai' | 'github' | 'plugins' | 'snapshots'
+type Section = 'general' | 'shortcuts' | 'ai' | 'mcp' | 'github' | 'plugins' | 'snapshots'
 
 /** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
 function perMillion(perToken: string | null): string {
@@ -281,6 +282,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
               <Sparkles size={15} /> Inteligencia artificial
+            </button>
+            <button className={section === 'mcp' ? 'active' : ''} onClick={() => setSection('mcp')}>
+              <Brain size={15} /> Memoria para IA
             </button>
             <button className={section === 'github' ? 'active' : ''} onClick={() => setSection('github')}>
               <Cloud size={15} /> Respaldo en la nube
@@ -729,6 +733,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 </p>
               </section>
             )}
+
+            {section === 'mcp' && <McpSettings />}
 
             {section === 'snapshots' && (
               <section className="settings-section">

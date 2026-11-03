@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type GeodeApi } from '@shared/ipc'
+import { IPC, type ExternalChange, type GeodeApi } from '@shared/ipc'
 
 /**
  * Puente único hacia el renderer. Expone SOLO la superficie tipada `GeodeApi`;
@@ -47,7 +47,15 @@ const api: GeodeApi = {
     saveAttachment: (name, data, notePath) => ipcRenderer.invoke(IPC.vaultSaveAttachment, name, data, notePath ?? null),
     tags: () => ipcRenderer.invoke(IPC.vaultTags),
     obsidianConfig: () => ipcRenderer.invoke(IPC.vaultObsidianConfig),
-    openExternal: (path) => ipcRenderer.invoke(IPC.vaultOpenExternal, path)
+    openExternal: (path) => ipcRenderer.invoke(IPC.vaultOpenExternal, path),
+    onExternalChange: (cb) => {
+      const handler = (_e: IpcRendererEvent, info: ExternalChange): void => cb(info)
+      ipcRenderer.on(IPC.vaultExternalChange, handler)
+      return () => ipcRenderer.removeListener(IPC.vaultExternalChange, handler)
+    }
+  },
+  mcp: {
+    info: () => ipcRenderer.invoke(IPC.mcpInfo)
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),

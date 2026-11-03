@@ -7,6 +7,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Agregado
+- **Memoria para IA (MCP)**: servidor MCP incluido para que Claude, Cursor u otros asistentes usen la bóveda como memoria (buscar, leer, escribir, editar, agregar e historial). Cada escritura de la IA es una versión con su propio autor; se configura desde Ajustes → Memoria para IA.
+- Candado entre procesos por bóveda (`.geode/write.lock`): la app, los servidores MCP y el sync nunca escriben el repo a la vez.
 - **Búsqueda de texto completo** en toda la bóveda (Ctrl+Shift+F), sin tildes ni mayúsculas, con resultados descartables y búsqueda por `#etiqueta`.
 - **Enlaces `[[wiki]]`** con autocompletado, enlaces entrantes y actualización automática de enlaces al renombrar o mover notas.
 - **Imágenes y adjuntos**: pegar o arrastrar, guardados en la bóveda y versionados.

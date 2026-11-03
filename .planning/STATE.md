@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-08)
 Phase: Milestone v1.3 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-09-08 — Completed quick task 260908-syn: el respaldo trae e integra lo de la nube antes de pushear (fix del push rechazado)
+Last activity: 2026-11-03 — Completed quick task 261103-mcp: memoria para IA (servidor MCP con concurrencia segura)
 
 ## Performance Metrics
 
@@ -110,6 +110,7 @@ None yet.
 | 260710-ol2 | Hover en item de la línea de tiempo muestra la descripción completa (title nativo con el mensaje completo del commit en tl-entry-label) | 2026-07-10 | 52a7be5 | [260710-ol2-hover-en-item-de-la-l-nea-de-tiempo-mues](./quick/260710-ol2-hover-en-item-de-la-l-nea-de-tiempo-mues/) |
 | 260710-ovf | Drag & drop en el árbol lateral: mover notas/carpetas a otras carpetas o a la raíz (HTML5 nativo, reusa vault.rename, remap de pestañas, colisiones en español) | 2026-07-10 | 8338483 | [260710-ovf-arrastrar-documentos-a-otras-carpetas-de](./quick/260710-ovf-arrastrar-documentos-a-otras-carpetas-de/) |
 | 260908-syn | Sincronizar con la nube: GitService.sync trae e integra la rama remota (ff / merge diff3 / fallback conservador, copias "(versión de la nube)" en conflicto) antes de pushear; evento git-pulled recarga la UI | 2026-09-08 | — | [260908-syn-sincronizar-con-la-nube-trae-e-integra-ant](./quick/260908-syn-sincronizar-con-la-nube-trae-e-integra-ant/) |
+| 261103-mcp | Memoria para IA: servidor MCP por stdio, candado entre procesos por bóveda, concurrencia optimista (expected_version), commits acotados con autor de la IA, aviso a la app y Ajustes → Memoria para IA | 2026-11-03 | — | [261103-mcp-memoria-para-ia-servidor-mcp-con-concurrencia](./quick/261103-mcp-memoria-para-ia-servidor-mcp-con-concurrencia/) |
 
 ## Deferred Items
 

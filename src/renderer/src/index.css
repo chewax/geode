@@ -1654,6 +1654,29 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   margin: 6px 0 0;
 }
 
+/* Ajustes → Memoria para IA: bloques de configuración copiables. */
+.mcp-snippet {
+  position: relative;
+  margin: 4px 0 12px;
+}
+.mcp-snippet pre {
+  margin: 0;
+  padding: 10px 36px 10px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+.mcp-snippet .icon-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
 .modal-hr {
   border: none;
   border-top: 1px solid var(--border);

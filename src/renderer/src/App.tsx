@@ -518,6 +518,27 @@ export function App(): JSX.Element {
     }
   }, [backgroundSync])
 
+  // La IA escribió en la bóveda vía MCP (otro proceso; ya quedó versionado):
+  // recargar árbol, notas abiertas y línea de tiempo. La recarga de cada panel
+  // hace flush antes de leer, así lo tipeado en vuelo nunca se descarta (si chocó
+  // con la IA, gana lo del usuario en disco y lo de la IA queda en la historia).
+  // Durante el viaje en el tiempo no se toca la vista: solo la línea de tiempo.
+  useEffect(
+    () =>
+      window.geode.vault.onExternalChange((info) => {
+        void refreshGraph()
+        if (previewOidRef.current != null) return
+        void (async () => {
+          const t = await refreshTree()
+          setPanes((prev) => keepOnly(prev, new Set(flattenPaths(t))))
+          bumpAll()
+          const names = info.paths.map((p) => `«${displayName(p)}»`).join(', ')
+          setToast(names ? `${info.author} actualizó ${names}.` : `${info.author} actualizó la bóveda.`)
+        })()
+      }),
+    [refreshGraph, refreshTree, bumpAll]
+  )
+
   /** Abre (o activa) una nota en el panel enfocado. Sin `pinned` = preview (un
    *  click en el árbol); `{ pinned: true }` = tab permanente (doble click). */
   const openNote = useCallback(async (path: string, opts?: { pinned: boolean }) => {

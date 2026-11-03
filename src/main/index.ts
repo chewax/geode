@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, Menu, nativeImage, protocol } from 'electron'
 import { join, basename } from 'path'
 import { existsSync } from 'node:fs'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import iconPng from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
 import {
@@ -14,6 +14,8 @@ import {
   type NamedVersion,
   type SnapshotsConfig,
   type AdvancedConfig,
+  type ExternalChange,
+  type McpInfo,
   type VaultInfo,
   type BackupOnboarding,
   type BackupOnboardingState,
@@ -37,6 +39,7 @@ if (APP_ICON.isEmpty()) {
 void iconIco
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
+import { withVaultLock } from './fs/vaultLock'
 import {
   OpenRouterProvider,
   listOpenRouterModels,
@@ -755,8 +758,15 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.vaultTree, () => vault.tree())
   ipcMain.handle(IPC.vaultReadNote, (_e, path: string) => vault.readNote(path))
+  // El autosave toma el candado de la bóveda: así nunca se cruza a mitad de una
+  // escritura+commit de la IA (servidor MCP, otro proceso). Si el candado tarda,
+  // se escribe igual ('proceed'): lo tipeado por el usuario jamás se descarta.
   ipcMain.handle(IPC.vaultWriteNote, (_e, path: string, content: string) =>
-    vault.writeNote(path, content)
+    withVaultLock(requireRoot(), () => vault.writeNote(path, content), {
+      owner: 'geode:autosave',
+      timeoutMs: 5_000,
+      onTimeout: 'proceed'
+    })
   )
   ipcMain.handle(IPC.vaultCreateNote, (_e, dir: string) => vault.createNote(dir))
   ipcMain.handle(IPC.vaultCreateFolder, (_e, dir: string) => vault.createFolder(dir))
@@ -1051,6 +1061,8 @@ function registerIpcHandlers(): void {
   )
 
   // ── Modo Avanzado (interruptor de las superficies git) ──────────────────────
+
+  ipcMain.handle(IPC.mcpInfo, (): McpInfo | null => mcpInfo())
 
   ipcMain.handle(IPC.advancedGet, async (): Promise<AdvancedConfig> => {
     const { advanced } = await loadSettings()
@@ -1390,6 +1402,69 @@ async function restoreLastVault(): Promise<void> {
   }
 }
 
+/**
+ * Cómo lanzar el servidor MCP para la bóveda activa. Se usa el MISMO binario de
+ * Geode en modo Node (ELECTRON_RUN_AS_NODE=1), así el usuario no necesita tener
+ * Node instalado. En desarrollo, execPath es el electron de node_modules.
+ */
+function mcpInfo(): McpInfo | null {
+  const info = vault.getInfo()
+  if (!info) return null
+  return {
+    vault: info.root,
+    command: process.execPath,
+    args: [join(app.getAppPath(), 'out', 'main', 'mcp.js'), '--vault', info.root],
+    env: { ELECTRON_RUN_AS_NODE: '1' }
+  }
+}
+
+/**
+ * Vigila los cambios que hace la IA desde el servidor MCP (otro proceso). El MCP
+ * escribe `.geode/external-change.json` tras cada commit; acá se sondea su mtime
+ * (barato y portable: sin sockets ni fs.watch, que no es confiable en todos los SO).
+ * Al detectar uno: avisa al renderer (recarga la nota y la línea de tiempo) y
+ * dispara el respaldo, para que lo que escribió la IA llegue a GitHub y a las
+ * otras computadoras igual que un guardado del usuario.
+ */
+const EXTERNAL_POLL_MS = 1500
+const externalSeen = new Map<string, number>()
+
+function startExternalChangeWatcher(): void {
+  setInterval(() => {
+    const info = vault.getInfo()
+    if (!info) return
+    const root = info.root
+    const file = join(root, '.geode', 'external-change.json')
+    void stat(file)
+      .then(async (st) => {
+        const prev = externalSeen.get(root)
+        externalSeen.set(root, st.mtimeMs)
+        // Primera vez que se mira esta bóveda: solo se registra (lo viejo ya
+        // está en disco y el renderer lo lee al abrir).
+        if (prev === undefined || prev === st.mtimeMs) return
+        let change: ExternalChange = { paths: [], author: 'IA' }
+        try {
+          const raw = JSON.parse(await readFile(file, 'utf8')) as Partial<ExternalChange>
+          change = {
+            paths: Array.isArray(raw.paths) ? raw.paths.filter((p): p is string => typeof p === 'string') : [],
+            author: typeof raw.author === 'string' ? raw.author : 'IA'
+          }
+        } catch {
+          // Ilegible: igual se avisa (sin rutas = recargar todo).
+        }
+        if (vault.getInfo()?.root !== root) return
+        for (const w of BrowserWindow.getAllWindows()) {
+          if (!w.isDestroyed()) w.webContents.send(IPC.vaultExternalChange, change)
+        }
+        void autoPushAfterCommit(root)
+      })
+      .catch(() => {
+        // No existe todavía: la IA nunca escribió en esta bóveda.
+        if (!externalSeen.has(root)) externalSeen.set(root, 0)
+      })
+  }, EXTERNAL_POLL_MS)
+}
+
 app.whenReady().then(async () => {
   // En Windows, el AppUserModelID asocia la ventana con el ícono/identidad de la
   // app en la barra de tareas (sin esto usa el ícono genérico de Electron).
@@ -1406,6 +1481,7 @@ app.whenReady().then(async () => {
   registerPluginSandboxProtocol()
   await restoreLastVault()
   createWindow()
+  startExternalChangeWatcher()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

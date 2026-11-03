@@ -62,6 +62,17 @@ describe('tags', () => {
     expect(tags).toEqual(['trabajo', 'cliente-x', 'presupuesto', 'trabajo/urgente', 'entreparentesis'])
   })
 
+  it('los colores CSS/HTML no son etiquetas, las palabras sí', () => {
+    const text = [
+      'fondo #1e1e1e y #ff0000 y #000 y #FFFFFF80',
+      'color: #fff; border: #abc',
+      '<span style="color: #cafe00">rojo</span> <div data-x="#bad">',
+      'pero #cafe, #bebe y #proyecto-2024 son etiquetas',
+      '#2024 tampoco (solo números)'
+    ].join('\n')
+    expect(extractTags(text).map((t) => t.tag)).toEqual(['cafe', 'bebe', 'proyecto-2024'])
+  })
+
   it('un tag padre incluye a sus hijos', () => {
     expect(tagMatches('trabajo/urgente', '#trabajo')).toBe(true)
     expect(tagMatches('trabajos', 'trabajo')).toBe(false)

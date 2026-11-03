@@ -29,10 +29,22 @@ Con Node instalado y el repo compilado también funciona `node out/main/mcp.js -
 | `write_note` | Crea o reescribe una nota completa; reescribir exige `expected_version` |
 | `edit_note` | Reemplaza un fragmento exacto y único |
 | `append_note` | Agrega al final (crea la nota si no existe) |
+| `move_note` | Mueve o renombra una nota o carpeta y actualiza los `[[enlaces]]` de toda la bóveda |
+| `archive_note` | Mueve una nota o carpeta a `Archivo/` (la alternativa segura a borrar) |
+| `list_tags` | Todas las etiquetas con cuántas notas las usan |
+| `backlinks` | Notas que enlazan a una nota, con la línea del enlace |
 | `note_history` | Versiones de una nota con autor y fecha |
 | `read_note_version` | Contenido de una nota en una versión pasada |
 
-No hay borrar ni mover: la IA solo agrega y edita. Toda escritura pasa por la línea de tiempo.
+`search_notes` también acepta `#etiqueta`, y devuelve las notas que tienen esa etiqueta o alguna hija.
+
+**Organizar la bóveda.** Si le pedís a la IA "organizá mis notas", primero ve el mapa con `list_notes` y `list_tags`. Después mueve, renombra y archiva:
+
+- Cada `move_note` o `archive_note` es **una sola versión** que incluye el movimiento y los enlaces actualizados.
+- Nunca pisa un destino existente.
+- Si quedan carpetas vacías, las limpia.
+
+No hay borrar: la IA archiva. Todo pasa por la línea de tiempo, así que una reorganización que no te guste se deshace volviendo a una versión anterior.
 
 ## Concurrencia
 

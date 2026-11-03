@@ -1,7 +1,9 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { mkdir, readdir, readFile, rename, rmdir, stat } from 'node:fs/promises'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NoteVersion } from '@shared/ipc'
-import { displayName, isNotePath } from '@shared/links'
+import { isAttachmentPath } from '@shared/attachments'
+import { displayName, isNotePath, lineOf, parseWikilinks, resolveLink, rewriteLinks } from '@shared/links'
+import { extractTags, tagMatches } from '@shared/obsidian'
 import { foldQuery, searchText } from '@shared/search'
 import { atomicWrite } from '../fs/atomic'
 import { withVaultLock } from '../fs/vaultLock'
@@ -61,6 +63,19 @@ export interface SearchHit {
   matches: { line: number; text: string }[]
 }
 
+export interface MoveResult {
+  from: string
+  to: string
+  /** Archivos movidos (1 para una nota; los que contenga, para una carpeta). */
+  moved: number
+  /** Notas cuyos enlaces se actualizaron (rutas nuevas). */
+  linksUpdatedIn: string[]
+  commit: string | null
+}
+
+/** Carpeta donde `archive_note` deja lo que la IA saca del medio. */
+const ARCHIVE_DIR = 'Archivo'
+
 /** Error "esperado" que se devuelve al LLM como resultado de herramienta con isError. */
 export class MemoryError extends Error {}
 
@@ -119,7 +134,16 @@ export class MemoryStore {
   }
 
   /** Todas las notas .md (rutas relativas), opcionalmente bajo `folder`. */
-  async listNotes(folder = ''): Promise<string[]> {
+  listNotes(folder = ''): Promise<string[]> {
+    return this.walkFiles(folder, isNotePath)
+  }
+
+  /** Notas + adjuntos (lo que puede ser destino de un enlace). */
+  private listLinkable(): Promise<string[]> {
+    return this.walkFiles('', (n) => isNotePath(n) || isAttachmentPath(n))
+  }
+
+  private async walkFiles(folder: string, keep: (name: string) => boolean): Promise<string[]> {
     const base = folder ? this.normalizePath(folder, { requireNote: false }) : ''
     const out: string[] = []
     const walk = async (relDir: string): Promise<void> => {
@@ -133,7 +157,7 @@ export class MemoryStore {
         if (e.name.startsWith('.') || HIDDEN_DIRS.has(e.name)) continue
         const rel = relDir ? `${relDir}/${e.name}` : e.name
         if (e.isDirectory()) await walk(rel)
-        else if (e.isFile() && isNotePath(e.name)) out.push(rel)
+        else if (e.isFile() && keep(e.name)) out.push(rel)
       }
     }
     await walk(base)
@@ -155,6 +179,7 @@ export class MemoryStore {
    * por nombre y las de más coincidencias van primero.
    */
   async search(query: string, limit = 20): Promise<SearchHit[]> {
+    if (/^#[^\s#]+$/.test(query.trim())) return this.searchTag(query.trim(), limit)
     const terms = foldQuery(query).split(/\s+/).filter(Boolean)
     if (terms.length === 0) return []
     const hits: { hit: SearchHit; score: number }[] = []
@@ -179,6 +204,166 @@ export class MemoryStore {
     }
     hits.sort((a, b) => b.score - a.score || a.hit.path.localeCompare(b.hit.path))
     return hits.slice(0, Math.max(1, Math.min(limit, 100))).map((h) => h.hit)
+  }
+
+  /** Notas con la etiqueta `#tag` (o una hija: `#a` incluye `#a/b`). */
+  private async searchTag(query: string, limit: number): Promise<SearchHit[]> {
+    const hits: SearchHit[] = []
+    for (const path of await this.listNotes()) {
+      const text = await this.readIfExists(path)
+      if (text === null) continue
+      const found = extractTags(text).filter((h) => tagMatches(h.tag, query))
+      if (found.length === 0) continue
+      const lines = text.split('\n')
+      const seen = new Set<number>()
+      const matches: SearchHit['matches'] = []
+      for (const h of found) {
+        // Los tags del frontmatter vienen con línea -1: se señala la propiedad `tags`.
+        const ln = h.line >= 0 ? h.line : Math.max(0, lines.findIndex((l) => /^tags?\s*:/.test(l)))
+        if (seen.has(ln)) continue
+        seen.add(ln)
+        matches.push({ line: ln + 1, text: (lines[ln] ?? '').trim().slice(0, 200) })
+      }
+      hits.push({ path, title: displayName(path), matches })
+    }
+    hits.sort((a, b) => b.matches.length - a.matches.length || a.path.localeCompare(b.path))
+    return hits.slice(0, Math.max(1, Math.min(limit, 100)))
+  }
+
+  /** Todas las etiquetas con cuántas notas las usan, de más a menos usadas. */
+  async tags(): Promise<{ tag: string; notes: number }[]> {
+    const counts = new Map<string, { tag: string; notes: number }>()
+    for (const path of await this.listNotes()) {
+      const text = await this.readIfExists(path)
+      if (text === null) continue
+      for (const tag of new Set(extractTags(text).map((h) => h.tag))) {
+        const key = tag.toLowerCase()
+        const e = counts.get(key)
+        if (e) e.notes++
+        else counts.set(key, { tag, notes: 1 })
+      }
+    }
+    return [...counts.values()].sort((a, b) => b.notes - a.notes || a.tag.localeCompare(b.tag))
+  }
+
+  /** Notas que enlazan a `path` con `[[...]]`, con la línea de cada enlace. */
+  async backlinks(path: string): Promise<{ path: string; line: number; context: string }[]> {
+    const target = this.normalizePath(path)
+    if ((await this.readIfExists(target)) === null) throw new MemoryError(`No existe la nota: ${target}`)
+    const paths = await this.listLinkable()
+    const out: { path: string; line: number; context: string }[] = []
+    for (const p of paths.filter(isNotePath)) {
+      if (p === target) continue
+      const text = await this.readIfExists(p)
+      if (text === null) continue
+      const seen = new Set<number>()
+      for (const link of parseWikilinks(text)) {
+        if (resolveLink(link.target, paths, p) !== target) continue
+        const line = lineOf(text, link.from)
+        if (seen.has(line)) continue
+        seen.add(line)
+        out.push({ path: p, line: line + 1, context: (text.split('\n')[line] ?? '').trim().slice(0, 200) })
+      }
+    }
+    return out.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line)
+  }
+
+  /**
+   * Mueve o renombra una nota o una carpeta entera y actualiza los `[[enlaces]]`
+   * de toda la bóveda, en UNA sola versión de la IA. Nunca pisa: si el destino
+   * existe, falla. Los cambios sin versionar del usuario en las notas que se van
+   * a tocar se versionan antes (regla 3).
+   */
+  async move(fromRaw: string, toRaw: string, summary?: string, verb = 'Movió'): Promise<MoveResult> {
+    return withVaultLock(
+      this.root,
+      async () => {
+        // ¿Nota o carpeta? Una carpeta no lleva .md.
+        const asDir = this.normalizePath(fromRaw, { requireNote: false })
+        const dirStat = await stat(this.abs(asDir)).catch(() => null)
+        const isDir = !!dirStat?.isDirectory()
+        const from = isDir ? asDir : this.normalizePath(fromRaw)
+        const to = this.normalizePath(toRaw, { requireNote: !isDir })
+        if (from === to) throw new MemoryError('El origen y el destino son la misma ruta')
+        if (isDir && (to + '/').startsWith(from + '/')) {
+          throw new MemoryError('No se puede mover una carpeta dentro de sí misma')
+        }
+        if (!isDir && (await this.readIfExists(from)) === null) throw new MemoryError(`No existe: ${from}`)
+        if (await stat(this.abs(to)).catch(() => null)) {
+          throw new MemoryError(`Ya existe: ${to}. Elegí otro nombre; nunca se pisa nada.`)
+        }
+
+        // Mapa viejo → nuevo de cada archivo que se mueve.
+        const oldPaths = await this.listLinkable()
+        const renames = new Map<string, string>()
+        if (isDir) {
+          for (const p of oldPaths) if (p.startsWith(`${from}/`)) renames.set(p, to + p.slice(from.length))
+        } else {
+          renames.set(from, to)
+        }
+        const newPaths = oldPaths.map((p) => renames.get(p) ?? p)
+
+        // Plan de enlaces a reescribir (se calcula ANTES de tocar el disco).
+        const plan = new Map<string, string>() // ruta NUEVA → texto nuevo
+        const touchedOld: string[] = [] // las mismas notas, por su ruta VIEJA
+        for (const oldPath of oldPaths.filter(isNotePath)) {
+          const text = await this.readIfExists(oldPath)
+          if (text === null) continue
+          const res = rewriteLinks(text, oldPath, renames, oldPaths, newPaths)
+          if (res.changed > 0) {
+            plan.set(renames.get(oldPath) ?? oldPath, res.text)
+            touchedOld.push(oldPath)
+          }
+        }
+
+        // Regla 3: lo del usuario sin versionar en esas notas va primero a la historia.
+        const before = [...new Set([...renames.keys(), ...touchedOld])]
+        await this.git.commitPaths(this.root, before, 'Cambios sin guardar antes de la reorganización de la IA')
+
+        await mkdir(dirname(this.abs(to)), { recursive: true })
+        await rename(this.abs(from), this.abs(to))
+        for (const [path, text] of plan) await atomicWrite(this.abs(path), text)
+        if (!isDir) await this.removeEmptyParents(from)
+
+        const changed = [...new Set([...renames.keys(), ...renames.values(), ...plan.keys()])]
+        const title = summary?.trim() || `${verb} ${displayName(from)} a ${to}`
+        const commit = await this.git.commitPaths(this.root, changed, `IA: ${title}`, this.aiAuthor)
+        if (commit) await this.notifyApp([...renames.values(), ...plan.keys()], commit)
+        return { from, to, moved: renames.size, linksUpdatedIn: [...plan.keys()], commit }
+      },
+      { owner: 'geode:mcp' }
+    )
+  }
+
+  /**
+   * Archiva una nota o carpeta: la mueve a `Archivo/` conservando su ruta (y
+   * actualizando enlaces). Es la forma "humana" de sacar algo del medio: queda a
+   * la vista, en la bóveda, y además en la historia.
+   */
+  async archive(path: string, summary?: string): Promise<MoveResult> {
+    const asDir = this.normalizePath(path, { requireNote: false })
+    const isDir = !!(await stat(this.abs(asDir)).catch(() => null))?.isDirectory()
+    const rel = isDir ? asDir : this.normalizePath(path)
+    if (rel === ARCHIVE_DIR || rel.startsWith(`${ARCHIVE_DIR}/`)) throw new MemoryError('Ya está archivada')
+    // Si ya hay algo archivado con ese nombre, se numera: nunca se pisa.
+    const ext = isDir ? '' : '.md'
+    const stem = isDir ? rel : rel.slice(0, -ext.length)
+    let target = `${ARCHIVE_DIR}/${stem}${ext}`
+    for (let n = 2; await stat(this.abs(target)).catch(() => null); n++) target = `${ARCHIVE_DIR}/${stem} ${n}${ext}`
+    return this.move(rel, target, summary, 'Archivó')
+  }
+
+  /** Tras mover una nota, borra las carpetas que quedaron vacías (nunca la raíz). */
+  private async removeEmptyParents(rel: string): Promise<void> {
+    let dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+    while (dir) {
+      try {
+        await rmdir(this.abs(dir)) // falla si no está vacía: ahí se corta
+      } catch {
+        return
+      }
+      dir = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
+    }
   }
 
   /**

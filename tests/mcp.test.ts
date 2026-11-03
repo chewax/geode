@@ -92,6 +92,67 @@ describe('MemoryStore', () => {
   })
 })
 
+describe('MemoryStore — organizar', () => {
+  it('move_note mueve, actualiza enlaces y lo hace en UNA versión de la IA', async () => {
+    await writeFile(join(dir, 'Ideas.md'), 'idea\n')
+    await writeFile(join(dir, 'Indice.md'), 'ver [[Ideas]] y [[Ideas|esto]]\n')
+    await git.commit(dir, 'base')
+
+    const res = await store.move('Ideas', 'proyectos/Ideas viejas', 'Ordena ideas')
+    expect(res).toMatchObject({ from: 'Ideas.md', to: 'proyectos/Ideas viejas.md', moved: 1 })
+    expect(res.linksUpdatedIn).toEqual(['Indice.md'])
+    expect(await readFile(join(dir, 'proyectos', 'Ideas viejas.md'), 'utf8')).toBe('idea\n')
+    expect(await readFile(join(dir, 'Indice.md'), 'utf8')).toContain('[[Ideas viejas]]')
+    await expect(readFile(join(dir, 'Ideas.md'), 'utf8')).rejects.toThrow()
+    // Todo en un solo commit, sin cambios pendientes.
+    expect(await git.changes(dir)).toEqual([])
+    const history = await store.history('Indice.md')
+    expect(history[0]).toMatchObject({ message: 'IA: Ordena ideas', author: 'Test (IA)' })
+  })
+
+  it('move_note nunca pisa un destino existente', async () => {
+    await writeFile(join(dir, 'A.md'), 'a')
+    await writeFile(join(dir, 'B.md'), 'b')
+    await expect(store.move('A.md', 'B.md')).rejects.toThrow(/Ya existe/)
+    expect(await readFile(join(dir, 'B.md'), 'utf8')).toBe('b')
+  })
+
+  it('move_note mueve carpetas enteras y versiona antes lo del usuario', async () => {
+    await mkdir(join(dir, 'viejo'), { recursive: true })
+    await writeFile(join(dir, 'viejo', 'x.md'), 'x')
+    await git.commit(dir, 'base')
+    await writeFile(join(dir, 'viejo', 'x.md'), 'x editada sin guardar')
+
+    const res = await store.move('viejo', 'trabajo/viejo')
+    expect(res.moved).toBe(1)
+    expect(await readFile(join(dir, 'trabajo', 'viejo', 'x.md'), 'utf8')).toBe('x editada sin guardar')
+    const prev = await store.history('viejo/x.md')
+    expect(prev[0].message).toMatch(/antes de la reorganización/)
+    expect(await git.readAt(dir, prev[0].oid, 'viejo/x.md')).toBe('x editada sin guardar')
+    await expect(store.move('trabajo', 'trabajo/dentro')).rejects.toThrow(/sí misma/)
+  })
+
+  it('archive_note mueve a Archivo/ y numera si ya existe', async () => {
+    await mkdir(join(dir, 'notas'), { recursive: true })
+    await writeFile(join(dir, 'notas', 'Vieja.md'), 'v1')
+    expect((await store.archive('notas/Vieja')).to).toBe('Archivo/notas/Vieja.md')
+    // La carpeta quedó vacía y se limpió sola: se vuelve a crear.
+    await mkdir(join(dir, 'notas'), { recursive: true })
+    await writeFile(join(dir, 'notas', 'Vieja.md'), 'v2')
+    expect((await store.archive('notas/Vieja.md')).to).toBe('Archivo/notas/Vieja 2.md')
+    await expect(store.archive('Archivo/notas/Vieja.md')).rejects.toThrow(/archivada/)
+  })
+
+  it('list_tags, búsqueda por #etiqueta y backlinks', async () => {
+    await writeFile(join(dir, 'T1.md'), '---\ntags: [trabajo]\n---\nhola #trabajo/urgente\n')
+    await writeFile(join(dir, 'T2.md'), 'algo #trabajo y [[T1]]\n')
+    const tags = await store.tags()
+    expect(tags.find((t) => t.tag === 'trabajo')?.notes).toBe(2)
+    expect((await store.search('#trabajo')).map((h) => h.path).sort()).toEqual(['T1.md', 'T2.md'])
+    expect(await store.backlinks('T1')).toEqual([{ path: 'T2.md', line: 1, context: 'algo #trabajo y [[T1]]' }])
+  })
+})
+
 describe('withVaultLock', () => {
   it('excluye a dos operaciones independientes y es reentrante en el mismo flujo', async () => {
     const order: string[] = []

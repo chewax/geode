@@ -20,6 +20,7 @@ Cómo usarla:
 - Guardá lo que valga la pena recordar (decisiones, preferencias, datos de proyectos) en notas cortas y temáticas. Si no hay una convención en la bóveda, usá la carpeta "memoria/".
 - Para agregar algo sin pisar nada, usá append_note. Para cambiar un fragmento, edit_note. Para reescribir una nota entera, read_note primero y pasá su "version" como expected_version a write_note.
 - Si una escritura falla porque la nota cambió, volvé a leerla: el usuario puede estar editándola en este momento.
+- Para organizar: list_notes y list_tags dan el mapa; move_note mueve o renombra (notas o carpetas) y actualiza los enlaces solo; archive_note saca del medio lo viejo o duplicado. No hay borrar: archivá. Antes de una reorganización grande, contale al usuario el plan.
 - Pasá siempre un "summary" breve en español: es el título de la versión que el usuario ve en su historial.`
 
 interface JsonRpcRequest {
@@ -73,7 +74,7 @@ function tools(store: MemoryStore): ToolDef[] {
       name: 'search_notes',
       title: 'Buscar notas',
       description:
-        'Busca notas que contengan TODAS las palabras (ignora mayúsculas y tildes) en el nombre o el texto. Devuelve rutas y líneas que coinciden.',
+        'Busca notas que contengan TODAS las palabras (ignora mayúsculas y tildes) en el nombre o el texto. Con "#etiqueta" devuelve las notas que la tienen (incluye sub-etiquetas). Devuelve rutas y líneas que coinciden.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -151,6 +152,57 @@ function tools(store: MemoryStore): ToolDef[] {
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
       run: async (a) => store.appendNote(str(a.path) ?? '', str(a.text) as string, str(a.summary))
+    },
+    {
+      name: 'move_note',
+      title: 'Mover o renombrar',
+      description:
+        'Mueve o renombra una nota o una carpeta entera y actualiza los [[enlaces]] de toda la bóveda. Falla si el destino ya existe (nunca pisa). Las carpetas se crean solas.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          from: { type: 'string', description: 'Nota o carpeta actual, p. ej. "Ideas sueltas.md" o "viejo".' },
+          to: { type: 'string', description: 'Ruta nueva, p. ej. "proyectos/Ideas.md" o "proyectos/viejo".' },
+          summary: SUMMARY
+        },
+        required: ['from', 'to']
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      run: async (a) => store.move(str(a.from) ?? '', str(a.to) ?? '', str(a.summary))
+    },
+    {
+      name: 'archive_note',
+      title: 'Archivar',
+      description:
+        'Saca una nota o carpeta del medio moviéndola a "Archivo/" (conserva su ruta y actualiza enlaces). Usalo en lugar de borrar: sigue en la bóveda y en la historia.',
+      inputSchema: {
+        type: 'object',
+        properties: { path: { type: 'string' }, summary: SUMMARY },
+        required: ['path']
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      run: async (a) => store.archive(str(a.path) ?? '', str(a.summary))
+    },
+    {
+      name: 'list_tags',
+      title: 'Listar etiquetas',
+      description:
+        'Todas las #etiquetas de la bóveda con cuántas notas usan cada una. Para ver las notas de una, usá search_notes con "#etiqueta".',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      run: async () => ({ tags: await store.tags() })
+    },
+    {
+      name: 'backlinks',
+      title: 'Enlaces entrantes',
+      description: 'Notas que enlazan a una nota con [[...]], con la línea de cada enlace.',
+      inputSchema: {
+        type: 'object',
+        properties: { path: { type: 'string' } },
+        required: ['path']
+      },
+      annotations: { readOnlyHint: true },
+      run: async (a) => ({ backlinks: await store.backlinks(str(a.path) ?? '') })
     },
     {
       name: 'note_history',

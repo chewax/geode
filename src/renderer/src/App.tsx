@@ -85,6 +85,10 @@ import { AiPromptModal } from './AiPromptModal'
 import { SearchPanel } from './SearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
 import { TagsPanel } from './TagsPanel'
+import { startRecording, type Recording } from './dictation/recorder'
+import { DAILY_DIR } from './plugins/builtin/dailyNotes'
+import { TEMPLATES_DIR, applyTemplate, localDate, localTime } from './plugins/builtin/templating'
+import type { DictationStatus, DictationTarget } from '@shared/ipc'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf } from '@shared/attachments'
 import {
@@ -160,6 +164,8 @@ export function App(): JSX.Element {
   // NUNCA se persiste — la app siempre abre en el presente (SOFT-05, T-02-10).
   const [previewOid, setPreviewOid] = useState<string | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
+  const aiConfigRef = useRef<AiConfig | null>(null)
+  aiConfigRef.current = aiConfig
   // Modo Avanzado: revela las superficies git (toolbar, grafo, ramas, paleta).
   // Default false ⇒ experiencia sin jerga git (fail-safe ante error IPC).
   const [advanced, setAdvanced] = useState(false)
@@ -585,6 +591,126 @@ export function App(): JSX.Element {
       setToast('Se renombró, pero no se pudieron actualizar los enlaces.')
     }
   }, [bumpAll, refreshGraph])
+
+  // ── Dictado por voz ─────────────────────────────────────────────────────────
+
+  /** Grabación en curso y adónde va el texto; null = no se está dictando. */
+  const dictationRef = useRef<{ rec: Recording; target: DictationTarget; timer: number } | null>(null)
+  /** Transcripción en vuelo: un segundo atajo mientras tanto no hace nada. */
+  const transcribingRef = useRef(false)
+
+  const reportDictation = useCallback((status: DictationStatus) => {
+    window.geode.dictation.reportStatus(status)
+  }, [])
+
+  /**
+   * Agrega el texto dictado al final de la nota de hoy (Diario/AAAA-MM-DD.md),
+   * con la hora. La crea si no existe (con Plantillas/Diario.md si hay). Nunca
+   * pisa: si la nota estaba abierta, primero se persiste lo tipeado.
+   */
+  const appendToToday = useCallback(async (text: string): Promise<string> => {
+    await flushAll()
+    const title = localDate()
+    const path = `${DAILY_DIR}/${title}.md`
+    const line = `**${localTime()}** — ${text}`
+    let current: string | null = null
+    try {
+      current = await window.geode.vault.readNote(path)
+    } catch {
+      current = null
+    }
+    if (current === null) {
+      let base = `# ${title}\n`
+      try {
+        base = applyTemplate(await window.geode.vault.readNote(`${TEMPLATES_DIR}/Diario.md`), { title })
+      } catch {
+        // sin plantilla: encabezado mínimo
+      }
+      await window.geode.vault.createNoteAt(path, `${base.replace(/\s*$/, '')}\n\n${line}\n`)
+    } else {
+      await window.geode.vault.writeNote(path, `${current.replace(/\s*$/, '')}\n\n${line}\n`)
+    }
+    await refreshTree()
+    bumpAll() // si la nota de hoy estaba abierta, que muestre lo nuevo
+    return path
+  }, [flushAll, refreshTree, bumpAll])
+
+  /** Empieza a grabar. `target` decide adónde va el texto al terminar. */
+  const startDictation = useCallback(async (target: DictationTarget) => {
+    if (dictationRef.current || transcribingRef.current) return
+    if (!aiConfigRef.current?.hasKey) {
+      reportDictation({ state: 'error', message: 'Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.' })
+      return
+    }
+    try {
+      const rec = await startRecording()
+      // Tope de 5 minutos por dictado: corta solo (y transcribe lo grabado).
+      const timer = window.setTimeout(() => void stopDictationRef.current(), 5 * 60_000)
+      dictationRef.current = { rec, target, timer }
+      reportDictation({ state: 'listening' })
+    } catch (e) {
+      reportDictation({ state: 'error', message: e instanceof Error ? e.message : 'No se pudo abrir el micrófono.' })
+    }
+  }, [reportDictation])
+
+  /** Termina de grabar, transcribe y escribe el texto donde corresponde. */
+  const stopDictation = useCallback(async () => {
+    const cur = dictationRef.current
+    if (!cur) return
+    dictationRef.current = null
+    window.clearTimeout(cur.timer)
+    transcribingRef.current = true
+    reportDictation({ state: 'transcribing' })
+    try {
+      const audio = await cur.rec.stop()
+      if (!audio) {
+        reportDictation({ state: 'done', message: 'No se escuchó nada' })
+        return
+      }
+      const text = (await window.geode.ai.transcribe(audio.wavBase64)).trim()
+      void refreshAiUsage() // la transcripción tiene costo: que se vea
+      if (!text) {
+        reportDictation({ state: 'done', message: 'No se entendió nada' })
+        return
+      }
+      const editor = getActiveEditor()
+      const path = openPathRef.current
+      const canInsert = cur.target === 'cursor' && !!editor && !!path && isNotePath(path) && previewOidRef.current == null
+      if (canInsert) {
+        editor.insertAtCursor(text)
+        reportDictation({ state: 'done', message: 'Listo: texto agregado' })
+      } else {
+        await appendToToday(text)
+        reportDictation({ state: 'done', message: 'Listo: agregado a tu nota de hoy' })
+        setToast('Dictado agregado a tu nota de hoy.')
+      }
+    } catch (e) {
+      reportDictation({ state: 'error', message: e instanceof Error ? e.message : 'No se pudo dictar' })
+    } finally {
+      transcribingRef.current = false
+    }
+  }, [reportDictation, refreshAiUsage, getActiveEditor, appendToToday])
+  const stopDictationRef = useRef(stopDictation)
+  stopDictationRef.current = stopDictation
+
+  // Órdenes del atajo global (las manda el main).
+  useEffect(
+    () =>
+      window.geode.dictation.onCommand((cmd) => {
+        if (cmd.action === 'start') void startDictation(cmd.target)
+        else if (cmd.action === 'stop') void stopDictation()
+        else {
+          const cur = dictationRef.current
+          dictationRef.current = null
+          if (cur) {
+            window.clearTimeout(cur.timer)
+            cur.rec.cancel()
+          }
+          reportDictation({ state: 'idle' })
+        }
+      }),
+    [startDictation, stopDictation, reportDictation]
+  )
 
   // ── Callbacks de los paneles (EditorPane → App) ─────────────────────────────
 
@@ -1317,6 +1443,10 @@ export function App(): JSX.Element {
       setSearchOpen(true)
       setSearchFocus((n) => n + 1)
     },
+    toggleDictation: () => {
+      if (dictationRef.current) void stopDictation()
+      else void startDictation('cursor')
+    },
     openTag: (tag: string) => {
       setSearchOpen(true)
       setSearchSeed({ text: `#${tag.replace(/^#/, '')}`, nonce: Date.now() })
@@ -1412,6 +1542,7 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
       host.registerCommand({ id: 'core.search', title: 'Buscar en todas las notas', category: 'Núcleo', shortcut: 'Ctrl+Shift+F', run: () => api().openSearch() }),
+      host.registerCommand({ id: 'core.dictate', title: 'Dictar (empezar / terminar)', category: 'Núcleo', shortcut: 'Ctrl+Alt+Espacio', run: () => api().toggleDictation() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.splitRight', title: 'Dividir editor a la derecha', category: 'Vista', shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
       host.registerCommand({ id: 'core.splitDown', title: 'Dividir editor abajo', category: 'Vista', run: () => api().splitDown() }),

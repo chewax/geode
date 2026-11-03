@@ -92,6 +92,13 @@ function parseNamedVersion(raw: string): NamedVersion {
   return { title, description }
 }
 
+/** Instrucción del dictado: transcripción literal, en el idioma hablado. */
+const TRANSCRIBE_PROMPT = `Sos un transcriptor. Transcribí EXACTAMENTE lo que se dice en el audio, en el idioma en que se habla (normalmente español rioplatense).
+- Devolvé SOLO el texto transcripto, con puntuación y mayúsculas correctas.
+- No resumas, no traduzcas, no agregues comentarios ni comillas.
+- Si la persona dicta signos ("punto", "coma", "nuevo párrafo"), aplicalos.
+- Si no hay voz entendible, devolvé exactamente: (sin voz)`
+
 export class OpenRouterProvider implements AiMessageProvider {
   constructor(
     private readonly key: string,
@@ -109,6 +116,7 @@ export class OpenRouterProvider implements AiMessageProvider {
         name?: string
         context_length?: number
         pricing?: { prompt?: string; completion?: string }
+        architecture?: { input_modalities?: string[] }
       }[]
     }
     return (json.data ?? []).map((m) => ({
@@ -117,7 +125,8 @@ export class OpenRouterProvider implements AiMessageProvider {
       // Precios en USD por token (como los da OpenRouter); la UI los pasa a $/millón.
       promptPrice: m.pricing?.prompt ?? null,
       completionPrice: m.pricing?.completion ?? null,
-      contextLength: m.context_length ?? null
+      contextLength: m.context_length ?? null,
+      audioInput: (m.architecture?.input_modalities ?? []).includes('audio')
     }))
   }
 
@@ -171,12 +180,39 @@ export class OpenRouterProvider implements AiMessageProvider {
     )
   }
 
+  /**
+   * Dictado: transcribe un WAV (base64) con un modelo que acepte audio de
+   * entrada (`input_audio` de OpenRouter). Temperatura 0: transcripción literal,
+   * sin resumir ni "mejorar" lo dicho. '' si no se entendió voz.
+   */
+  async transcribe(wavBase64: string, signal?: AbortSignal): Promise<string> {
+    const raw = await this.chat(
+      [
+        { role: 'system', content: TRANSCRIBE_PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Transcribí este audio.' },
+            { type: 'input_audio', input_audio: { data: wavBase64, format: 'wav' } }
+          ]
+        }
+      ],
+      2000,
+      0,
+      signal,
+      true
+    )
+    const text = raw.trim()
+    return /^\(?(sin voz|silencio|no speech|\[silencio\])\)?\.?$/i.test(text) ? '' : text
+  }
+
   /** Llamada de chat a OpenRouter. Devuelve el contenido del mensaje. */
   private async chat(
-    messages: { role: string; content: string }[],
+    messages: { role: string; content: string | Record<string, unknown>[] }[],
     maxTokens: number,
     temperature: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    allowEmpty = false
   ): Promise<string> {
     const res = await fetch(`${OPENROUTER}/chat/completions`, {
       method: 'POST',
@@ -194,9 +230,34 @@ export class OpenRouterProvider implements AiMessageProvider {
     }
     const json = (await res.json()) as { choices?: { message?: { content?: string } }[] }
     const raw = json.choices?.[0]?.message?.content?.trim()
-    if (!raw) throw new Error('El modelo devolvió una respuesta vacía')
+    if (!raw) {
+      if (allowEmpty) return ''
+      throw new Error('El modelo devolvió una respuesta vacía')
+    }
     return raw
   }
+}
+
+/** Preferidos para dictado (si están disponibles y aceptan audio), en orden. */
+const DICTATION_PREFERRED = [
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
+  'google/gemini-2.0-flash-001',
+  'openai/gpt-4o-mini-audio-preview',
+  'openai/gpt-4o-audio-preview'
+]
+
+/**
+ * Elige el modelo del dictado: el configurado si sigue existiendo y acepta audio;
+ * si no, el primero de la lista de preferidos disponible; si no, el más barato que
+ * acepte audio. null si OpenRouter no ofrece ninguno.
+ */
+export function pickDictationModel(models: AiModel[], configured: string | null): string | null {
+  const audio = models.filter((m) => m.audioInput)
+  if (configured && audio.some((m) => m.id === configured)) return configured
+  for (const id of DICTATION_PREFERRED) if (audio.some((m) => m.id === id)) return id
+  const price = (m: AiModel): number => Number(m.promptPrice ?? Infinity)
+  return [...audio].sort((a, b) => price(a) - price(b))[0]?.id ?? null
 }
 
 /** Lista de modelos sin necesitar un modelo elegido todavía (para los ajustes). */

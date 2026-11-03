@@ -3709,3 +3709,23 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   padding: 8px 12px;
 }
 .md-preview .plugin-block-error { border-color: color-mix(in srgb, #e53e3e 50%, transparent); }
+
+/* ── Ajustes: subtítulos y atajos ─────────────────────────────────────────── */
+.settings-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  margin: 22px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+kbd {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+}

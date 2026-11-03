@@ -34,7 +34,8 @@ if (APP_ICON.isEmpty()) {
 void iconIco
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
-import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage, mapAiError } from './services/ai'
+import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage, mapAiError, pickDictationModel } from './services/ai'
+import { setupDictation, teardownDictation } from './dictation'
 import {
   requestDeviceCode,
   pollForToken,
@@ -134,6 +135,7 @@ async function aiConfig(): Promise<AiConfig> {
   return {
     enabled: ai?.enabled ?? false,
     model: ai?.model ?? null,
+    dictationModel: ai?.dictationModel ?? null,
     hasKey: !!ai?.key
   }
 }
@@ -362,6 +364,27 @@ async function restartSnapshotTimer(): Promise<void> {
   }, minutes * 60_000)
 }
 
+/** Ventana principal (la que graba el dictado). */
+let mainWindowRef: BrowserWindow | null = null
+
+/** Errores del dictado en español humano, sin el crudo del proveedor. */
+function mapDictationError(e: unknown): Error {
+  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
+  if (msg.includes('401') || msg.includes('403') || msg.includes('unauthorized')) {
+    return new Error('No se pudo dictar: la clave de OpenRouter fue rechazada. Revisala en Ajustes → IA.')
+  }
+  if (msg.includes('402') || msg.includes('credit') || msg.includes('insufficient')) {
+    return new Error('No se pudo dictar: tu cuenta de OpenRouter no tiene saldo suficiente.')
+  }
+  if (msg.includes('aborted') || msg.includes('timeout') || msg.includes('fetch failed') || msg.includes('network')) {
+    return new Error('No se pudo dictar: no hay conexión con OpenRouter. Probá de nuevo en un momento.')
+  }
+  if (msg.includes('404') || msg.includes('no endpoints')) {
+    return new Error('No se pudo dictar: el modelo de dictado ya no existe. Elegí otro en Ajustes → IA.')
+  }
+  return new Error('No se pudo transcribir el audio ahora. Probá de nuevo en un momento.')
+}
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -380,6 +403,11 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: true
     }
+  })
+
+  mainWindowRef = mainWindow
+  mainWindow.on('closed', () => {
+    if (mainWindowRef === mainWindow) mainWindowRef = null
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -772,6 +800,44 @@ function registerIpcHandlers(): void {
     settings.ai = { ...settings.ai, model }
     await saveSettings(settings)
     return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiSetDictationModel, async (_e, model: string | null) => {
+    const settings = await loadSettings()
+    const ai = { ...settings.ai }
+    if (model) ai.dictationModel = model
+    else delete ai.dictationModel
+    settings.ai = ai
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
+  // Dictado: transcribir el WAV grabado en el renderer. Usa la misma clave de
+  // OpenRouter que el resto de la IA (el costo se ve en la barra de estado). El
+  // modelo: el configurado para dictado si acepta audio; si no, uno automático.
+  ipcMain.handle(IPC.aiTranscribe, async (_e, wavBase64: string): Promise<string> => {
+    const key = await getAiKey()
+    if (!key) throw new Error('Para dictar, configurá tu clave de OpenRouter en Ajustes → IA.')
+    if (typeof wavBase64 !== 'string' || wavBase64.length === 0) return ''
+    let model: string | null = null
+    try {
+      const { ai } = await loadSettings()
+      model = pickDictationModel(await listOpenRouterModels(key), ai?.dictationModel ?? null)
+    } catch (e) {
+      throw mapDictationError(e)
+    }
+    if (!model) throw new Error('OpenRouter no ofrece ahora ningún modelo que entienda audio. Probá más tarde.')
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 120_000)
+      try {
+        return await new OpenRouterProvider(key, model).transcribe(wavBase64, controller.signal)
+      } finally {
+        clearTimeout(timer)
+      }
+    } catch (e) {
+      throw mapDictationError(e)
+    }
   })
 
   ipcMain.handle(IPC.aiSetEnabled, async (_e, enabled: boolean) => {
@@ -1194,6 +1260,7 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers()
   registerVaultProtocol()
+  setupDictation(() => mainWindowRef)
   registerPluginSandboxProtocol()
   await restoreLastVault()
   createWindow()
@@ -1202,6 +1269,8 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('will-quit', () => teardownDictation())
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

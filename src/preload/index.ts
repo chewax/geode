@@ -105,7 +105,9 @@ const api: GeodeApi = {
     suggestVersion: () => ipcRenderer.invoke(IPC.aiSuggestVersion),
     generateText: (instruction, selection, before) =>
       ipcRenderer.invoke(IPC.aiGenerateText, instruction, selection, before),
-    usage: () => ipcRenderer.invoke(IPC.aiUsage)
+    usage: () => ipcRenderer.invoke(IPC.aiUsage),
+    setDictationModel: (model) => ipcRenderer.invoke(IPC.aiSetDictationModel, model),
+    transcribe: (wav) => ipcRenderer.invoke(IPC.aiTranscribe, wav)
   },
   snapshots: {
     get: () => ipcRenderer.invoke(IPC.snapshotsGet),
@@ -115,6 +117,15 @@ const api: GeodeApi = {
   advanced: {
     get: () => ipcRenderer.invoke(IPC.advancedGet),
     set: (enabled) => ipcRenderer.invoke(IPC.advancedSet, enabled)
+  },
+  dictation: {
+    onCommand: (cb) => {
+      const handler = (_e: IpcRendererEvent, cmd: Parameters<typeof cb>[0]): void => cb(cmd)
+      ipcRenderer.on(IPC.dictationCommand, handler)
+      return () => ipcRenderer.removeListener(IPC.dictationCommand, handler)
+    },
+    reportStatus: (status) => ipcRenderer.send(IPC.dictationStatus, status),
+    getShortcut: () => ipcRenderer.invoke(IPC.dictationGetShortcut)
   },
   plugins: {
     list: () => ipcRenderer.invoke(IPC.pluginsList),

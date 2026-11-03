@@ -80,6 +80,11 @@ export const IPC = {
   aiSuggestVersion: 'geode:ai-suggest-version',
   aiGenerateText: 'geode:ai-generate-text',
   aiUsage: 'geode:ai-usage',
+  aiSetDictationModel: 'geode:ai-set-dictation-model',
+  aiTranscribe: 'geode:ai-transcribe',
+  dictationCommand: 'geode:dictation-command',
+  dictationStatus: 'geode:dictation-status',
+  dictationGetShortcut: 'geode:dictation-get-shortcut',
   snapshotsGet: 'geode:snapshots-get',
   snapshotsSet: 'geode:snapshots-set',
   snapshotsSetAiTitles: 'geode:snapshots-set-ai-titles',
@@ -468,11 +473,15 @@ export interface AiModel {
   /** USD por token de salida; null si no informa. */
   completionPrice: string | null
   contextLength: number | null
+  /** true si el modelo acepta audio de entrada (sirve para el dictado). */
+  audioInput: boolean
 }
 
 export interface AiConfig {
   enabled: boolean
   model: string | null
+  /** Modelo para el dictado por voz; null = Geode elige uno que acepte audio. */
+  dictationModel: string | null
   /** Si hay una API key guardada (nunca se expone la key en sí al renderer). */
   hasKey: boolean
 }
@@ -514,6 +523,36 @@ export interface AiApi {
   generateText(instruction: string, selection: string, before: string): Promise<string>
   /** Uso/gasto de la API key en OpenRouter. null si no hay key. */
   usage(): Promise<AiUsage | null>
+  /** Fija el modelo del dictado (null = elegir uno automáticamente). */
+  setDictationModel(model: string | null): Promise<AiConfig>
+  /** Transcribe audio WAV (base64) a texto con OpenRouter. '' si no hubo voz. */
+  transcribe(wavBase64: string): Promise<string>
+}
+
+// ── Dictado por voz (atajo global) ──────────────────────────────────────────
+
+/** Adónde va el texto dictado: el cursor (Geode al frente) o la nota de hoy. */
+export type DictationTarget = 'cursor' | 'daily'
+
+/** Orden del main al renderer (el atajo global se registra en el main). */
+export interface DictationCommand {
+  action: 'start' | 'stop' | 'cancel'
+  target: DictationTarget
+}
+
+/** Estado que el renderer reporta para la ventanita flotante. */
+export interface DictationStatus {
+  state: 'listening' | 'transcribing' | 'done' | 'error' | 'idle'
+  message?: string
+}
+
+export interface DictationApi {
+  /** Suscribe las órdenes del atajo global. Devuelve el desuscriptor. */
+  onCommand(cb: (cmd: DictationCommand) => void): () => void
+  /** Reporta el estado (lo muestra la ventanita flotante "Escuchando…"). */
+  reportStatus(status: DictationStatus): void
+  /** Atajo global efectivo (p. ej. "Ctrl+Alt+Espacio"), o null si no se pudo registrar. */
+  getShortcut(): Promise<string | null>
 }
 
 // ── Snapshots automáticos (guardado por cadencia; IA opcional en cadencia) ──
@@ -624,4 +663,5 @@ export interface GeodeApi {
   snapshots: SnapshotsApi
   advanced: AdvancedApi
   plugins: PluginsApi
+  dictation: DictationApi
 }

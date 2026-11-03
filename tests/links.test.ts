@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linkTextFor, maskCode, parseWikilinks, resolveLink, rewriteLinks } from '@shared/links'
+import { linkTargetFromSelection, linkTextFor, maskCode, parseWikilinks, resolveLink, rewriteLinks } from '@shared/links'
 
 describe('parseWikilinks', () => {
   it('extrae destino, sección, alias y embeds con sus posiciones', () => {
@@ -73,5 +73,19 @@ describe('rewriteLinks', () => {
   it('no toca nada si no hay enlaces afectados', () => {
     const text = 'sin [[cambios]]'
     expect(rewriteLinks(text, 'x.md', new Map([['a.md', 'b.md']]), ['a.md', 'cambios.md'], ['b.md', 'cambios.md'])).toEqual({ text, changed: 0 })
+  })
+})
+
+describe('linkTargetFromSelection', () => {
+  it('usa el texto tal cual cuando es un nombre válido', () => {
+    expect(linkTargetFromSelection('  Plan de viaje ')).toBe('Plan de viaje')
+  })
+  it('quita caracteres prohibidos en enlaces y nombres de archivo', () => {
+    expect(linkTargetFromSelection('¿Qué es [x]? a/b #tag')).toBe('¿Qué es x a b tag')
+  })
+  it('descarta puntos finales (Windows) y selecciones vacías o multilínea', () => {
+    expect(linkTargetFromSelection('Fin de la frase.')).toBe('Fin de la frase')
+    expect(linkTargetFromSelection('   ')).toBe('')
+    expect(linkTargetFromSelection('línea 1\nlínea 2')).toBe('')
   })
 })

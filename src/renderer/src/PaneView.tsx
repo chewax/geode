@@ -28,6 +28,7 @@ export interface PaneViewProps {
   previewOid?: string | null
   files: string[]
   onOpenLink: (target: string, fromPath: string) => void
+  onCreateLinkedNote: (target: string, fromPath: string) => void
   onNotify: (message: string) => void
   onOpenTag: (tag: string) => void
   useWikilinks: boolean
@@ -61,6 +62,7 @@ export function PaneView(props: PaneViewProps): JSX.Element {
         previewOid={props.previewOid ?? null}
         files={props.files}
         onOpenLink={props.onOpenLink}
+        onCreateLinkedNote={props.onCreateLinkedNote}
         onNotify={props.onNotify}
         onOpenTag={props.onOpenTag}
         useWikilinks={props.useWikilinks}

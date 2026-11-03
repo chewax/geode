@@ -223,3 +223,21 @@ export function lineOf(text: string, offset: number): number {
   for (let i = 0; i < offset && i < text.length; i++) if (text.charCodeAt(i) === 10) line++
   return line
 }
+
+/**
+ * Nombre de nota a partir del texto seleccionado: quita los caracteres que no
+ * pueden ir en un `[[enlace]]` ni en un nombre de archivo, colapsa espacios y
+ * recorta. '' si no queda nada usable (o si la selección ocupa varias líneas:
+ * reemplazarla por un enlace se comería los saltos de línea).
+ */
+export function linkTargetFromSelection(sel: string): string {
+  const text = sel.trim()
+  if (!text || text.includes('\n')) return ''
+  return text
+    .replace(/[[\]|#^<>:"?*\\\/`]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/, '') // Windows no admite nombres que terminan en punto/espacio
+    .slice(0, 100)
+    .trim()
+}

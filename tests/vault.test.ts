@@ -88,3 +88,45 @@ describe('VaultService', () => {
     expect(await vault.readNote('Índice.md')).toBe('[[Nuevo/Plan]] y [[Plan]]')
   })
 })
+
+describe('VaultService — bóvedas de Obsidian', () => {
+  async function obsidian(app: Record<string, unknown>): Promise<void> {
+    await mkdir(join(dir, '.obsidian'), { recursive: true })
+    await writeFile(join(dir, '.obsidian', 'app.json'), JSON.stringify(app))
+  }
+
+  it('detecta la bóveda y su estilo de enlaces', async () => {
+    expect((await vault.obsidianConfig()).isObsidian).toBe(false)
+    await obsidian({})
+    expect(await vault.obsidianConfig()).toEqual({ isObsidian: true, attachmentFolder: null, useWikilinks: true })
+    await obsidian({ useMarkdownLinks: true, attachmentFolderPath: 'Archivos' })
+    expect(await vault.obsidianConfig()).toEqual({ isObsidian: true, attachmentFolder: 'Archivos', useWikilinks: false })
+  })
+
+  it('guarda los adjuntos donde lo configuró Obsidian', async () => {
+    const png = new Uint8Array([1])
+    await obsidian({ attachmentFolderPath: '/' })
+    expect(await vault.saveAttachment('a.png', png, 'Proyectos/Nota.md')).toBe('a.png')
+    await obsidian({ attachmentFolderPath: './' })
+    expect(await vault.saveAttachment('b.png', png, 'Proyectos/Nota.md')).toBe('Proyectos/b.png')
+    await obsidian({ attachmentFolderPath: './img' })
+    expect(await vault.saveAttachment('c.png', png, 'Proyectos/Nota.md')).toBe('Proyectos/img/c.png')
+    await obsidian({ attachmentFolderPath: 'Archivos/Adjuntos' })
+    expect(await vault.saveAttachment('d.png', png, 'Proyectos/Nota.md')).toBe('Archivos/Adjuntos/d.png')
+  })
+
+  it('muestra PDFs/audio en el árbol y busca por #etiqueta (incluye anidadas y frontmatter)', async () => {
+    await writeFile(join(dir, 'doc.pdf'), 'x')
+    await writeFile(join(dir, 'A.md'), 'Hoy #trabajo/urgente y `#nocode`')
+    await writeFile(join(dir, 'B.md'), '---\ntags: [trabajo]\n---\n# B')
+    await writeFile(join(dir, 'C.md'), 'nada de trabajo')
+    expect(await vault.listFiles()).toContain('doc.pdf')
+    const res = await vault.search('#trabajo')
+    expect(res.map((r) => r.path).sort()).toEqual(['A.md', 'B.md'])
+    expect(res.find((r) => r.path === 'B.md')!.matches[0].line).toBe(1) // línea de `tags:`
+    expect(await vault.tags()).toEqual([
+      { tag: 'trabajo', count: 1 },
+      { tag: 'trabajo/urgente', count: 1 }
+    ])
+  })
+})

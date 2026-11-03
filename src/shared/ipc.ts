@@ -41,6 +41,9 @@ export const IPC = {
   vaultBacklinks: 'geode:vault-backlinks',
   vaultUpdateLinks: 'geode:vault-update-links',
   vaultSaveAttachment: 'geode:vault-save-attachment',
+  vaultTags: 'geode:vault-tags',
+  vaultObsidianConfig: 'geode:vault-obsidian-config',
+  vaultOpenExternal: 'geode:vault-open-external',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
@@ -126,6 +129,20 @@ export interface VaultInfo {
   root: string
   /** Nombre visible (basename de la carpeta). */
   name: string
+  /**
+   * Sólo al abrir una carpeta existente por primera vez: se guardó una primera
+   * versión de todo su contenido. `fromObsidian` si era una bóveda de Obsidian.
+   */
+  imported?: { fromObsidian: boolean; notes: number }
+}
+
+/** Configuración de Obsidian que Geode respeta (de `.obsidian/app.json`). */
+export interface ObsidianConfig {
+  isObsidian: boolean
+  /** `attachmentFolderPath` de Obsidian; null = no configurado (Geode usa `adjuntos/`). */
+  attachmentFolder: string | null
+  /** Insertar imágenes como `![[archivo]]` (Obsidian por defecto) en vez de `![](ruta)`. */
+  useWikilinks: boolean
 }
 
 /** Nodo del árbol de notas. Las rutas son relativas al root, con '/'. */
@@ -227,7 +244,13 @@ export interface VaultApi {
    * Guarda una imagen (pegada o arrastrada) en la carpeta de adjuntos con un
    * nombre libre y devuelve su ruta relativa a la raíz.
    */
-  saveAttachment(name: string, data: Uint8Array): Promise<string>
+  saveAttachment(name: string, data: Uint8Array, notePath?: string | null): Promise<string>
+  /** Etiquetas (`#tag` y propiedad `tags`) con cuántas notas las usan. */
+  tags(): Promise<{ tag: string; count: number }[]>
+  /** Configuración de Obsidian de la bóveda abierta (si lo es). */
+  obsidianConfig(): Promise<ObsidianConfig>
+  /** Abre un archivo de la bóveda con la aplicación del sistema (PDF, audio…). */
+  openExternal(path: string): Promise<void>
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────

@@ -78,7 +78,7 @@ const GITHUB_CLIENT_ID = 'Ov23liOW1wfZr6QhxLVY'
 // Protocolo propio para servir imágenes de la bóveda al renderer sandboxeado
 // (que no puede leer disco). Debe registrarse como privilegiado ANTES de `ready`.
 protocol.registerSchemesAsPrivileged([
-  { scheme: VAULT_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }
+  { scheme: VAULT_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
 ])
 
 const vault = new VaultService()
@@ -462,14 +462,23 @@ function registerIpcHandlers(): void {
     platform: process.platform
   }))
 
-  ipcMain.handle(IPC.vaultOpen, async () => {
+  ipcMain.handle(IPC.vaultOpen, async (): Promise<VaultInfo | null> => {
     const info = await vault.openDialog()
-    if (info) {
-      await gitService.ensureRepo(info.root)
-      await rememberVault(info.root)
-      await restartSnapshotTimer() // rebind el timer de snapshots al nuevo vault
+    if (!info) return null
+    await gitService.ensureRepo(info.root)
+    // Carpeta existente sin versiones (p. ej. una bóveda de Obsidian): guardar
+    // YA una primera versión de todo, así desde el primer minuto nada de lo que
+    // trajo se puede perder (antes recién se versionaba en la primera cadencia).
+    let result: VaultInfo = info
+    if (!(await gitService.hasCommits(info.root))) {
+      const { isObsidian } = await vault.obsidianConfig()
+      const notes = (await vault.listFiles()).filter((p) => p.toLowerCase().endsWith('.md')).length
+      await gitService.commit(info.root, isObsidian ? 'Primera versión (importada de Obsidian)' : 'Primera versión')
+      result = { ...info, imported: { fromObsidian: isObsidian, notes } }
     }
-    return info
+    await rememberVault(info.root)
+    await restartSnapshotTimer() // rebind el timer de snapshots al nuevo vault
+    return result
   })
 
   ipcMain.handle(IPC.vaultCurrent, () => vault.getInfo())
@@ -680,9 +689,16 @@ function registerIpcHandlers(): void {
   )
   ipcMain.handle(IPC.vaultSearch, (_e, query: string) => vault.search(String(query ?? '')))
   ipcMain.handle(IPC.vaultBacklinks, (_e, path: string) => vault.backlinks(path))
-  ipcMain.handle(IPC.vaultSaveAttachment, (_e, name: string, data: Uint8Array) =>
-    vault.saveAttachment(String(name ?? ''), new Uint8Array(data))
+  ipcMain.handle(IPC.vaultSaveAttachment, (_e, name: string, data: Uint8Array, notePath: string | null) =>
+    vault.saveAttachment(String(name ?? ''), new Uint8Array(data), typeof notePath === 'string' ? notePath : null)
   )
+  ipcMain.handle(IPC.vaultTags, () => vault.tags())
+  ipcMain.handle(IPC.vaultObsidianConfig, () => vault.obsidianConfig())
+  // Ruta validada con resolveInside (absPath): nunca una ruta cruda al shell.
+  ipcMain.handle(IPC.vaultOpenExternal, async (_e, path: string) => {
+    const err = await shell.openPath(vault.absPath(path))
+    if (err) throw new Error('No se pudo abrir el archivo con la aplicación del sistema')
+  })
   // Actualizar enlaces tras renombrar/mover. Reescribir notas en masa es justo el
   // tipo de cambio que el usuario podría querer deshacer: si hay algo que tocar,
   // primero se toma una instantánea de seguridad (sin IA) — así el estado previo

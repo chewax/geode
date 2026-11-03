@@ -44,7 +44,10 @@ const api: GeodeApi = {
     search: (query) => ipcRenderer.invoke(IPC.vaultSearch, query),
     backlinks: (path) => ipcRenderer.invoke(IPC.vaultBacklinks, path),
     updateLinks: (from, to) => ipcRenderer.invoke(IPC.vaultUpdateLinks, from, to),
-    saveAttachment: (name, data) => ipcRenderer.invoke(IPC.vaultSaveAttachment, name, data)
+    saveAttachment: (name, data, notePath) => ipcRenderer.invoke(IPC.vaultSaveAttachment, name, data, notePath ?? null),
+    tags: () => ipcRenderer.invoke(IPC.vaultTags),
+    obsidianConfig: () => ipcRenderer.invoke(IPC.vaultObsidianConfig),
+    openExternal: (path) => ipcRenderer.invoke(IPC.vaultOpenExternal, path)
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),

@@ -29,7 +29,7 @@ import {
   X
 } from 'lucide-react'
 import logoUrl from './assets/geode_logo_dark.png'
-import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, TreeNode, VaultInfo } from '@shared/ipc'
+import type { AiConfig, AiUsage, AppInfo, BackupOnboarding, GitGraph, GithubConfig, ObsidianConfig, TreeNode, VaultInfo } from '@shared/ipc'
 import { type EditorContext, type EditorHandle } from './editor/CodeMirrorEditor'
 import { suppressNextEditorAutoFocus } from './editor/focusControl'
 import { PaneView } from './PaneView'
@@ -80,6 +80,7 @@ import { useTour } from './tour/useTour'
 import { AiPromptModal } from './AiPromptModal'
 import { SearchPanel } from './SearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
+import { TagsPanel } from './TagsPanel'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf } from '@shared/attachments'
 import {
@@ -215,6 +216,10 @@ export function App(): JSX.Element {
   /** Panel de búsqueda (Ctrl+Shift+F) visible; el nonce re-enfoca su input. */
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchFocus, setSearchFocus] = useState(0)
+  /** Consulta inyectada en la búsqueda (click en una #etiqueta). */
+  const [searchSeed, setSearchSeed] = useState<{ text: string; nonce: number } | null>(null)
+  /** Configuración de Obsidian de la bóveda abierta (estilo de enlaces, adjuntos). */
+  const [obsidianCfg, setObsidianCfg] = useState<ObsidianConfig | null>(null)
   /** Sube con cada guardado: los enlaces entrantes se recalculan (con debounce). */
   const [backlinksKey, setBacklinksKey] = useState(0)
   /** Coincidencia a seleccionar cuando termine de cargar la nota (búsqueda/backlinks). */
@@ -472,6 +477,15 @@ export function App(): JSX.Element {
     }
   }, [flushAll, reloadAfterPull, refreshGithub])
 
+  // Configuración de Obsidian de la bóveda abierta (estilo de enlace al pegar imágenes).
+  useEffect(() => {
+    if (!vault) {
+      setObsidianCfg(null)
+      return
+    }
+    window.geode.vault.obsidianConfig().then(setObsidianCfg).catch(() => setObsidianCfg(null))
+  }, [vault?.root])
+
   // Al abrir una bóveda (o conectar su respaldo): traer de inmediato.
   useEffect(() => {
     if (vault && githubCfg?.remote) void backgroundSync(true)
@@ -675,7 +689,17 @@ export function App(): JSX.Element {
 
   const openVault = useCallback(async () => {
     const info = await window.geode.vault.open()
-    if (info) await adoptVault(info)
+    if (!info) return
+    await adoptVault(info)
+    // Primera vez que se abre esta carpeta: contarle al usuario que ya está a salvo.
+    if (info.imported) {
+      const n = info.imported.notes
+      setToast(
+        info.imported.fromObsidian
+          ? `Abriste tu bóveda de Obsidian (${n} ${n === 1 ? 'nota' : 'notas'}). Guardamos una primera versión de todo: enlaces, imágenes, etiquetas y propiedades funcionan igual.`
+          : `Guardamos una primera versión de las ${n} ${n === 1 ? 'nota' : 'notas'} de esta carpeta: desde ahora nada se pierde.`
+      )
+    }
   }, [adoptVault])
 
   // El input de nombre selecciona su texto al montar, para poder sobrescribir de una.
@@ -1288,6 +1312,10 @@ export function App(): JSX.Element {
       setSearchOpen(true)
       setSearchFocus((n) => n + 1)
     },
+    openTag: (tag: string) => {
+      setSearchOpen(true)
+      setSearchSeed({ text: `#${tag.replace(/^#/, '')}`, nonce: Date.now() })
+    },
     openNote: async (path: string) => {
       await refreshTree()
       await openNoteAt(path)
@@ -1661,6 +1689,7 @@ export function App(): JSX.Element {
                 disabled={previewOid != null}
                 onOpen={(p, at) => void openNoteAt(p, at)}
                 onClose={() => setSearchOpen(false)}
+                seed={searchSeed}
               />
             </SidebarSection>
           )}
@@ -1731,6 +1760,14 @@ export function App(): JSX.Element {
             />
           </SidebarSection>
 
+          <SidebarSection id="etiquetas" title="ETIQUETAS">
+            <TagsPanel
+              refreshKey={backlinksKey}
+              disabled={previewOid != null}
+              onOpenTag={(t) => commandApiRef.current.openTag(t)}
+            />
+          </SidebarSection>
+
           <SidebarSection id="timeline" title="LÍNEA DE TIEMPO">
             {/* Ancla Capa 0 del paso "historial". Vive dentro de la sección para
                 que, si está colapsada, el TourOverlay pueda expandirla (busca el
@@ -1798,6 +1835,8 @@ export function App(): JSX.Element {
               files={allFiles}
               onOpenLink={(t, from) => void openLink(t, from)}
               onNotify={setToast}
+              onOpenTag={(t) => commandApiRef.current.openTag(t)}
+              useWikilinks={!!obsidianCfg?.useWikilinks}
             />
           </div>
         </main>

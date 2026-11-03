@@ -2,7 +2,8 @@ import { dialog } from 'electron'
 import { cp, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import type { Backlink, SearchResult, TreeNode, VaultInfo } from '@shared/ipc'
-import { ATTACHMENTS_DIR, MAX_ATTACHMENT_BYTES, extOf, isImagePath } from '@shared/attachments'
+import { ATTACHMENTS_DIR, MAX_ATTACHMENT_BYTES, extOf, isAttachmentPath, isImagePath } from '@shared/attachments'
+import { extractTags, tagMatches } from '@shared/obsidian'
 import { baseName, displayName, isNotePath, parseWikilinks, resolveLink, rewriteLinks, lineOf } from '@shared/links'
 import { foldQuery, searchText } from '@shared/search'
 import { atomicWrite } from '../fs/atomic'
@@ -99,7 +100,7 @@ export class VaultService {
           isDir: true,
           children: await this.readDir(join(absDir, entry.name), rel)
         })
-      } else if (entry.isFile() && (isNotePath(entry.name) || isImagePath(entry.name))) {
+      } else if (entry.isFile() && (isNotePath(entry.name) || isAttachmentPath(entry.name))) {
         // Notas e imágenes: las imágenes se muestran para poder abrirlas,
         // renombrarlas o moverlas (y sus enlaces se actualizan).
         nodes.push({ name: entry.name, path: rel, isDir: false })
@@ -323,6 +324,8 @@ export class VaultService {
    * consulta de una letra en una bóveda grande no congele la UI.
    */
   async search(query: string, maxFiles = 200): Promise<SearchResult[]> {
+    // `#tag` busca por etiqueta (como Obsidian), no como texto.
+    if (/^#[^\s#]+$/.test(query.trim())) return this.searchTag(query.trim(), maxFiles)
     const q = foldQuery(query)
     if (!q) return []
     const paths = await this.listFiles()
@@ -340,6 +343,101 @@ export class VaultService {
         a.path.localeCompare(b.path)
     )
     return results.slice(0, maxFiles)
+  }
+
+  /** Notas con la etiqueta `#tag` (o una hija: `#a` incluye `#a/b`), con sus líneas. */
+  private async searchTag(query: string, maxFiles: number): Promise<SearchResult[]> {
+    const paths = await this.listFiles()
+    const texts = await this.readAllNotes(paths)
+    const results: SearchResult[] = []
+    for (const [path, text] of texts) {
+      const hits = extractTags(text).filter((h) => tagMatches(h.tag, query))
+      if (hits.length === 0) continue
+      const lines = text.split('\n')
+      const seen = new Set<number>()
+      const matches: SearchResult['matches'] = []
+      for (const h of hits) {
+        // Los tags del frontmatter se señalan en la línea de la propiedad `tags`.
+        const ln = h.line >= 0 ? h.line : Math.max(0, lines.findIndex((l) => /^tags?\s*:/.test(l)))
+        if (seen.has(ln)) continue
+        seen.add(ln)
+        const line = lines[ln] ?? ''
+        const idx = line.toLowerCase().indexOf(h.tag.toLowerCase())
+        const col = Math.max(0, idx - (line[idx - 1] === '#' ? 1 : 0))
+        const len = idx >= 0 ? h.tag.length + (line[idx - 1] === '#' ? 1 : 0) : 0
+        matches.push({
+          line: ln,
+          col,
+          length: len,
+          before: line.slice(Math.max(0, col - 40), col).trimStart(),
+          text: line.slice(col, col + len),
+          after: line.slice(col + len, col + len + 80)
+        })
+      }
+      results.push({ path, nameMatch: false, matches })
+    }
+    results.sort((a, b) => b.matches.length - a.matches.length || a.path.localeCompare(b.path))
+    return results.slice(0, maxFiles)
+  }
+
+  /** Todas las etiquetas de la bóveda con cuántas notas las usan, de más a menos usadas. */
+  async tags(): Promise<{ tag: string; count: number }[]> {
+    const texts = await this.readAllNotes(await this.listFiles())
+    const counts = new Map<string, { tag: string; count: number }>()
+    for (const text of texts.values()) {
+      const unique = new Set(extractTags(text).map((h) => h.tag))
+      for (const tag of unique) {
+        const key = tag.toLowerCase()
+        const e = counts.get(key)
+        if (e) e.count++
+        else counts.set(key, { tag, count: 1 })
+      }
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+  }
+
+  /**
+   * Configuración de Obsidian relevante (de `.obsidian/app.json`), si la carpeta
+   * es una bóveda de Obsidian: dónde guardar adjuntos y qué estilo de enlace usar.
+   */
+  async obsidianConfig(): Promise<{ isObsidian: boolean; attachmentFolder: string | null; useWikilinks: boolean }> {
+    if (!this.root) return { isObsidian: false, attachmentFolder: null, useWikilinks: false }
+    let isObsidian = false
+    try {
+      isObsidian = (await stat(join(this.root, '.obsidian'))).isDirectory()
+    } catch {
+      isObsidian = false
+    }
+    if (!isObsidian) return { isObsidian, attachmentFolder: null, useWikilinks: false }
+    let app: { attachmentFolderPath?: unknown; useMarkdownLinks?: unknown } = {}
+    try {
+      app = JSON.parse(await readFile(join(this.root, '.obsidian', 'app.json'), 'utf8'))
+    } catch {
+      app = {}
+    }
+    return {
+      isObsidian,
+      attachmentFolder: typeof app.attachmentFolderPath === 'string' ? app.attachmentFolderPath : null,
+      // Obsidian usa [[wikilinks]] salvo que se haya activado "Use [[Wikilinks]]" = off.
+      useWikilinks: app.useMarkdownLinks !== true
+    }
+  }
+
+  /**
+   * Carpeta donde guardar un adjunto pegado en `notePath`, respetando la
+   * convención de Obsidian (`attachmentFolderPath`): "/" = raíz, "./" = misma
+   * carpeta de la nota, "./x" = subcarpeta de la nota, "x" = carpeta fija.
+   * Sin Obsidian: `adjuntos/`.
+   */
+  private async attachmentDirFor(notePath: string | null): Promise<string> {
+    const { attachmentFolder } = await this.obsidianConfig()
+    if (attachmentFolder === null) return ATTACHMENTS_DIR
+    const noteDir = notePath ? dirname(notePath).replace(/\\/g, '/').replace(/^\.$/, '') : ''
+    const f = attachmentFolder.trim()
+    if (f === '' || f === '/') return ''
+    if (f === './' || f === '.') return noteDir
+    if (f.startsWith('./')) return [noteDir, f.slice(2)].filter(Boolean).join('/')
+    return f.replace(/^\/+|\/+$/g, '')
   }
 
   /** Notas que enlazan a `targetPath` con `[[...]]`, con la línea de cada enlace. */
@@ -414,7 +512,7 @@ export class VaultService {
    * portapapeles ("image.png") se reemplazan por "Pegado <fecha>.png"; los
    * caracteres ilegales se quitan y una colisión agrega sufijo (nunca pisa).
    */
-  async saveAttachment(name: string, data: Uint8Array): Promise<string> {
+  async saveAttachment(name: string, data: Uint8Array, notePath: string | null = null): Promise<string> {
     if (!this.root) throw new Error('No hay vault abierto')
     if (!isImagePath(name)) throw new Error('Solo se pueden adjuntar imágenes')
     if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('La imagen es demasiado grande (máximo 25 MB)')
@@ -426,9 +524,11 @@ export class VaultService {
       const pad = (n: number): string => String(n).padStart(2, '0')
       stem = `Pegado ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
     }
-    let candidate = `${ATTACHMENTS_DIR}/${stem}.${ext}`
+    const dir = await this.attachmentDirFor(notePath)
+    const at = (file: string): string => (dir ? `${dir}/${file}` : file)
+    let candidate = at(`${stem}.${ext}`)
     let n = 2
-    while (await this.exists(candidate)) candidate = `${ATTACHMENTS_DIR}/${stem} ${n++}.${ext}`
+    while (await this.exists(candidate)) candidate = at(`${stem} ${n++}.${ext}`)
     await atomicWrite(this.resolveInside(candidate), data)
     return candidate
   }

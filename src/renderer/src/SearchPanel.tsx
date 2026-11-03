@@ -12,6 +12,8 @@ export interface SearchPanelProps {
   /** Abre una nota y, si viene, selecciona la coincidencia. */
   onOpen: (path: string, at?: { line: number; col: number; length: number }) => void
   onClose: () => void
+  /** Consulta a cargar desde afuera (p. ej. click en un #tag); cambia el nonce para reaplicar. */
+  seed?: { text: string; nonce: number } | null
 }
 
 const DEBOUNCE_MS = 220
@@ -21,7 +23,7 @@ const DEBOUNCE_MS = 220
  * tildes. Los resultados se agrupan por nota; un click abre la nota con la
  * coincidencia seleccionada.
  */
-export function SearchPanel({ focusNonce, disabled, onOpen, onClose }: SearchPanelProps): JSX.Element {
+export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: SearchPanelProps): JSX.Element {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -39,6 +41,10 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose }: SearchPan
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [focusNonce])
+
+  useEffect(() => {
+    if (seed) setQuery(seed.text)
+  }, [seed])
 
   useEffect(() => {
     setDismissed(new Set())

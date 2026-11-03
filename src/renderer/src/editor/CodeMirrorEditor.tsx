@@ -6,6 +6,7 @@ import { baseExtensions, themeExtension } from './extensions'
 import { consumeEditorAutoFocusSuppression } from './focusControl'
 import { wikilinkExtensions, type LinkEnv } from './wikilinks'
 import { formattingKeymap } from './formatting'
+import { frontmatterExtension } from './frontmatter'
 import { getTheme, subscribeTheme } from '../theme'
 
 /**
@@ -63,6 +64,8 @@ interface CodeMirrorEditorProps {
    * en el cursor (p. ej. `![](adjuntos/foto.png)`) o null si no se pudo.
    */
   onPasteFiles?: (files: File[]) => Promise<string | null>
+  /** Ocultar el bloque YAML de propiedades (se edita desde el panel). */
+  hideFrontmatter?: boolean
 }
 
 /** Imágenes de un DataTransfer (pegar/soltar). */
@@ -78,7 +81,7 @@ function imageFiles(dt: DataTransfer | null): File[] {
  */
 export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
   function CodeMirrorEditor(
-    { initialDoc, reloadKey, onChange, onRequestAi, extraExtensions, readOnly, linkEnv, onPasteFiles },
+    { initialDoc, reloadKey, onChange, onRequestAi, extraExtensions, readOnly, linkEnv, onPasteFiles, hideFrontmatter },
     ref
   ): JSX.Element {
     const hostRef = useRef<HTMLDivElement>(null)
@@ -87,6 +90,7 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
     const readOnlyComp = useRef(new Compartment())
     // Compartimento del tema (claro/oscuro), reconfigurable en caliente.
     const themeComp = useRef(new Compartment())
+    const frontmatterComp = useRef(new Compartment())
     const linkEnvRef = useRef(linkEnv)
     linkEnvRef.current = linkEnv
     const onPasteFilesRef = useRef(onPasteFiles)
@@ -178,8 +182,10 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
             // Getters sobre refs: el view se crea una vez pero ve datos frescos.
             wikilinkExtensions({
               files: () => linkEnvRef.current?.files() ?? [],
-              open: (target) => linkEnvRef.current?.open(target)
+              open: (target) => linkEnvRef.current?.open(target),
+              openTag: (tag) => linkEnvRef.current?.openTag?.(tag)
             }),
+            frontmatterComp.current.of(frontmatterExtension(hideFrontmatter ?? false)),
             EditorView.domEventHandlers({
               paste(e, view) {
                 const files = imageFiles(e.clipboardData)
@@ -266,6 +272,13 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       if (!consumeEditorAutoFocusSuppression()) view.focus()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reloadKey])
+
+    // Mostrar/ocultar el YAML de propiedades sin remontar el editor.
+    useEffect(() => {
+      viewRef.current?.dispatch({
+        effects: frontmatterComp.current.reconfigure(frontmatterExtension(hideFrontmatter ?? false))
+      })
+    }, [hideFrontmatter])
 
     // Al conmutar solo-lectura, reconfigura el compartimento en el MISMO view
     // (sin remontar): EditorState.readOnly bloquea ediciones y editable.of(false)

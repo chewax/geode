@@ -18,7 +18,8 @@ import {
   Table,
   TableProperties,
   Minus,
-  SquareCode
+  SquareCode,
+  ListPlus
 } from 'lucide-react'
 import type { EditorHandle } from './editor/CodeMirrorEditor'
 import {
@@ -41,6 +42,8 @@ export interface FormatToolbarProps {
   onEditTable: (t: TableAtCursor) => void
   /** Imágenes elegidas con el botón de imagen (mismo flujo que pegar). */
   onPickImages: (files: File[]) => void
+  /** Agrega una propiedad (frontmatter) desde el panel de propiedades. */
+  onAddProperty: () => void
 }
 
 /** Filas × columnas máximas del selector de tabla nueva. */
@@ -51,7 +54,7 @@ const GRID = 8
  * (el archivo sigue siendo texto plano legible). Los botones usan onMouseDown
  * con preventDefault para NO robarle el foco ni la selección al editor.
  */
-export function FormatToolbar({ getEditor, onEditTable, onPickImages }: FormatToolbarProps): JSX.Element {
+export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddProperty }: FormatToolbarProps): JSX.Element {
   const [tableOpen, setTableOpen] = useState(false)
   const [hover, setHover] = useState<{ r: number; c: number }>({ r: 0, c: 0 })
   const [current, setCurrent] = useState<TableAtCursor | null>(null)
@@ -201,6 +204,18 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages }: FormatTo
       <span className="fmt-sep" />
       {btn('Bloque de código', <SquareCode size={15} />, insertCodeBlock)}
       {btn('Línea separadora', <Minus size={15} />, insertRule)}
+      <span className="fmt-sep" />
+      <button
+        className="icon-btn fmt-btn"
+        title="Agregar propiedad (fecha, estado, etiquetas…)"
+        aria-label="Agregar propiedad"
+        onMouseDown={(e) => {
+          e.preventDefault()
+          onAddProperty()
+        }}
+      >
+        <ListPlus size={15} />
+      </button>
     </div>
   )
 }

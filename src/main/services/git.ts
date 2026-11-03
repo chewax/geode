@@ -7,7 +7,7 @@ import http from 'isomorphic-git/http/node'
 import { createPatch, diffLines } from 'diff'
 import diff3Merge from 'diff3'
 import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
-import { isImagePath } from '@shared/attachments'
+import { isAttachmentPath } from '@shared/attachments'
 import { atomicWrite } from '../fs/atomic'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
@@ -832,7 +832,7 @@ export class GitService {
 
     const mergeDriver: MergeDriverCallback = ({ contents, path }) => {
       const [base, ours, theirs] = contents
-      if (isImagePath(path) || /\u0000/.test(ours + theirs)) {
+      if (isAttachmentPath(path) || /\u0000/.test(ours + theirs)) {
         binaryConflicts.push(path)
         return { cleanMerge: true, mergedText: ours }
       }
@@ -919,7 +919,7 @@ export class GitService {
     for (const filepath of blobs.keys()) {
       if (IGNORED_TOP.has(filepath.split('/')[0])) continue
       // Mismo criterio que vault.tree(): notas e imágenes.
-      if (!filepath.toLowerCase().endsWith('.md') && !isImagePath(filepath)) continue
+      if (!filepath.toLowerCase().endsWith('.md') && !isAttachmentPath(filepath)) continue
       paths.push(filepath)
     }
     return this.buildTree(paths)

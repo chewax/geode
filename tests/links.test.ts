@@ -31,6 +31,13 @@ describe('resolveLink', () => {
     expect(resolveLink('Idea', files, 'otra.md')).toBe('Idea.md')
   })
 
+  it('un punto en el nombre de la nota no se toma como extensión', () => {
+    const files = ['Proyectos/Lanzamiento de Geode 1.0.md', 'Plan v2.5.md', 'foto.png']
+    expect(resolveLink('Lanzamiento de Geode 1.0', files)).toBe('Proyectos/Lanzamiento de Geode 1.0.md')
+    expect(resolveLink('plan v2.5', files)).toBe('Plan v2.5.md')
+    expect(resolveLink('foto.png', files)).toBe('foto.png')
+  })
+
   it('resuelve rutas explícitas y archivos con extensión', () => {
     expect(resolveLink('Archivo/Plan', files)).toBe('Archivo/Plan.md')
     expect(resolveLink('foto.png', files)).toBe('adjuntos/foto.png')

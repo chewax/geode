@@ -109,10 +109,21 @@ function targetKey(target: string): string {
  */
 export function resolveLink(target: string, paths: string[], fromPath: string | null = null): string | null {
   if (!target.trim()) return null
-  const key = targetKey(target).toLowerCase()
   const lower = new Map<string, string>()
   for (const p of paths) lower.set(p.toLowerCase(), p)
+  // Un punto en el nombre no siempre es una extensión ("Plan v1.0", "Geode 1.0"):
+  // si con el nombre tal cual no hay archivo, se prueba como nota (`.md`).
+  const t = target.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '')
+  const keys = [targetKey(target).toLowerCase()]
+  if (hasExtension(t)) keys.push(`${t}.md`.toLowerCase())
+  for (const key of keys) {
+    const found = resolveKey(key, lower, paths, fromPath)
+    if (found) return found
+  }
+  return null
+}
 
+function resolveKey(key: string, lower: Map<string, string>, paths: string[], fromPath: string | null): string | null {
   if (key.includes('/')) {
     const exact = lower.get(key)
     if (exact) return exact

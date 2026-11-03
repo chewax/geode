@@ -1,0 +1,59 @@
+name: Reportar un error
+description: Algo no funciona como debería.
+labels: ["error"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ¡Gracias por avisar! Cuanto más detalle, más rápido lo arreglamos.
+        Si es una vulnerabilidad de seguridad, **no** la publiques acá: seguí la [política de seguridad](https://github.com/chewax/geode/blob/main/SECURITY.md).
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Qué pasó
+      description: Contá qué viste y qué esperabas que pasara.
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducirlo
+      placeholder: |
+        1. Abrí la nota...
+        2. Hice click en...
+        3. Apareció...
+    validations:
+      required: true
+  - type: dropdown
+    id: perdida
+    attributes:
+      label: ¿Se perdió contenido?
+      description: Si se perdió algo, lo tratamos con máxima prioridad. Revisá la línea de tiempo antes de tocar nada.
+      options:
+        - "No"
+        - Sí, pero lo recuperé desde la línea de tiempo
+        - Sí, y no lo puedo recuperar
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Geode
+      placeholder: "0.8.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: so
+    attributes:
+      label: Sistema operativo
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Capturas, registros o contexto
+      description: Capturas de pantalla, mensajes de error, plugins activos, si usás sync con la nube...

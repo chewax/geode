@@ -8,6 +8,8 @@ import {
   IPC,
   type AppInfo,
   type AiConfig,
+  type AiEngine,
+  type AiEngineTest,
   type GithubConfig,
   type NamedVersion,
   type SnapshotsConfig,
@@ -34,7 +36,15 @@ if (APP_ICON.isEmpty()) {
 void iconIco
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
-import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage, mapAiError, pickDictationModel } from './services/ai'
+import {
+  OpenRouterProvider,
+  listOpenRouterModels,
+  getOpenRouterUsage,
+  mapAiError,
+  pickDictationModel,
+  type AiTextProvider
+} from './services/ai'
+import { CliProvider, detectClis, isCliEngine, mapCliError, testCli } from './services/aiCli'
 import { setupDictation, teardownDictation } from './dictation'
 import {
   requestDeviceCode,
@@ -132,12 +142,40 @@ async function githubConfig(): Promise<GithubConfig> {
 
 async function aiConfig(): Promise<AiConfig> {
   const { ai } = await loadSettings()
+  const engine = currentEngine(ai?.engine)
+  const hasKey = !!ai?.key
+  const model = ai?.model ?? null
   return {
     enabled: ai?.enabled ?? false,
-    model: ai?.model ?? null,
+    engine,
+    ready: engine === 'openrouter' ? hasKey && !!model : true,
+    model,
     dictationModel: ai?.dictationModel ?? null,
-    hasKey: !!ai?.key
+    hasKey
   }
+}
+
+/** Motor guardado, o OpenRouter si no hay ninguno (o uno desconocido). */
+function currentEngine(saved: unknown): AiEngine {
+  return isCliEngine(saved) ? saved : 'openrouter'
+}
+
+/**
+ * Motor de texto según los ajustes: el CLI elegido (suscripción) u OpenRouter
+ * con la key del usuario. Lanza si OpenRouter no tiene key o modelo.
+ */
+async function textProvider(): Promise<{ engine: AiEngine; provider: AiTextProvider }> {
+  const { ai } = await loadSettings()
+  const engine = currentEngine(ai?.engine)
+  if (isCliEngine(engine)) return { engine, provider: new CliProvider(engine) }
+  const key = await getAiKey()
+  if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+  return { engine, provider: new OpenRouterProvider(key, ai.model) }
+}
+
+/** Boundary de errores de IA: cada motor con su traducción a español humano. */
+function mapEngineError(engine: AiEngine, e: unknown): Error {
+  return isCliEngine(engine) ? mapCliError(engine, e) : mapAiError(e)
 }
 
 /** Root del vault activo o error uniforme si no hay ninguno. */
@@ -174,21 +212,18 @@ function snapshotMessage(): string {
  */
 async function aiSnapshotMessage(root: string): Promise<string | null> {
   try {
-    const key = await getAiKey()
-    const { ai } = await loadSettings()
-    if (!key || !ai?.model) return null // sin key/modelo: no hay IA posible
+    // Sin key/modelo de OpenRouter, textProvider lanza y caemos al marcador.
+    const { engine, provider } = await textProvider()
 
     // El diff ya viene acotado a notas .md (content-hash vs HEAD, nunca statusMatrix).
     const diff = await gitService.pendingDiff(root)
     if (!diff) return null // sin cambios .md que resumir
 
+    // Los CLIs tardan más en arrancar que la API: les damos más margen.
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 10_000)
+    const timer = setTimeout(() => ctrl.abort(), isCliEngine(engine) ? 60_000 : 10_000)
     try {
-      const generado = await new OpenRouterProvider(key, ai.model).generateNamedVersion(
-        diff,
-        ctrl.signal
-      )
+      const generado = await provider.generateNamedVersion(diff, ctrl.signal)
       // Mismo formato que el guardado manual (CommitDialog): título + descripción.
       const mensaje = [generado.title, generado.description].filter(Boolean).join('\n\n')
       return mensaje || null
@@ -853,54 +888,80 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.aiSuggestMessage, async (): Promise<string> => {
+    let engine: AiEngine = 'openrouter'
     try {
-      const key = await getAiKey()
-      const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+      const chosen = await textProvider()
+      engine = chosen.engine
 
       const diff = await gitService.pendingDiff(requireRoot())
       if (!diff) return ''
 
-      const provider = new OpenRouterProvider(key, ai.model)
-      return await provider.generateMessage(diff)
+      return await chosen.provider.generateMessage(diff)
     } catch (e) {
       // Boundary: traducimos a copy amigable en español y nunca filtramos el crudo.
-      throw mapAiError(e)
+      throw mapEngineError(engine, e)
     }
   })
 
   ipcMain.handle(IPC.aiSuggestVersion, async (): Promise<NamedVersion> => {
+    let engine: AiEngine = 'openrouter'
     try {
-      const key = await getAiKey()
-      const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+      const chosen = await textProvider()
+      engine = chosen.engine
 
       // El diff ya viene acotado a notas .md desde pendingDiff.
       const diff = await gitService.pendingDiff(requireRoot())
       if (!diff) return { title: '', description: '' }
 
-      return await new OpenRouterProvider(key, ai.model).generateNamedVersion(diff)
+      return await chosen.provider.generateNamedVersion(diff)
     } catch (e) {
       // Boundary: guardar versión no debe filtrar el error crudo del proveedor.
-      throw mapAiError(e)
+      throw mapEngineError(engine, e)
     }
   })
 
   ipcMain.handle(
     IPC.aiGenerateText,
     async (_e, instruction: string, selection: string, before: string): Promise<string> => {
+      let engine: AiEngine = 'openrouter'
       try {
-        const key = await getAiKey()
-        const { ai } = await loadSettings()
-        if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
-        const provider = new OpenRouterProvider(key, ai.model)
-        return await provider.generateText(instruction, selection, before)
+        const chosen = await textProvider()
+        engine = chosen.engine
+        return await chosen.provider.generateText(instruction, selection, before)
       } catch (e) {
         // Boundary: el asistente de escritura tampoco filtra el crudo del proveedor.
-        throw mapAiError(e)
+        throw mapEngineError(engine, e)
       }
     }
   )
+
+  ipcMain.handle(IPC.aiSetEngine, async (_e, engine: AiEngine) => {
+    const settings = await loadSettings()
+    const ai = { ...settings.ai }
+    if (isCliEngine(engine)) ai.engine = engine
+    else delete ai.engine // OpenRouter es el default
+    settings.ai = ai
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiDetectClis, () => detectClis())
+
+  ipcMain.handle(IPC.aiTestEngine, async (_e, engine: AiEngine): Promise<AiEngineTest> => {
+    if (isCliEngine(engine)) return testCli(engine)
+    // OpenRouter: una respuesta mínima con la key y el modelo guardados.
+    try {
+      const key = await getAiKey()
+      const { ai } = await loadSettings()
+      if (!key || !ai?.model) {
+        return { ok: false, message: 'Guardá una API key y elegí un modelo para probar OpenRouter.' }
+      }
+      await new OpenRouterProvider(key, ai.model).generateText('Respondé solo: OK', 'OK', '')
+      return { ok: true, message: 'OpenRouter respondió con tu API key.' }
+    } catch (e) {
+      return { ok: false, message: mapAiError(e).message }
+    }
+  })
 
   ipcMain.handle(IPC.aiUsage, async () => {
     const key = await getAiKey()

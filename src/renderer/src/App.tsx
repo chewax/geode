@@ -1367,8 +1367,8 @@ export function App(): JSX.Element {
   /** Ctrl+K en el editor: abre el asistente de IA sobre la selección/cursor del
    *  panel indicado (o el activo). Recuerda el editor destino para insertar ahí. */
   const requestAi = useCallback((paneId?: string) => {
-    if (!aiConfig?.hasKey || !aiConfig?.model) {
-      window.alert('Configurá la API key y el modelo de IA en Ajustes (⚙).')
+    if (!aiConfig?.ready) {
+      window.alert('Configurá la IA en Ajustes (⚙): elegí un motor y, si usás OpenRouter, la API key y el modelo.')
       return
     }
     const ed = paneId ? paneHandles.current.get(paneId)?.getEditor() ?? null : getActiveEditor()
@@ -1449,7 +1449,7 @@ export function App(): JSX.Element {
     previewOid && graph ? graph.commits.find((c) => c.oid === previewOid) ?? null : null
   // Se puede mergear si la rama actual tiene una base a la cual integrar.
   const canMerge = !!graph?.branches.find((b) => b.name === graph.head.branch)?.base
-  const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
+  const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.ready
 
   // Flag único "esta bóveda tiene respaldo activo" (STAT-01): exige la cuenta
   // conectada (global) Y el origin PROPIO de la bóveda (per-vault, CR-01). No

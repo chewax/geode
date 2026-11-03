@@ -10,6 +10,7 @@ import type {
 } from '@shared/ipc'
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
+import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -33,6 +34,7 @@ function perMillion(perToken: string | null): string {
 export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): JSX.Element {
   const [section, setSection] = useState<Section>('ai')
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref)
+  const [formatToolbar, setFormatToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [models, setModels] = useState<AiModel[]>([])
@@ -247,6 +249,18 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     </button>
                   ))}
                 </div>
+
+                <div className="field-label">Barra de formato</div>
+                <label className="switch-row">
+                  <input
+                    type="checkbox"
+                    className="switch-input"
+                    checked={formatToolbar}
+                    onChange={(e) => setFormatToolbar(e.target.checked)}
+                  />
+                  <span className="switch-track" aria-hidden="true" />
+                  <span className="switch-text">{formatToolbar ? 'Visible arriba del editor' : 'Oculta (los atajos siguen funcionando)'}</span>
+                </label>
 
                 <div className="field-label">Modo Avanzado</div>
                 <label className="switch-row">

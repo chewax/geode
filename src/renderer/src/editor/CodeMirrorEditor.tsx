@@ -5,6 +5,7 @@ import { EditorView, keymap } from '@codemirror/view'
 import { baseExtensions, themeExtension } from './extensions'
 import { consumeEditorAutoFocusSuppression } from './focusControl'
 import { wikilinkExtensions, type LinkEnv } from './wikilinks'
+import { formattingKeymap } from './formatting'
 import { getTheme, subscribeTheme } from '../theme'
 
 /**
@@ -33,6 +34,8 @@ export interface EditorHandle {
   /** Selecciona y hace scroll a un rango del documento. */
   revealRange(from: number, to: number): void
   focus(): void
+  /** Ejecuta un comando de CodeMirror sobre este editor (barra de formato). */
+  run(cmd: (view: EditorView) => boolean): boolean
 }
 
 interface CodeMirrorEditorProps {
@@ -142,6 +145,10 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       },
       focus(): void {
         viewRef.current?.focus()
+      },
+      run(cmd): boolean {
+        const view = viewRef.current
+        return view ? cmd(view) : false
       }
     }), [])
 
@@ -163,6 +170,9 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
                 }
               }
             ]),
+            // Formato (Ctrl+B/I…) y Tab/Enter en tablas: antes que el keymap base
+            // para que Tab salte de celda en vez de indentar dentro de una tabla.
+            formattingKeymap(),
             ...baseExtensions(),
             themeComp.current.of(themeExtension(getTheme())),
             // Getters sobre refs: el view se crea una vez pero ve datos frescos.

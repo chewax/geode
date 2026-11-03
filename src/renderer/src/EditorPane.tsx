@@ -7,6 +7,10 @@ import { displayName } from '@shared/links'
 import type { LeafPane, DropZone } from './paneTree'
 import { CodeMirrorEditor, type EditorHandle } from './editor/CodeMirrorEditor'
 import { MarkdownPreview } from './MarkdownPreview'
+import { FormatToolbar } from './FormatToolbar'
+import { TableEditor } from './TableEditor'
+import { writeTable, type TableAtCursor } from './editor/formatting'
+import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 
 /** Payload del arrastre de una tab. Se guarda en módulo porque `dataTransfer`
  *  no es legible durante `dragover` (solo en `drop`). */
@@ -73,6 +77,9 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
   const [ghost, setGhost] = useState(false)
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const [dragOverTab, setDragOverTab] = useState<number | null>(null)
+  /** Tabla abierta en el editor visual (null = cerrado). */
+  const [editingTable, setEditingTable] = useState<TableAtCursor | null>(null)
+  const [showToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
 
   const editorRef = useRef<EditorHandle>(null)
   const pendingRef = useRef<{ path: string; content: string } | null>(null)
@@ -333,6 +340,37 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           </button>
         </div>
       </div>
+
+      {showToolbar && pane.active && !ghost && !preview && !isImagePath(pane.active) && props.previewOid == null && (
+        <FormatToolbar
+          getEditor={() => editorRef.current}
+          onEditTable={setEditingTable}
+          onPickImages={(files) => {
+            void pasteFiles(files).then((md) => {
+              if (md) editorRef.current?.insertAtCursor(md)
+            })
+          }}
+        />
+      )}
+
+      {editingTable && (
+        <TableEditor
+          table={editingTable.table}
+          onClose={() => {
+            setEditingTable(null)
+            editorRef.current?.focus()
+          }}
+          onSave={(table) => {
+            const { from, to } = editingTable
+            setEditingTable(null)
+            editorRef.current?.run((view) => {
+              writeTable(view, from, to, table, -1, 0)
+              view.focus()
+              return true
+            })
+          }}
+        />
+      )}
 
       <div
         className="epane-body"

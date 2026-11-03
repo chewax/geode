@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, KeyRound, Terminal, Copy } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, KeyRound, Terminal, Copy, Keyboard } from 'lucide-react'
 import type {
   AiCliStatus,
   CliEngine,
@@ -16,6 +16,8 @@ import { CLI_ENGINES, CLI_SPECS } from '@shared/aiEngines'
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
+import { ShortcutsSettings } from './ShortcutsSettings'
+import { labelOf, useShortcuts } from './shortcuts'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -23,7 +25,7 @@ interface SettingsModalProps {
 }
 
 /** Secciones del panel de ajustes (aside izquierdo). */
-type Section = 'general' | 'ai' | 'github' | 'plugins' | 'snapshots'
+type Section = 'general' | 'shortcuts' | 'ai' | 'github' | 'plugins' | 'snapshots'
 
 /** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
 function perMillion(perToken: string | null): string {
@@ -41,10 +43,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref)
   const [formatToolbar, setFormatToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
   /** Atajo global del dictado (null si no se pudo registrar). */
-  const [dictationShortcut, setDictationShortcut] = useState<string | null>(null)
-  useEffect(() => {
-    window.geode.dictation.getShortcut().then(setDictationShortcut).catch(() => setDictationShortcut(null))
-  }, [])
+  const shortcuts = useShortcuts()
+  const dictationShortcut = shortcuts.globalRegistered ? labelOf('dictation', shortcuts.bindings) : null
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [models, setModels] = useState<AiModel[]>([])
@@ -276,6 +276,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             <button className={section === 'general' ? 'active' : ''} onClick={() => setSection('general')}>
               <SlidersHorizontal size={15} /> General
             </button>
+            <button className={section === 'shortcuts' ? 'active' : ''} onClick={() => setSection('shortcuts')}>
+              <Keyboard size={15} /> Atajos
+            </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
               <Sparkles size={15} /> Inteligencia artificial
             </button>
@@ -346,6 +349,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 </label>
               </section>
             )}
+
+            {section === 'shortcuts' && <ShortcutsSettings />}
 
             {section === 'ai' && (
               <section className="settings-section">
@@ -542,12 +547,14 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                     <>
                       Apretá <kbd>{dictationShortcut}</kbd> desde cualquier lugar para empezar a dictar, y otra
                       vez para terminar. Si Geode está al frente, el texto va donde está el cursor; si no, se
-                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto).
+                      agrega a tu nota de hoy. Usa tu clave de OpenRouter (cuesta centavos por minuto). El atajo
+                      se cambia en{' '}<button className="link-btn" onClick={() => setSection('shortcuts')}>Atajos</button>.
                     </>
                   ) : (
                     <>
-                      El atajo global no se pudo registrar (puede que otra app lo use). Podés dictar igual desde la
-                      paleta de comandos: «Dictar».
+                      El atajo global no se pudo registrar (puede que otra app lo use). Elegí otra combinación en{' '}
+                      <button className="link-btn" onClick={() => setSection('shortcuts')}>Ajustes → Atajos</button>, o
+                      dictá desde la paleta de comandos: «Dictar».
                     </>
                   )}
                 </p>

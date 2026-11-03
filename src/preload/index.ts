@@ -131,6 +131,15 @@ const api: GeodeApi = {
     reportStatus: (status) => ipcRenderer.send(IPC.dictationStatus, status),
     getShortcut: () => ipcRenderer.invoke(IPC.dictationGetShortcut)
   },
+  shortcuts: {
+    get: () => ipcRenderer.invoke(IPC.shortcutsGet),
+    set: (id, accelerator) => ipcRenderer.invoke(IPC.shortcutsSet, id, accelerator),
+    onChange: (cb) => {
+      const handler = (_e: IpcRendererEvent, state: Parameters<typeof cb>[0]): void => cb(state)
+      ipcRenderer.on(IPC.shortcutsChanged, handler)
+      return () => ipcRenderer.removeListener(IPC.shortcutsChanged, handler)
+    }
+  },
   plugins: {
     list: () => ipcRenderer.invoke(IPC.pluginsList),
     getEnabled: () => ipcRenderer.invoke(IPC.pluginsGetEnabled),

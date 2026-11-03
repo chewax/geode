@@ -18,7 +18,8 @@ import {
   type BackupOnboarding,
   type BackupOnboardingState,
   type TourSnapshot,
-  type TourState
+  type TourState,
+  type ShortcutsState
 } from '@shared/ipc'
 
 // Ícono de la app (ventana + barra de tareas). Usamos el PNG porque nativeImage
@@ -46,7 +47,17 @@ import {
 } from './services/ai'
 import { CliProvider, detectClis, isCliEngine, mapCliError, testCli } from './services/aiCli'
 import { isValidModelName } from '@shared/aiEngines'
-import { setupDictation, teardownDictation } from './dictation'
+import { isDictationRegistered, setDictationAccelerator, setupDictation, teardownDictation } from './dictation'
+import {
+  findConflict,
+  isShortcutId,
+  normalizeAccelerator,
+  resolveShortcuts,
+  shortcutDef,
+  validateShortcut,
+  SHORTCUTS,
+  type ShortcutId
+} from '@shared/shortcuts'
 import {
   requestDeviceCode,
   pollForToken,
@@ -61,6 +72,8 @@ import { mapBackupError } from './services/backupErrors'
 import {
   loadSettings,
   saveSettings,
+  getShortcutOverrides,
+  setShortcutOverrides,
   rememberVault,
   forgetVault,
   setAiKey,
@@ -405,6 +418,14 @@ async function restartSnapshotTimer(): Promise<void> {
 
 /** Ventana principal (la que graba el dictado). */
 let mainWindowRef: BrowserWindow | null = null
+
+/** Atajos efectivos + estado del registro global, para el renderer. */
+async function shortcutsState(): Promise<ShortcutsState> {
+  const overrides = await getShortcutOverrides()
+  const bindings = resolveShortcuts(overrides)
+  const customized = SHORTCUTS.filter((s) => bindings[s.id] !== s.default).map((s) => s.id as ShortcutId)
+  return { bindings, customized, globalRegistered: isDictationRegistered() }
+}
 
 /** Errores del dictado en español humano, sin el crudo del proveedor. */
 function mapDictationError(e: unknown): Error {
@@ -1043,6 +1064,44 @@ function registerIpcHandlers(): void {
     return { enabled: !!enabled }
   })
 
+  // ── Atajos de teclado reasignables ──────────────────────────────────────────
+  ipcMain.handle(IPC.shortcutsGet, async (): Promise<ShortcutsState> => shortcutsState())
+
+  ipcMain.handle(
+    IPC.shortcutsSet,
+    async (_e, id: unknown, accelerator: unknown): Promise<ShortcutsState> => {
+      if (typeof id !== 'string' || !isShortcutId(id)) throw new Error('Atajo desconocido.')
+      const def = shortcutDef(id)
+      const overrides = await getShortcutOverrides()
+      let next: string
+      if (accelerator == null) {
+        next = def.default
+      } else {
+        const norm = typeof accelerator === 'string' ? normalizeAccelerator(accelerator) : null
+        if (!norm) throw new Error('Esa combinación no se reconoce.')
+        const invalid = validateShortcut(norm, def.scope)
+        if (invalid) throw new Error(invalid)
+        next = norm
+      }
+      const clash = findConflict(resolveShortcuts(overrides), id, next)
+      if (clash) {
+        throw new Error(`Esa combinación ya la usa «${shortcutDef(clash).title}». Cambiá esa primero.`)
+      }
+      // El global se prueba ANTES de guardar: si el sistema no lo deja (otra app
+      // lo tiene tomado), se queda el anterior y no se persiste nada.
+      if (def.scope === 'global' && !setDictationAccelerator(next)) {
+        throw new Error('El sistema no dejó usar esa combinación (probablemente la usa otra app). Probá con otra.')
+      }
+      const updated = { ...overrides }
+      if (next === def.default) delete updated[id]
+      else updated[id] = next
+      await setShortcutOverrides(updated)
+      const state = await shortcutsState()
+      mainWindowRef?.webContents.send(IPC.shortcutsChanged, state)
+      return state
+    }
+  )
+
   // ── Plugins externos (descubrimiento + gestión; la carga la hace el renderer) ─
 
   ipcMain.handle(IPC.pluginsList, async () => listPlugins(await getPluginsEnabled()))
@@ -1343,7 +1402,7 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers()
   registerVaultProtocol()
-  setupDictation(() => mainWindowRef)
+  setupDictation(() => mainWindowRef, resolveShortcuts(await getShortcutOverrides()).dictation)
   registerPluginSandboxProtocol()
   await restoreLastVault()
   createWindow()

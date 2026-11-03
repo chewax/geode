@@ -13,6 +13,7 @@ import { TableEditor } from './TableEditor'
 import { writeTable, type TableAtCursor } from './editor/formatting'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 import { t } from '@shared/i18n'
+import { labelOf, useShortcuts } from './shortcuts'
 
 /** Payload del arrastre de una tab. Se guarda en módulo porque `dataTransfer`
  *  no es legible durante `dragover` (solo en `drop`). */
@@ -80,6 +81,7 @@ function tabName(path: string): string {
 /** Un panel del área de edición: barra de tabs + editor (o vista previa). */
 export function EditorPane(props: EditorPaneProps): JSX.Element {
   const { pane, isActive, reloadNonce, extraExtensions } = props
+  const { bindings: shortcutBindings } = useShortcuts()
   const [content, setContent] = useState('')
   const [epoch, setEpoch] = useState(0)
   const [preview, setPreview] = useState(false)
@@ -407,7 +409,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
             className="icon-btn"
             title={
               pane.active
-                ? t('Dividir a la derecha (Ctrl+\\)')
+                ? t('Dividir a la derecha ({key})', { key: labelOf('splitRight', shortcutBindings) })
                 : t('Abrí una nota para dividir el panel')
             }
             disabled={!pane.active}

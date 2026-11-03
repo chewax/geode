@@ -7,6 +7,7 @@
  */
 
 import type { SearchMatch } from './search'
+import type { ShortcutId, ShortcutMap } from './shortcuts'
 
 export type { SearchMatch } from './search'
 
@@ -47,6 +48,8 @@ export const IPC = {
   vaultObsidianConfig: 'geode:vault-obsidian-config',
   vaultExportPdf: 'geode:vault-export-pdf',
   vaultOpenExternal: 'geode:vault-open-external',
+  vaultExternalChange: 'geode:vault-external-change',
+  mcpInfo: 'geode:mcp-info',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
@@ -85,9 +88,16 @@ export const IPC = {
   aiUsage: 'geode:ai-usage',
   aiSetDictationModel: 'geode:ai-set-dictation-model',
   aiTranscribe: 'geode:ai-transcribe',
+  aiSetEngine: 'geode:ai-set-engine',
+  aiSetCliModel: 'geode:ai-set-cli-model',
+  aiDetectClis: 'geode:ai-detect-clis',
+  aiTestEngine: 'geode:ai-test-engine',
   dictationCommand: 'geode:dictation-command',
   dictationStatus: 'geode:dictation-status',
   dictationGetShortcut: 'geode:dictation-get-shortcut',
+  shortcutsGet: 'geode:shortcuts-get',
+  shortcutsSet: 'geode:shortcuts-set',
+  shortcutsChanged: 'geode:shortcuts-changed',
   snapshotsGet: 'geode:snapshots-get',
   snapshotsSet: 'geode:snapshots-set',
   snapshotsSetAiTitles: 'geode:snapshots-set-ai-titles',
@@ -271,6 +281,19 @@ export interface VaultApi {
    * null si se canceló.
    */
   exportPdf(suggestedName: string): Promise<string | null>
+  /**
+   * Suscribe a cambios hechos en la bóveda DESDE AFUERA de la app (hoy: el
+   * servidor MCP, cuando una IA escribe en la memoria). Devuelve el unsubscribe.
+   */
+  onExternalChange(cb: (info: ExternalChange) => void): () => void
+}
+
+/** Cambio hecho por otro proceso (la IA vía MCP) y ya versionado. */
+export interface ExternalChange {
+  /** Notas tocadas (rutas relativas). */
+  paths: string[]
+  /** Quién lo hizo, p. ej. "Claude Code (IA)". */
+  author: string
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────
@@ -508,8 +531,46 @@ export interface AiModel {
   audioInput: boolean
 }
 
+/**
+ * Motor de IA: OpenRouter con la API key del usuario (BYOK), o el CLI oficial de
+ * un proveedor que el usuario ya tiene instalado y con sesión iniciada (usa su
+ * suscripción; Geode nunca ve ni guarda esas credenciales).
+ */
+export type AiEngine = 'openrouter' | 'claude' | 'codex' | 'gemini'
+
+/** Motores que corren a través de un CLI instalado en la computadora. */
+export type CliEngine = Exclude<AiEngine, 'openrouter'>
+
+/** Estado de un CLI de IA en esta computadora. */
+export interface AiCliStatus {
+  engine: CliEngine
+  installed: boolean
+  /** Primera línea de `<cli> --version`, o null si no está instalado. */
+  version: string | null
+}
+
+/** Resultado de "Probar conexión" con un motor. */
+export interface AiEngineTest {
+  ok: boolean
+  /** Mensaje para el usuario (en español). */
+  message: string
+}
+
 export interface AiConfig {
   enabled: boolean
+  /** Motor elegido (default: OpenRouter). */
+  engine: AiEngine
+  /**
+   * Si el motor tiene lo necesario para generar texto: con OpenRouter, key y
+   * modelo; con un CLI, siempre true (si no está instalado o sin sesión, el
+   * error se informa al usarlo).
+   */
+  ready: boolean
+  /**
+   * Modelo elegido para cada CLI. Ausente = el predeterminado de ese programa
+   * (el que el usuario tenga configurado en él).
+   */
+  cliModels: Partial<Record<CliEngine, string>>
   model: string | null
   /** Modelo para el dictado por voz; null = Geode elige uno que acepte audio. */
   dictationModel: string | null
@@ -558,6 +619,14 @@ export interface AiApi {
   setDictationModel(model: string | null): Promise<AiConfig>
   /** Transcribe audio WAV (base64) a texto con OpenRouter. '' si no hubo voz. */
   transcribe(wavBase64: string): Promise<string>
+  /** Elige el motor de IA (OpenRouter o un CLI con suscripción). */
+  setEngine(engine: AiEngine): Promise<AiConfig>
+  /** Modelo para un CLI (null = el predeterminado del programa). */
+  setCliModel(engine: CliEngine, model: string | null): Promise<AiConfig>
+  /** Qué CLIs de IA (Claude Code, Codex, Gemini CLI) están instalados. */
+  detectClis(): Promise<AiCliStatus[]>
+  /** Hace una consulta mínima con el motor para verificar que responde. */
+  testEngine(engine: AiEngine): Promise<AiEngineTest>
 }
 
 // ── Dictado por voz (atajo global) ──────────────────────────────────────────
@@ -586,6 +655,30 @@ export interface DictationApi {
   getShortcut(): Promise<string | null>
 }
 
+// ── Atajos de teclado reasignables ──────────────────────────────────────────
+
+/** Estado de los atajos: efectivos + si el global del dictado quedó registrado. */
+export interface ShortcutsState {
+  /** Atajo efectivo de cada acción (formato accelerator de Electron). */
+  bindings: ShortcutMap
+  /** Ids con un atajo distinto al de fábrica. */
+  customized: ShortcutId[]
+  /** false si el sistema no dejó registrar el atajo global del dictado. */
+  globalRegistered: boolean
+}
+
+export interface ShortcutsApi {
+  get(): Promise<ShortcutsState>
+  /**
+   * Reasigna un atajo (`null` = volver al de fábrica). Rechaza con un mensaje en
+   * español si la combinación no es válida, choca con otra acción o (para el
+   * global) el sistema no la deja registrar; en ese caso no se guarda nada.
+   */
+  set(id: ShortcutId, accelerator: string | null): Promise<ShortcutsState>
+  /** Avisa cuando cambian (p. ej. desde Ajustes). Devuelve el desuscriptor. */
+  onChange(cb: (state: ShortcutsState) => void): () => void
+}
+
 // ── Snapshots automáticos (guardado por cadencia; IA opcional en cadencia) ──
 
 export interface SnapshotsConfig {
@@ -609,6 +702,24 @@ export interface SnapshotsApi {
 export interface AdvancedConfig {
   /** Modo Avanzado activo. Default false (sin git). */
   enabled: boolean
+}
+
+// ── Memoria para IA (servidor MCP) ─────────────────────────────────────────
+
+/** Cómo lanzar el servidor MCP de Geode para la bóveda activa. */
+export interface McpInfo {
+  /** Ruta de la bóveda que va a servir. */
+  vault: string
+  /** Ejecutable a lanzar (el binario de Geode). */
+  command: string
+  args: string[]
+  /** Variables de entorno (ELECTRON_RUN_AS_NODE=1: el binario corre como Node). */
+  env: Record<string, string>
+}
+
+export interface McpApi {
+  /** Config del servidor MCP para la bóveda activa, o null si no hay bóveda. */
+  info(): Promise<McpInfo | null>
 }
 
 export interface AdvancedApi {
@@ -694,6 +805,8 @@ export interface GeodeApi {
   i18n: I18nApi
   snapshots: SnapshotsApi
   advanced: AdvancedApi
+  mcp: McpApi
   plugins: PluginsApi
   dictation: DictationApi
+  shortcuts: ShortcutsApi
 }

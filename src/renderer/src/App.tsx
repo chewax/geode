@@ -14,6 +14,7 @@ import {
   GitBranchPlus,
   Cloud,
   Coins,
+  Terminal,
   ArrowDownUp,
   RefreshCw,
   FoldVertical,
@@ -97,8 +98,10 @@ import { startRecording, type Recording } from './dictation/recorder'
 import { DAILY_DIR } from './plugins/builtin/dailyNotes'
 import { TEMPLATES_DIR, applyTemplate, localDate, localTime } from './plugins/builtin/templating'
 import type { DictationStatus, DictationTarget } from '@shared/ipc'
+import { isShortcut, labelOf, useShortcuts } from './shortcuts'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf } from '@shared/attachments'
+import { CLI_SPECS } from '@shared/aiEngines'
 import {
   PluginHost,
   GeodeProvider,
@@ -134,6 +137,7 @@ export function App(): JSX.Element {
   /** Recorrido guiado de primera vez. `vault` listo = las anclas Capa 0 existen
    *  en el DOM, requisito para la recuperación "reaparecer una vez" (Fase 13). */
   const tour = useTour(!!vault)
+  const { bindings: shortcutBindings } = useShortcuts()
   const [vaults, setVaults] = useState<VaultInfo[]>([])
   const [newVaultOpen, setNewVaultOpen] = useState(false)
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
@@ -610,6 +614,27 @@ export function App(): JSX.Element {
       window.clearInterval(id)
     }
   }, [backgroundSync])
+
+  // La IA escribió en la bóveda vía MCP (otro proceso; ya quedó versionado):
+  // recargar árbol, notas abiertas y línea de tiempo. La recarga de cada panel
+  // hace flush antes de leer, así lo tipeado en vuelo nunca se descarta (si chocó
+  // con la IA, gana lo del usuario en disco y lo de la IA queda en la historia).
+  // Durante el viaje en el tiempo no se toca la vista: solo la línea de tiempo.
+  useEffect(
+    () =>
+      window.geode.vault.onExternalChange((info) => {
+        void refreshGraph()
+        if (previewOidRef.current != null) return
+        void (async () => {
+          const t = await refreshTree()
+          setPanes((prev) => keepOnly(prev, new Set(flattenPaths(t))))
+          bumpAll()
+          const names = info.paths.map((p) => `«${displayName(p)}»`).join(', ')
+          setToast(names ? `${info.author} actualizó ${names}.` : `${info.author} actualizó la bóveda.`)
+        })()
+      }),
+    [refreshGraph, refreshTree, bumpAll]
+  )
 
   /** Abre (o activa) una nota en el panel enfocado. Sin `pinned` = preview (un
    *  click en el árbol); `{ pinned: true }` = tab permanente (doble click). */
@@ -1478,8 +1503,8 @@ export function App(): JSX.Element {
   /** Ctrl+K en el editor: abre el asistente de IA sobre la selección/cursor del
    *  panel indicado (o el activo). Recuerda el editor destino para insertar ahí. */
   const requestAi = useCallback((paneId?: string) => {
-    if (!aiConfig?.hasKey || !aiConfig?.model) {
-      window.alert(t('Configurá la API key y el modelo de IA en Ajustes (⚙).'))
+    if (!aiConfig?.ready) {
+      window.alert(t('Configurá la IA en Ajustes (⚙): elegí un motor y, si usás OpenRouter, la API key y el modelo.'))
       return
     }
     const ed = paneId ? paneHandles.current.get(paneId)?.getEditor() ?? null : getActiveEditor()
@@ -1526,11 +1551,11 @@ export function App(): JSX.Element {
   const tourActiveRef = useRef(tour.active)
   tourActiveRef.current = tour.active
 
-  // Ctrl/Cmd+S: abre el diálogo de guardar versión.
+  // Guardar versión (Ctrl/Cmd+S por defecto; reasignable en Ajustes → Atajos).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (tourActiveRef.current) return // el recorrido guiado absorbe el teclado global
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      if (isShortcut(e, 'saveVersion')) {
         e.preventDefault()
         void openCommitDialog()
       }
@@ -1560,7 +1585,7 @@ export function App(): JSX.Element {
     previewOid && graph ? graph.commits.find((c) => c.oid === previewOid) ?? null : null
   // Se puede mergear si la rama actual tiene una base a la cual integrar.
   const canMerge = !!graph?.branches.find((b) => b.name === graph.head.branch)?.base
-  const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.hasKey && !!aiConfig.model
+  const aiReady = !!aiConfig && aiConfig.enabled && aiConfig.ready
 
   // Flag único "esta bóveda tiene respaldo activo" (STAT-01): exige la cuenta
   // conectada (global) Y el origin PROPIO de la bóveda (per-vault, CR-01). No
@@ -1687,17 +1712,17 @@ export function App(): JSX.Element {
     // integrar, push, árbol de versiones) NO viven acá: se registran sólo en
     // Modo Avanzado (efecto dedicado) para no filtrar jerga git en el default.
     const cmds = [
-      host.registerCommand({ id: 'core.saveVersion', title: t('Guardar versión'), category: t('Núcleo'), shortcut: 'Ctrl+S', run: () => api().saveVersion() }),
+      host.registerCommand({ id: 'core.saveVersion', title: t('Guardar versión'), category: t('Núcleo'), run: () => api().saveVersion() }),
       host.registerCommand({ id: 'core.newNote', title: t('Nueva nota'), category: t('Núcleo'), run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: t('Nueva carpeta'), category: t('Núcleo'), run: () => api().newFolder() }),
-      host.registerCommand({ id: 'core.quickOpen', title: t('Abrir nota por nombre'), category: t('Núcleo'), shortcut: 'Ctrl+O', run: () => api().quickOpen() }),
+      host.registerCommand({ id: 'core.quickOpen', title: t('Abrir nota por nombre'), category: t('Núcleo'), run: () => api().quickOpen() }),
       host.registerCommand({ id: 'core.toggleBookmark', title: t('Agregar o quitar de favoritas'), category: t('Núcleo'), run: () => api().toggleBookmark(), isEnabled: () => api().hasOpenNote }),
       host.registerCommand({ id: 'core.exportPdf', title: t('Exportar nota a PDF'), category: t('Núcleo'), run: () => api().exportPdf(), isEnabled: () => api().hasOpenNote }),
-      host.registerCommand({ id: 'core.search', title: t('Buscar en todas las notas'), category: t('Núcleo'), shortcut: 'Ctrl+Shift+F', run: () => api().openSearch() }),
-      host.registerCommand({ id: 'core.dictate', title: t('Dictar (empezar / terminar)'), category: t('Núcleo'), shortcut: t('Ctrl+Alt+Espacio'), run: () => api().toggleDictation() }),
+      host.registerCommand({ id: 'core.search', title: t('Buscar en todas las notas'), category: t('Núcleo'), run: () => api().openSearch() }),
+      host.registerCommand({ id: 'core.dictate', title: t('Dictar (empezar / terminar)'), category: t('Núcleo'), run: () => api().toggleDictation() }),
       host.registerCommand({ id: 'core.togglePreview', title: t('Alternar vista previa'), category: t('Vista'), run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
       host.registerCommand({ id: 'core.previewBeside', title: t('Abrir vista previa al lado (en vivo)'), category: t('Vista'), run: () => api().previewBeside(), isEnabled: () => api().hasOpenPath }),
-      host.registerCommand({ id: 'core.splitRight', title: t('Dividir editor a la derecha'), category: t('Vista'), shortcut: 'Ctrl+\\', run: () => api().splitRight() }),
+      host.registerCommand({ id: 'core.splitRight', title: t('Dividir editor a la derecha'), category: t('Vista'), run: () => api().splitRight() }),
       host.registerCommand({ id: 'core.splitDown', title: t('Dividir editor abajo'), category: t('Vista'), run: () => api().splitDown() }),
       // Re-lanzar el recorrido guiado: Capa 0 (categoría 'Ayuda'), NUNCA en el
       // bloque git avanzado. Re-verlo no resetea 'seen' (launch no persiste).
@@ -1727,24 +1752,23 @@ export function App(): JSX.Element {
     return () => gitCmds.forEach((c) => c.dispose())
   }, [advanced, host])
 
-  // Ctrl/Cmd+P: paleta de comandos. Ctrl+\: dividir el editor a la derecha.
+  // Paleta, búsqueda, nota de hoy y dividir: atajos reasignables (Ajustes → Atajos).
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (tourActiveRef.current) return // el recorrido guiado absorbe el teclado global
-      const mod = e.ctrlKey || e.metaKey
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
+      if (isShortcut(e, 'search')) {
         e.preventDefault()
         commandApiRef.current.openSearch()
-      } else if (mod && e.shiftKey && e.key.toLowerCase() === 'd') {
+      } else if (isShortcut(e, 'dailyNote')) {
         e.preventDefault()
         host.runCommand('daily-notes.today')
-      } else if (mod && e.key.toLowerCase() === 'p') {
+      } else if (isShortcut(e, 'commandPalette')) {
         e.preventDefault()
         setPaletteOpen(true)
-      } else if (mod && !e.shiftKey && e.key.toLowerCase() === 'o') {
+      } else if (isShortcut(e, 'quickOpen')) {
         e.preventDefault()
         setSwitcherOpen(true)
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+      } else if (isShortcut(e, 'splitRight')) {
         e.preventDefault()
         void splitPane(activePaneIdRef.current, 'row')
       }
@@ -1836,7 +1860,7 @@ export function App(): JSX.Element {
     <>
       <button
         className="icon-btn"
-        title={t('Buscar en todas las notas (Ctrl+Shift+F)')}
+        title={t('Buscar en todas las notas ({key})', { key: labelOf('search', shortcutBindings) })}
         aria-label={t('Buscar en todas las notas')}
         onClick={() => commandApiRef.current.openSearch()}
       >
@@ -1897,7 +1921,7 @@ export function App(): JSX.Element {
           <div className="tb-actions">
             <button
               className="tb-btn icon"
-              title={t('Paleta de comandos (Ctrl+P)')}
+              title={t('Paleta de comandos ({key})', { key: labelOf('commandPalette', shortcutBindings) })}
               aria-label={t('Paleta de comandos')}
               onClick={() => setPaletteOpen(true)}
             >
@@ -1925,7 +1949,7 @@ export function App(): JSX.Element {
             )}
             <button
               className="tb-btn icon cta"
-              title={t('Crear versión (Ctrl+S)')}
+              title={t('Crear versión ({key})', { key: labelOf('saveVersion', shortcutBindings) })}
               aria-label={t('Crear versión')}
               data-tour="guardar"
               onClick={() => void openCommitDialog()}
@@ -2233,7 +2257,36 @@ export function App(): JSX.Element {
                 onForcePush={() => void doPush()}
               />
 
-              {aiConfig?.hasKey && (
+              {aiConfig && aiConfig.engine !== 'openrouter' && (
+                <div
+                  className="status-item"
+                  onMouseEnter={() => {
+                    if (aiConfig.hasKey) void refreshAiUsage()
+                  }}
+                >
+                  <Terminal size={14} className="st-ok" />
+                  <span>{CLI_SPECS[aiConfig.engine].name}</span>
+                  <div className="status-pop">
+                    <div className="pop-title">
+                      <Terminal size={13} /> {CLI_SPECS[aiConfig.engine].name}
+                    </div>
+                    <div className="pop-row"><span>Programa</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
+                    <div className="pop-row"><span>Pago</span><b>Tu suscripción</b></div>
+                    <div className="pop-row">
+                      <span>Modelo</span>
+                      <b>{aiConfig.cliModels[aiConfig.engine] ?? `El de ${CLI_SPECS[aiConfig.engine].program}`}</b>
+                    </div>
+                    {aiConfig.hasKey && (
+                      <div className="pop-row">
+                        <span>Dictado (OpenRouter)</span>
+                        <b>{aiUsage ? `${formatUsd(aiUsage.usage)} gastado` : '—'}</b>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {aiConfig?.hasKey && aiConfig.engine === 'openrouter' && (
                 <div
                   className="status-item"
                   onMouseEnter={() => void refreshAiUsage()}

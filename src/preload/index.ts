@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type GeodeApi } from '@shared/ipc'
+import { IPC, type ExternalChange, type GeodeApi } from '@shared/ipc'
 
 /**
  * Puente único hacia el renderer. Expone SOLO la superficie tipada `GeodeApi`;
@@ -50,7 +50,15 @@ const api: GeodeApi = {
     getBookmarks: () => ipcRenderer.invoke(IPC.vaultBookmarksGet),
     setBookmarks: (paths) => ipcRenderer.invoke(IPC.vaultBookmarksSet, paths),
     openExternal: (path) => ipcRenderer.invoke(IPC.vaultOpenExternal, path),
-    exportPdf: (name) => ipcRenderer.invoke(IPC.vaultExportPdf, name)
+    exportPdf: (name) => ipcRenderer.invoke(IPC.vaultExportPdf, name),
+    onExternalChange: (cb) => {
+      const handler = (_e: IpcRendererEvent, info: ExternalChange): void => cb(info)
+      ipcRenderer.on(IPC.vaultExternalChange, handler)
+      return () => ipcRenderer.removeListener(IPC.vaultExternalChange, handler)
+    }
+  },
+  mcp: {
+    info: () => ipcRenderer.invoke(IPC.mcpInfo)
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),
@@ -114,7 +122,11 @@ const api: GeodeApi = {
       ipcRenderer.invoke(IPC.aiGenerateText, instruction, selection, before),
     usage: () => ipcRenderer.invoke(IPC.aiUsage),
     setDictationModel: (model) => ipcRenderer.invoke(IPC.aiSetDictationModel, model),
-    transcribe: (wav) => ipcRenderer.invoke(IPC.aiTranscribe, wav)
+    transcribe: (wav) => ipcRenderer.invoke(IPC.aiTranscribe, wav),
+    setEngine: (engine) => ipcRenderer.invoke(IPC.aiSetEngine, engine),
+    setCliModel: (engine, model) => ipcRenderer.invoke(IPC.aiSetCliModel, engine, model),
+    detectClis: () => ipcRenderer.invoke(IPC.aiDetectClis),
+    testEngine: (engine) => ipcRenderer.invoke(IPC.aiTestEngine, engine)
   },
   snapshots: {
     get: () => ipcRenderer.invoke(IPC.snapshotsGet),
@@ -133,6 +145,15 @@ const api: GeodeApi = {
     },
     reportStatus: (status) => ipcRenderer.send(IPC.dictationStatus, status),
     getShortcut: () => ipcRenderer.invoke(IPC.dictationGetShortcut)
+  },
+  shortcuts: {
+    get: () => ipcRenderer.invoke(IPC.shortcutsGet),
+    set: (id, accelerator) => ipcRenderer.invoke(IPC.shortcutsSet, id, accelerator),
+    onChange: (cb) => {
+      const handler = (_e: IpcRendererEvent, state: Parameters<typeof cb>[0]): void => cb(state)
+      ipcRenderer.on(IPC.shortcutsChanged, handler)
+      return () => ipcRenderer.removeListener(IPC.shortcutsChanged, handler)
+    }
   },
   plugins: {
     list: () => ipcRenderer.invoke(IPC.pluginsList),

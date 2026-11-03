@@ -1,6 +1,7 @@
 import { BrowserWindow, globalShortcut, ipcMain, screen, session } from 'electron'
 import { IPC, type DictationCommand, type DictationStatus } from '@shared/ipc'
-import { getLocale, t } from '@shared/i18n'
+import { t } from '@shared/i18n'
+import { shortcutDef, shortcutLabel } from '@shared/shortcuts'
 
 /**
  * Dictado por voz con atajo GLOBAL (funciona aunque Geode no esté al frente).
@@ -13,20 +14,56 @@ import { getLocale, t } from '@shared/i18n'
  * Destino del texto: si Geode estaba al frente al empezar → en el cursor de la
  * nota abierta; si no → al final de la nota de hoy (Diario/AAAA-MM-DD.md).
  */
-export const DICTATION_ACCELERATOR = 'CommandOrControl+Alt+Space'
-/**
- * Texto humano del atajo para mostrar en la UI. Es función (no constante) porque
- * el nombre de la tecla depende del idioma, que se elige después de importar.
- */
-function acceleratorLabel(): string {
-  const space = getLocale() === 'en' ? 'Space' : 'Espacio'
-  return process.platform === 'darwin' ? `Cmd+Option+${space}` : `Ctrl+Alt+${space}`
-}
+export const DICTATION_ACCELERATOR = shortcutDef('dictation').default
 
 let overlay: BrowserWindow | null = null
 let recording = false
 let hideTimer: NodeJS.Timeout | null = null
 let registered = false
+/** Atajo global vigente (reasignable desde Ajustes → Atajos). */
+let accelerator = DICTATION_ACCELERATOR
+/** Callback del atajo; lo arma setupDictation (necesita la ventana principal). */
+let onShortcut: (() => void) | null = null
+
+/** Texto humano del atajo vigente para mostrar en la UI. */
+function acceleratorLabel(): string {
+  return shortcutLabel(accelerator, process.platform === 'darwin')
+}
+
+/** ¿El atajo global del dictado está registrado ahora? */
+export function isDictationRegistered(): boolean {
+  return registered
+}
+
+/** Intenta registrar `accel` como atajo global. No toca el atajo anterior. */
+function tryRegister(accel: string): boolean {
+  if (!onShortcut) return false
+  try {
+    return globalShortcut.register(accel, onShortcut)
+  } catch {
+    // Electron tira si el accelerator no le resulta válido en esta plataforma.
+    return false
+  }
+}
+
+/**
+ * Cambia el atajo global del dictado. Si el sistema no deja registrar el nuevo
+ * (otra app lo usa), se restaura el anterior y devuelve false.
+ */
+export function setDictationAccelerator(accel: string): boolean {
+  if (accel === accelerator && registered) return true
+  const prev = accelerator
+  const prevRegistered = registered
+  if (registered) globalShortcut.unregister(prev)
+  registered = false
+  if (tryRegister(accel)) {
+    accelerator = accel
+    registered = true
+    return true
+  }
+  if (prevRegistered) registered = tryRegister(prev)
+  return false
+}
 
 /** HTML de la ventanita (sin red ni recursos externos; se actualiza con `set`). */
 const OVERLAY_HTML = `<!doctype html><html><head><meta charset="utf-8">
@@ -96,7 +133,10 @@ function showOverlay(state: DictationStatus['state'], text: string, sub = '', au
  * Registra el atajo global, el permiso de micrófono y el canal de estado.
  * `getMainWindow` devuelve la ventana principal (el renderer que graba).
  */
-export function setupDictation(getMainWindow: () => BrowserWindow | null): void {
+export function setupDictation(
+  getMainWindow: () => BrowserWindow | null,
+  initialAccelerator: string = DICTATION_ACCELERATOR
+): void {
   // Micrófono: sólo audio, sólo para la ventana principal. El resto de los
   // permisos conserva el comportamiento anterior de Electron (concedido).
   session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
@@ -114,13 +154,15 @@ export function setupDictation(getMainWindow: () => BrowserWindow | null): void 
     if (main && !main.isDestroyed()) main.webContents.send(IPC.dictationCommand, cmd)
   }
 
-  registered = globalShortcut.register(DICTATION_ACCELERATOR, () => {
+  onShortcut = () => {
     const main = getMainWindow()
     if (!main || main.isDestroyed()) return
     const target = BrowserWindow.getFocusedWindow() === main ? 'cursor' : 'daily'
     send({ action: recording ? 'stop' : 'start', target })
-  })
-  if (!registered) console.warn(`[dictado] no se pudo registrar el atajo global ${DICTATION_ACCELERATOR} (¿lo usa otra app?)`)
+  }
+  accelerator = initialAccelerator
+  registered = tryRegister(accelerator)
+  if (!registered) console.warn(`[dictado] no se pudo registrar el atajo global ${accelerator} (¿lo usa otra app?)`)
 
   ipcMain.handle(IPC.dictationGetShortcut, () => (registered ? acceleratorLabel() : null))
 
@@ -156,7 +198,7 @@ export function setupDictation(getMainWindow: () => BrowserWindow | null): void 
 
 /** Libera el atajo global y la ventanita al salir. */
 export function teardownDictation(): void {
-  if (registered) globalShortcut.unregister(DICTATION_ACCELERATOR)
+  if (registered) globalShortcut.unregister(accelerator)
   registered = false
   if (overlay && !overlay.isDestroyed()) overlay.destroy()
   overlay = null

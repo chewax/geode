@@ -1,7 +1,7 @@
 import { app, dialog, shell, BrowserWindow, ipcMain, Menu, nativeImage, protocol } from 'electron'
 import { join, basename } from 'path'
 import { existsSync } from 'node:fs'
-import { stat, writeFile } from 'node:fs/promises'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { getLocale, intlLocale, resolveLocale, setLocale, t, type LocalePref } from '@shared/i18n'
 import iconPng from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
@@ -9,16 +9,21 @@ import {
   IPC,
   type AppInfo,
   type AiConfig,
+  type AiEngine,
+  type AiEngineTest,
   type GithubConfig,
   type NamedVersion,
   type SnapshotsConfig,
   type AdvancedConfig,
+  type ExternalChange,
+  type McpInfo,
   type VaultInfo,
   type BackupOnboarding,
   type BackupOnboardingState,
   type TourSnapshot,
   type LanguageInfo,
-  type TourState
+  type TourState,
+  type ShortcutsState
 } from '@shared/ipc'
 
 // Ícono de la app (ventana + barra de tareas). Usamos el PNG porque nativeImage
@@ -36,8 +41,28 @@ if (APP_ICON.isEmpty()) {
 void iconIco
 import { VaultService } from './services/vault'
 import { GitService } from './services/git'
-import { OpenRouterProvider, listOpenRouterModels, getOpenRouterUsage, mapAiError, pickDictationModel } from './services/ai'
-import { setupDictation, teardownDictation } from './dictation'
+import { withVaultLock } from './fs/vaultLock'
+import {
+  OpenRouterProvider,
+  listOpenRouterModels,
+  getOpenRouterUsage,
+  mapAiError,
+  pickDictationModel,
+  type AiTextProvider
+} from './services/ai'
+import { CliProvider, detectClis, isCliEngine, mapCliError, testCli } from './services/aiCli'
+import { isValidModelName } from '@shared/aiEngines'
+import { isDictationRegistered, setDictationAccelerator, setupDictation, teardownDictation } from './dictation'
+import {
+  findConflict,
+  isShortcutId,
+  normalizeAccelerator,
+  resolveShortcuts,
+  shortcutDef,
+  validateShortcut,
+  SHORTCUTS,
+  type ShortcutId
+} from '@shared/shortcuts'
 import {
   requestDeviceCode,
   pollForToken,
@@ -52,6 +77,8 @@ import { mapBackupError } from './services/backupErrors'
 import {
   loadSettings,
   saveSettings,
+  getShortcutOverrides,
+  setShortcutOverrides,
   rememberVault,
   forgetVault,
   setAiKey,
@@ -134,12 +161,43 @@ async function githubConfig(): Promise<GithubConfig> {
 
 async function aiConfig(): Promise<AiConfig> {
   const { ai } = await loadSettings()
+  const engine = currentEngine(ai?.engine)
+  const hasKey = !!ai?.key
+  const model = ai?.model ?? null
   return {
     enabled: ai?.enabled ?? false,
-    model: ai?.model ?? null,
+    engine,
+    ready: engine === 'openrouter' ? hasKey && !!model : true,
+    cliModels: { ...(ai?.cliModels ?? {}) },
+    model,
     dictationModel: ai?.dictationModel ?? null,
-    hasKey: !!ai?.key
+    hasKey
   }
+}
+
+/** Motor guardado, o OpenRouter si no hay ninguno (o uno desconocido). */
+function currentEngine(saved: unknown): AiEngine {
+  return isCliEngine(saved) ? saved : 'openrouter'
+}
+
+/**
+ * Motor de texto según los ajustes: el CLI elegido (suscripción) u OpenRouter
+ * con la key del usuario. Lanza si OpenRouter no tiene key o modelo.
+ */
+async function textProvider(): Promise<{ engine: AiEngine; provider: AiTextProvider }> {
+  const { ai } = await loadSettings()
+  const engine = currentEngine(ai?.engine)
+  if (isCliEngine(engine)) {
+    return { engine, provider: new CliProvider(engine, ai?.cliModels?.[engine] ?? null) }
+  }
+  const key = await getAiKey()
+  if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
+  return { engine, provider: new OpenRouterProvider(key, ai.model) }
+}
+
+/** Boundary de errores de IA: cada motor con su traducción a español humano. */
+function mapEngineError(engine: AiEngine, e: unknown): Error {
+  return isCliEngine(engine) ? mapCliError(engine, e) : mapAiError(e)
 }
 
 /** Root del vault activo o error uniforme si no hay ninguno. */
@@ -176,21 +234,18 @@ function snapshotMessage(): string {
  */
 async function aiSnapshotMessage(root: string): Promise<string | null> {
   try {
-    const key = await getAiKey()
-    const { ai } = await loadSettings()
-    if (!key || !ai?.model) return null // sin key/modelo: no hay IA posible
+    // Sin key/modelo de OpenRouter, textProvider lanza y caemos al marcador.
+    const { engine, provider } = await textProvider()
 
     // El diff ya viene acotado a notas .md (content-hash vs HEAD, nunca statusMatrix).
     const diff = await gitService.pendingDiff(root)
     if (!diff) return null // sin cambios .md que resumir
 
+    // Los CLIs tardan más en arrancar que la API: les damos más margen.
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 10_000)
+    const timer = setTimeout(() => ctrl.abort(), isCliEngine(engine) ? 60_000 : 10_000)
     try {
-      const generado = await new OpenRouterProvider(key, ai.model).generateNamedVersion(
-        diff,
-        ctrl.signal
-      )
+      const generado = await provider.generateNamedVersion(diff, ctrl.signal)
       // Mismo formato que el guardado manual (CommitDialog): título + descripción.
       const mensaje = [generado.title, generado.description].filter(Boolean).join('\n\n')
       return mensaje || null
@@ -368,6 +423,14 @@ async function restartSnapshotTimer(): Promise<void> {
 
 /** Ventana principal (la que graba el dictado). */
 let mainWindowRef: BrowserWindow | null = null
+
+/** Atajos efectivos + estado del registro global, para el renderer. */
+async function shortcutsState(): Promise<ShortcutsState> {
+  const overrides = await getShortcutOverrides()
+  const bindings = resolveShortcuts(overrides)
+  const customized = SHORTCUTS.filter((s) => bindings[s.id] !== s.default).map((s) => s.id as ShortcutId)
+  return { bindings, customized, globalRegistered: isDictationRegistered() }
+}
 
 /** Errores del dictado en español humano, sin el crudo del proveedor. */
 function mapDictationError(e: unknown): Error {
@@ -697,8 +760,15 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.vaultTree, () => vault.tree())
   ipcMain.handle(IPC.vaultReadNote, (_e, path: string) => vault.readNote(path))
+  // El autosave toma el candado de la bóveda: así nunca se cruza a mitad de una
+  // escritura+commit de la IA (servidor MCP, otro proceso). Si el candado tarda,
+  // se escribe igual ('proceed'): lo tipeado por el usuario jamás se descarta.
   ipcMain.handle(IPC.vaultWriteNote, (_e, path: string, content: string) =>
-    vault.writeNote(path, content)
+    withVaultLock(requireRoot(), () => vault.writeNote(path, content), {
+      owner: 'geode:autosave',
+      timeoutMs: 5_000,
+      onTimeout: 'proceed'
+    })
   )
   ipcMain.handle(IPC.vaultCreateNote, (_e, dir: string) => vault.createNote(dir))
   ipcMain.handle(IPC.vaultCreateFolder, (_e, dir: string) => vault.createFolder(dir))
@@ -881,54 +951,98 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.aiSuggestMessage, async (): Promise<string> => {
+    let engine: AiEngine = 'openrouter'
     try {
-      const key = await getAiKey()
-      const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
+      const chosen = await textProvider()
+      engine = chosen.engine
 
       const diff = await gitService.pendingDiff(requireRoot())
       if (!diff) return ''
 
-      const provider = new OpenRouterProvider(key, ai.model)
-      return await provider.generateMessage(diff)
+      return await chosen.provider.generateMessage(diff)
     } catch (e) {
       // Boundary: traducimos a copy amigable en español y nunca filtramos el crudo.
-      throw mapAiError(e)
+      throw mapEngineError(engine, e)
     }
   })
 
   ipcMain.handle(IPC.aiSuggestVersion, async (): Promise<NamedVersion> => {
+    let engine: AiEngine = 'openrouter'
     try {
-      const key = await getAiKey()
-      const { ai } = await loadSettings()
-      if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
+      const chosen = await textProvider()
+      engine = chosen.engine
 
       // El diff ya viene acotado a notas .md desde pendingDiff.
       const diff = await gitService.pendingDiff(requireRoot())
       if (!diff) return { title: '', description: '' }
 
-      return await new OpenRouterProvider(key, ai.model).generateNamedVersion(diff)
+      return await chosen.provider.generateNamedVersion(diff)
     } catch (e) {
       // Boundary: guardar versión no debe filtrar el error crudo del proveedor.
-      throw mapAiError(e)
+      throw mapEngineError(engine, e)
     }
   })
 
   ipcMain.handle(
     IPC.aiGenerateText,
     async (_e, instruction: string, selection: string, before: string): Promise<string> => {
+      let engine: AiEngine = 'openrouter'
       try {
-        const key = await getAiKey()
-        const { ai } = await loadSettings()
-        if (!key || !ai?.model) throw new Error(t('Configurá la API key y el modelo de IA en Ajustes'))
-        const provider = new OpenRouterProvider(key, ai.model)
-        return await provider.generateText(instruction, selection, before)
+        const chosen = await textProvider()
+        engine = chosen.engine
+        return await chosen.provider.generateText(instruction, selection, before)
       } catch (e) {
         // Boundary: el asistente de escritura tampoco filtra el crudo del proveedor.
-        throw mapAiError(e)
+        throw mapEngineError(engine, e)
       }
     }
   )
+
+  ipcMain.handle(IPC.aiSetEngine, async (_e, engine: AiEngine) => {
+    const settings = await loadSettings()
+    const ai = { ...settings.ai }
+    if (isCliEngine(engine)) ai.engine = engine
+    else delete ai.engine // OpenRouter es el default
+    settings.ai = ai
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiSetCliModel, async (_e, engine: unknown, model: unknown) => {
+    if (!isCliEngine(engine)) throw new Error('Motor de IA desconocido')
+    const name = typeof model === 'string' ? model.trim() : ''
+    if (name && !isValidModelName(name)) {
+      throw new Error('Ese nombre de modelo no es válido: usá solo letras, números, puntos y guiones.')
+    }
+    const settings = await loadSettings()
+    const cliModels = { ...(settings.ai?.cliModels ?? {}) }
+    if (name) cliModels[engine] = name
+    else delete cliModels[engine] // el predeterminado del programa
+    settings.ai = { ...settings.ai, cliModels }
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
+  ipcMain.handle(IPC.aiDetectClis, () => detectClis())
+
+  ipcMain.handle(IPC.aiTestEngine, async (_e, engine: AiEngine): Promise<AiEngineTest> => {
+    if (isCliEngine(engine)) {
+      const { ai } = await loadSettings()
+      return testCli(engine, ai?.cliModels?.[engine] ?? null)
+    }
+    // OpenRouter: una respuesta mínima con la key y el modelo guardados.
+    try {
+      const key = await getAiKey()
+      const { ai } = await loadSettings()
+      if (!key || !ai?.model) {
+        return { ok: false, message: 'Guardá una API key y elegí un modelo para probar OpenRouter.' }
+      }
+      await new OpenRouterProvider(key, ai.model).generateText('Respondé solo: OK', 'OK', '')
+      return { ok: true, message: 'OpenRouter respondió con tu API key.' }
+    } catch (e) {
+      return { ok: false, message: mapAiError(e).message }
+    }
+  })
 
   ipcMain.handle(IPC.aiUsage, async () => {
     const key = await getAiKey()
@@ -976,6 +1090,8 @@ function registerIpcHandlers(): void {
 
   // ── Modo Avanzado (interruptor de las superficies git) ──────────────────────
 
+  ipcMain.handle(IPC.mcpInfo, (): McpInfo | null => mcpInfo())
+
   ipcMain.handle(IPC.advancedGet, async (): Promise<AdvancedConfig> => {
     const { advanced } = await loadSettings()
     // Ausente = off: la experiencia por defecto es sin git.
@@ -987,6 +1103,44 @@ function registerIpcHandlers(): void {
     await setAdvanced(!!enabled)
     return { enabled: !!enabled }
   })
+
+  // ── Atajos de teclado reasignables ──────────────────────────────────────────
+  ipcMain.handle(IPC.shortcutsGet, async (): Promise<ShortcutsState> => shortcutsState())
+
+  ipcMain.handle(
+    IPC.shortcutsSet,
+    async (_e, id: unknown, accelerator: unknown): Promise<ShortcutsState> => {
+      if (typeof id !== 'string' || !isShortcutId(id)) throw new Error('Atajo desconocido.')
+      const def = shortcutDef(id)
+      const overrides = await getShortcutOverrides()
+      let next: string
+      if (accelerator == null) {
+        next = def.default
+      } else {
+        const norm = typeof accelerator === 'string' ? normalizeAccelerator(accelerator) : null
+        if (!norm) throw new Error('Esa combinación no se reconoce.')
+        const invalid = validateShortcut(norm, def.scope)
+        if (invalid) throw new Error(invalid)
+        next = norm
+      }
+      const clash = findConflict(resolveShortcuts(overrides), id, next)
+      if (clash) {
+        throw new Error(`Esa combinación ya la usa «${shortcutDef(clash).title}». Cambiá esa primero.`)
+      }
+      // El global se prueba ANTES de guardar: si el sistema no lo deja (otra app
+      // lo tiene tomado), se queda el anterior y no se persiste nada.
+      if (def.scope === 'global' && !setDictationAccelerator(next)) {
+        throw new Error('El sistema no dejó usar esa combinación (probablemente la usa otra app). Probá con otra.')
+      }
+      const updated = { ...overrides }
+      if (next === def.default) delete updated[id]
+      else updated[id] = next
+      await setShortcutOverrides(updated)
+      const state = await shortcutsState()
+      mainWindowRef?.webContents.send(IPC.shortcutsChanged, state)
+      return state
+    }
+  )
 
   // ── Plugins externos (descubrimiento + gestión; la carga la hace el renderer) ─
 
@@ -1291,6 +1445,69 @@ async function restoreLastVault(): Promise<void> {
   }
 }
 
+/**
+ * Cómo lanzar el servidor MCP para la bóveda activa. Se usa el MISMO binario de
+ * Geode en modo Node (ELECTRON_RUN_AS_NODE=1), así el usuario no necesita tener
+ * Node instalado. En desarrollo, execPath es el electron de node_modules.
+ */
+function mcpInfo(): McpInfo | null {
+  const info = vault.getInfo()
+  if (!info) return null
+  return {
+    vault: info.root,
+    command: process.execPath,
+    args: [join(app.getAppPath(), 'out', 'main', 'mcp.js'), '--vault', info.root],
+    env: { ELECTRON_RUN_AS_NODE: '1' }
+  }
+}
+
+/**
+ * Vigila los cambios que hace la IA desde el servidor MCP (otro proceso). El MCP
+ * escribe `.geode/external-change.json` tras cada commit; acá se sondea su mtime
+ * (barato y portable: sin sockets ni fs.watch, que no es confiable en todos los SO).
+ * Al detectar uno: avisa al renderer (recarga la nota y la línea de tiempo) y
+ * dispara el respaldo, para que lo que escribió la IA llegue a GitHub y a las
+ * otras computadoras igual que un guardado del usuario.
+ */
+const EXTERNAL_POLL_MS = 1500
+const externalSeen = new Map<string, number>()
+
+function startExternalChangeWatcher(): void {
+  setInterval(() => {
+    const info = vault.getInfo()
+    if (!info) return
+    const root = info.root
+    const file = join(root, '.geode', 'external-change.json')
+    void stat(file)
+      .then(async (st) => {
+        const prev = externalSeen.get(root)
+        externalSeen.set(root, st.mtimeMs)
+        // Primera vez que se mira esta bóveda: solo se registra (lo viejo ya
+        // está en disco y el renderer lo lee al abrir).
+        if (prev === undefined || prev === st.mtimeMs) return
+        let change: ExternalChange = { paths: [], author: 'IA' }
+        try {
+          const raw = JSON.parse(await readFile(file, 'utf8')) as Partial<ExternalChange>
+          change = {
+            paths: Array.isArray(raw.paths) ? raw.paths.filter((p): p is string => typeof p === 'string') : [],
+            author: typeof raw.author === 'string' ? raw.author : 'IA'
+          }
+        } catch {
+          // Ilegible: igual se avisa (sin rutas = recargar todo).
+        }
+        if (vault.getInfo()?.root !== root) return
+        for (const w of BrowserWindow.getAllWindows()) {
+          if (!w.isDestroyed()) w.webContents.send(IPC.vaultExternalChange, change)
+        }
+        void autoPushAfterCommit(root)
+      })
+      .catch(() => {
+        // No existe todavía: la IA nunca escribió en esta bóveda.
+        if (!externalSeen.has(root)) externalSeen.set(root, 0)
+      })
+  }, EXTERNAL_POLL_MS)
+}
+
 app.whenReady().then(async () => {
   // En Windows, el AppUserModelID asocia la ventana con el ícono/identidad de la
   // app en la barra de tareas (sin esto usa el ícono genérico de Electron).
@@ -1306,10 +1523,11 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers()
   registerVaultProtocol()
-  setupDictation(() => mainWindowRef)
+  setupDictation(() => mainWindowRef, resolveShortcuts(await getShortcutOverrides()).dictation)
   registerPluginSandboxProtocol()
   await restoreLastVault()
   createWindow()
+  startExternalChangeWatcher()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

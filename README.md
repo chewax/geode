@@ -5,12 +5,14 @@
 # Geode
 
 **Notas en Markdown que nunca se pierden.**<br/>
-Una app de notas local-first con historial automático: escribí, probá y volvé atrás sin miedo.
+Una app de notas local-first con historial automático: escribí, probá y volvé atrás sin miedo.<br/>
+**MCP ready:** tu bóveda también es la memoria de tus asistentes de IA.
 
 [![CI](https://github.com/chewax/geode/actions/workflows/ci.yml/badge.svg)](https://github.com/chewax/geode/actions/workflows/ci.yml)
 [![Licencia: MPL 2.0](https://img.shields.io/badge/licencia-MPL%202.0-7c3aed.svg)](LICENSE)
 [![Versión](https://img.shields.io/badge/versi%C3%B3n-0.8.1-a78bfa.svg)](CHANGELOG.md)
 ![Plataformas](https://img.shields.io/badge/plataformas-Windows%20%7C%20macOS%20%7C%20Linux-4a3a5c.svg)
+[![MCP ready](https://img.shields.io/badge/MCP-ready-7c3aed.svg)](docs/MCP.md)
 [![PRs bienvenidos](https://img.shields.io/badge/PRs-bienvenidos-38a169.svg)](CONTRIBUTING.md)
 
 ![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
@@ -21,6 +23,7 @@ Una app de notas local-first con historial automático: escribí, probá y volv�
 [Características](#características) ·
 [Instalación](#instalación) ·
 [Uso](#uso) ·
+[Memoria para IA](#memoria-para-ia-mcp) ·
 [Plugins](#plugins) ·
 [Desarrollo](#desarrollo) ·
 [Contribuir](#contribuir) ·
@@ -82,6 +85,7 @@ Geode es una app de escritorio para tomar notas en **Markdown**, en archivos com
 - **Diagramas Mermaid** integrados.
 - **Respaldo en la nube** gratis en un repositorio privado de GitHub, con **sync entre computadoras** que resuelve conflictos sin perder nada.
 - **Plugins** de la comunidad, **aislados** del resto de la app.
+- **Memoria para IA**: conectá Claude, Cursor u otro asistente por **MCP** y usá tu bóveda como su memoria. Cada cambio de la IA queda versionado y se puede deshacer ([más](docs/MCP.md)).
 - **Tema claro y oscuro**, interfaz en español.
 
 </td>
@@ -104,9 +108,24 @@ Geode toma muchas ideas de [Obsidian](https://obsidian.md) y es compatible con s
 | Volver a cualquier momento | **Línea de tiempo de toda la bóveda** | Historial por archivo |
 | Respaldo y sync | **Gratis**, en tu GitHub privado | Sync (pago) o plugins |
 | Enlaces, etiquetas, propiedades | Sí, compatibles | Sí |
+| Memoria para IA (MCP) | **Integrada, versionada y reversible** | Plugins de la comunidad |
 | Plugins de terceros | Aislados (sandbox) | Acceso completo |
 | Código fuente | **Abierto** (MPL 2.0) | Cerrado |
 | Ecosistema y app móvil | En crecimiento (sin móvil todavía) | Muy grande, con móvil |
+
+## Memoria para IA (MCP)
+
+Geode es **MCP ready**: trae un servidor [MCP](https://modelcontextprotocol.io) integrado para que Claude, ChatGPT, Cursor, Gemini o cualquier asistente compatible use tu bóveda como **memoria de largo plazo**. La IA busca y lee tus notas, y guarda lo que vale la pena recordar: decisiones, preferencias, contexto de tus proyectos.
+
+**Recomendamos usar Geode como la memoria de tus IAs**, en lugar de la memoria propia de cada proveedor:
+
+- **Compatible con todos los proveedores.** Es la misma memoria para todos tus asistentes, no una distinta encerrada en cada producto. Si mañana cambiás de IA, tu memoria se queda con vos.
+- **Inmutable.** Por la naturaleza de Geode, cada cambio que hace la IA queda guardado como una versión más, con su nombre como autor. Nada se sobrescribe ni se pierde: ves qué recordó, cuándo y por qué, y lo deshacés con un click.
+- **En todos tus dispositivos.** Con el respaldo en la nube activado, lo que la IA aprende en una computadora se sincroniza solo con las demás.
+- **Tuya y legible.** Son notas Markdown comunes: las leés, las corregís y las organizás como cualquier otra nota.
+- **Sin costo extra.** El servidor MCP no usa tu API key: no gasta tokens por su cuenta.
+
+Para conectarlo, entrá a **Ajustes → Memoria para IA** y copiá el comando para Claude Code o el bloque de configuración para Claude Desktop, Cursor y otros. Los detalles técnicos, incluido cómo se manejan las escrituras simultáneas, están en [docs/MCP.md](docs/MCP.md).
 
 ## Instalación
 
@@ -162,7 +181,12 @@ npm run dev
 
 ### IA (opcional)
 
-Geode puede usar [OpenRouter](https://openrouter.ai) con **tu propia clave** para describir versiones, ayudarte a escribir y transcribir dictados. Está apagada por defecto, el gasto se ve en la barra de estado, y nada se manda a la IA sin que lo pidas.
+Geode puede usar IA para describir versiones, ayudarte a escribir y transcribir dictados. Está apagada por defecto y nada se manda a la IA sin que lo pidas. En **Ajustes → Inteligencia artificial** elegís el motor:
+
+- **OpenRouter** con **tu propia clave**: pagás por uso, elegís entre cientos de modelos y el gasto se ve en la barra de estado.
+- **Tu suscripción** a Claude, ChatGPT o Gemini, a través de su programa oficial ([Claude Code](https://docs.anthropic.com/claude-code), [Codex CLI](https://github.com/openai/codex) o [Gemini CLI](https://github.com/google-gemini/gemini-cli)) instalado y con la sesión iniciada en tu computadora. Geode no ve ni guarda tus credenciales: ejecuta ese programa con el pedido y lee la respuesta.
+
+El dictado por voz necesita OpenRouter, porque esos programas no entienden audio.
 
 ## Plugins
 
@@ -192,7 +216,7 @@ flowchart LR
   subgraph Main["Proceso main (Node)"]
     Vault[VaultService<br/>archivos]
     Git[GitService<br/>isomorphic-git]
-    AI[AiService<br/>OpenRouter]
+    AI[AiService<br/>OpenRouter o CLI]
     GH[GithubService<br/>respaldo]
   end
   UI -- IPC tipado<br/>window.geode --> Main

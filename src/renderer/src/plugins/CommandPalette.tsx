@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import type { PluginHost } from './host'
 import type { Command } from './types'
 import { t } from '@shared/i18n'
+import { COMMAND_SHORTCUTS, labelOf, useShortcuts } from '../shortcuts'
 
 interface CommandPaletteProps {
   host: PluginHost
@@ -98,6 +99,10 @@ function CommandRow({
   onClick: () => void
 }): JSX.Element {
   const disabled = cmd.isEnabled ? !cmd.isEnabled() : false
+  // Los atajos reasignables muestran el vigente, no el que se registró al arrancar.
+  const { bindings } = useShortcuts()
+  const remappable = COMMAND_SHORTCUTS[cmd.id]
+  const shortcut = remappable ? labelOf(remappable, bindings) : cmd.shortcut
   return (
     <li
       className={`palette-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`}
@@ -106,7 +111,7 @@ function CommandRow({
     >
       {cmd.category && <span className="palette-cat">{cmd.category}</span>}
       <span className="palette-title">{cmd.title}</span>
-      {cmd.shortcut && <span className="palette-shortcut">{cmd.shortcut}</span>}
+      {shortcut && <span className="palette-shortcut">{shortcut}</span>}
     </li>
   )
 }

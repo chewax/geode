@@ -1,5 +1,6 @@
 import { EditorSelection, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
+import { resolveShortcuts, toCodeMirrorKey, type ShortcutMap } from '@shared/shortcuts'
 import {
   cellIndexAt,
   cellStartCol,
@@ -319,13 +320,16 @@ const tableEnter: Command = (view) => {
   return true
 }
 
-/** Atajos de formato y de tablas (Ctrl/Cmd+B, I, Tab, Enter…). */
-export function formattingKeymap(): Extension {
+/**
+ * Atajos de formato y de tablas (Ctrl/Cmd+B, I, Tab, Enter…). Los de formato
+ * son reasignables: llegan como accelerators desde Ajustes → Atajos.
+ */
+export function formattingKeymap(bindings: ShortcutMap = resolveShortcuts(null)): Extension {
   return keymap.of([
-    { key: 'Mod-b', run: toggleWrap('**'), preventDefault: true },
-    { key: 'Mod-i', run: toggleWrap('*'), preventDefault: true },
-    { key: 'Mod-Shift-x', run: toggleWrap('~~'), preventDefault: true },
-    { key: 'Mod-e', run: toggleWrap('`'), preventDefault: true },
+    { key: toCodeMirrorKey(bindings.bold), run: toggleWrap('**'), preventDefault: true },
+    { key: toCodeMirrorKey(bindings.italic), run: toggleWrap('*'), preventDefault: true },
+    { key: toCodeMirrorKey(bindings.strikethrough), run: toggleWrap('~~'), preventDefault: true },
+    { key: toCodeMirrorKey(bindings.inlineCode), run: toggleWrap('`'), preventDefault: true },
     // Tab/Enter sólo actúan dentro de tablas; si no, siguen su curso normal.
     { key: 'Tab', run: moveCell(1) },
     { key: 'Shift-Tab', run: moveCell(-1) },

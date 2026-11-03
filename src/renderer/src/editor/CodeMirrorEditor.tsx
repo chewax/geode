@@ -8,6 +8,8 @@ import { wikilinkExtensions, type LinkEnv } from './wikilinks'
 import { formattingKeymap } from './formatting'
 import { frontmatterExtension } from './frontmatter'
 import { getTheme, subscribeTheme } from '../theme'
+import { useShortcuts } from '../shortcuts'
+import { toCodeMirrorKey, type ShortcutMap } from '@shared/shortcuts'
 
 /**
  * Marca las transacciones de recarga programática (cambio de nota, checkout,
@@ -97,6 +99,25 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
     // Compartimento del tema (claro/oscuro), reconfigurable en caliente.
     const themeComp = useRef(new Compartment())
     const frontmatterComp = useRef(new Compartment())
+    // Atajos reasignables del editor (IA, formato): se reconfiguran en caliente.
+    const keysComp = useRef(new Compartment())
+    /** Keymaps de los atajos reasignables del editor para un juego de atajos. */
+    const editorKeymaps = (b: ShortcutMap): Extension[] => [
+      keymap.of([
+        {
+          key: toCodeMirrorKey(b.aiPrompt),
+          preventDefault: true,
+          run: () => {
+            onRequestAiRef.current?.()
+            return true
+          }
+        }
+      ]),
+      formattingKeymap(b)
+    ]
+    const { bindings } = useShortcuts()
+    const bindingsRef = useRef(bindings)
+    bindingsRef.current = bindings
     const linkEnvRef = useRef(linkEnv)
     linkEnvRef.current = linkEnv
     const onPasteFilesRef = useRef(onPasteFiles)
@@ -188,20 +209,10 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
         state: EditorState.create({
           doc: initialDoc,
           extensions: [
-            // Ctrl/Cmd+K: pedir IA. Primero, para tener prioridad.
-            keymap.of([
-              {
-                key: 'Mod-k',
-                preventDefault: true,
-                run: () => {
-                  onRequestAiRef.current?.()
-                  return true
-                }
-              }
-            ]),
-            // Formato (Ctrl+B/I…) y Tab/Enter en tablas: antes que el keymap base
-            // para que Tab salte de celda en vez de indentar dentro de una tabla.
-            formattingKeymap(),
+            // Pedir IA (Ctrl/Cmd+K) y formato (Ctrl+B/I…) + Tab/Enter en tablas:
+            // primero y antes que el keymap base, para que tengan prioridad y Tab
+            // salte de celda en vez de indentar dentro de una tabla.
+            keysComp.current.of(editorKeymaps(bindingsRef.current)),
             ...baseExtensions(),
             themeComp.current.of(themeExtension(getTheme())),
             // Getters sobre refs: el view se crea una vez pero ve datos frescos.
@@ -297,6 +308,11 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       if (!consumeEditorAutoFocusSuppression()) view.focus()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reloadKey])
+
+    // Atajos reasignados en Ajustes: se aplican sin remontar el editor.
+    useEffect(() => {
+      viewRef.current?.dispatch({ effects: keysComp.current.reconfigure(editorKeymaps(bindings)) })
+    }, [bindings])
 
     // Mostrar/ocultar el YAML de propiedades sin remontar el editor.
     useEffect(() => {

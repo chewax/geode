@@ -2,7 +2,8 @@ import { app, safeStorage } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWrite } from '../fs/atomic'
-import type { TourState } from '@shared/ipc'
+import type { AiEngine, CliEngine, TourState } from '@shared/ipc'
+import type { ShortcutOverrides } from '@shared/shortcuts'
 import type { LocalePref } from '@shared/i18n'
 
 /**
@@ -18,6 +19,10 @@ export interface Settings {
   knownVaults?: string[]
   ai?: {
     enabled?: boolean
+    /** Motor de IA. Ausente = OpenRouter (compatibilidad con ajustes previos). */
+    engine?: AiEngine
+    /** Modelo por CLI. Ausente = el predeterminado de ese programa. */
+    cliModels?: Partial<Record<CliEngine, string>>
     model?: string
     /** Modelo para el dictado por voz (debe aceptar audio). Ausente = automático. */
     dictationModel?: string
@@ -83,6 +88,11 @@ export interface Settings {
      */
     state?: 'unseen' | 'started' | 'seen'
   }
+  /**
+   * Atajos de teclado reasignados por la persona (id → accelerator). Sólo se
+   * guardan los que difieren del de fábrica; ausente = todos los defaults.
+   */
+  shortcuts?: ShortcutOverrides
 }
 
 function settingsPath(): string {
@@ -303,5 +313,21 @@ export async function getTourState(): Promise<TourState> {
 export async function setTourState(state: TourState): Promise<void> {
   const settings = await loadSettings()
   settings.tour = { ...settings.tour, state }
+  await saveSettings(settings)
+}
+
+// ── Atajos de teclado ─────────────────────────────────────────────────────────
+
+/** Reasignaciones de atajos guardadas (crudas; resolverlas con resolveShortcuts). */
+export async function getShortcutOverrides(): Promise<ShortcutOverrides> {
+  const raw = (await loadSettings()).shortcuts
+  return raw && typeof raw === 'object' ? raw : {}
+}
+
+/** Guarda las reasignaciones de atajos preservando el resto de ajustes. */
+export async function setShortcutOverrides(overrides: ShortcutOverrides): Promise<void> {
+  const settings = await loadSettings()
+  if (Object.keys(overrides).length === 0) delete settings.shortcuts
+  else settings.shortcuts = overrides
   await saveSettings(settings)
 }

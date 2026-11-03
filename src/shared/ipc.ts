@@ -7,6 +7,7 @@
  */
 
 import type { SearchMatch } from './search'
+import type { ShortcutId, ShortcutMap } from './shortcuts'
 
 export type { SearchMatch } from './search'
 
@@ -88,6 +89,9 @@ export const IPC = {
   dictationCommand: 'geode:dictation-command',
   dictationStatus: 'geode:dictation-status',
   dictationGetShortcut: 'geode:dictation-get-shortcut',
+  shortcutsGet: 'geode:shortcuts-get',
+  shortcutsSet: 'geode:shortcuts-set',
+  shortcutsChanged: 'geode:shortcuts-changed',
   snapshotsGet: 'geode:snapshots-get',
   snapshotsSet: 'geode:snapshots-set',
   snapshotsSetAiTitles: 'geode:snapshots-set-ai-titles',
@@ -597,6 +601,30 @@ export interface DictationApi {
   getShortcut(): Promise<string | null>
 }
 
+// ── Atajos de teclado reasignables ──────────────────────────────────────────
+
+/** Estado de los atajos: efectivos + si el global del dictado quedó registrado. */
+export interface ShortcutsState {
+  /** Atajo efectivo de cada acción (formato accelerator de Electron). */
+  bindings: ShortcutMap
+  /** Ids con un atajo distinto al de fábrica. */
+  customized: ShortcutId[]
+  /** false si el sistema no dejó registrar el atajo global del dictado. */
+  globalRegistered: boolean
+}
+
+export interface ShortcutsApi {
+  get(): Promise<ShortcutsState>
+  /**
+   * Reasigna un atajo (`null` = volver al de fábrica). Rechaza con un mensaje en
+   * español si la combinación no es válida, choca con otra acción o (para el
+   * global) el sistema no la deja registrar; en ese caso no se guarda nada.
+   */
+  set(id: ShortcutId, accelerator: string | null): Promise<ShortcutsState>
+  /** Avisa cuando cambian (p. ej. desde Ajustes). Devuelve el desuscriptor. */
+  onChange(cb: (state: ShortcutsState) => void): () => void
+}
+
 // ── Snapshots automáticos (guardado por cadencia; IA opcional en cadencia) ──
 
 export interface SnapshotsConfig {
@@ -706,4 +734,5 @@ export interface GeodeApi {
   advanced: AdvancedApi
   plugins: PluginsApi
   dictation: DictationApi
+  shortcuts: ShortcutsApi
 }

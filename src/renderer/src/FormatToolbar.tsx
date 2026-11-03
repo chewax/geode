@@ -22,6 +22,7 @@ import {
   ListPlus
 } from 'lucide-react'
 import type { EditorHandle } from './editor/CodeMirrorEditor'
+import { labelOf, useShortcuts } from './shortcuts'
 import {
   insertCodeBlock,
   insertLink,
@@ -55,6 +56,7 @@ const GRID = 8
  * con preventDefault para NO robarle el foco ni la selección al editor.
  */
 export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddProperty }: FormatToolbarProps): JSX.Element {
+  const { bindings } = useShortcuts()
   const [tableOpen, setTableOpen] = useState(false)
   const [hover, setHover] = useState<{ r: number; c: number }>({ r: 0, c: 0 })
   const [current, setCurrent] = useState<TableAtCursor | null>(null)
@@ -110,10 +112,10 @@ export function FormatToolbar({ getEditor, onEditTable, onPickImages, onAddPrope
 
   return (
     <div className="fmt-toolbar" role="toolbar" aria-label="Formato">
-      {btn('Negrita (Ctrl+B)', <Bold size={15} />, toggleWrap('**'))}
-      {btn('Cursiva (Ctrl+I)', <Italic size={15} />, toggleWrap('*'))}
-      {btn('Tachado (Ctrl+Shift+X)', <Strikethrough size={15} />, toggleWrap('~~'))}
-      {btn('Código (Ctrl+E)', <Code size={15} />, toggleWrap('`'))}
+      {btn(`Negrita (${labelOf('bold', bindings)})`, <Bold size={15} />, toggleWrap('**'))}
+      {btn(`Cursiva (${labelOf('italic', bindings)})`, <Italic size={15} />, toggleWrap('*'))}
+      {btn(`Tachado (${labelOf('strikethrough', bindings)})`, <Strikethrough size={15} />, toggleWrap('~~'))}
+      {btn(`Código (${labelOf('inlineCode', bindings)})`, <Code size={15} />, toggleWrap('`'))}
       <span className="fmt-sep" />
       {btn('Título 1', <Heading1 size={15} />, toggleLinePrefix({ heading: 1 }))}
       {btn('Título 2', <Heading2 size={15} />, toggleLinePrefix({ heading: 2 }))}

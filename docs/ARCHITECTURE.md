@@ -115,6 +115,8 @@ Para tener de un vistazo qué cambió en cada versión, el mensaje de commit lo 
 3. Publicar = merge de la rama a `main` (con resolución 3-way si prod avanzó) y push de `main`.
 4. Onboarding de dispositivo nuevo = `clone` de `main`. No hay branches permanentes por dispositivo.
 
+**Estado actual (implementado):** el respaldo sincroniza la **rama actual** con `GitService.sync`: fetch de esa rama → integración (nada / fast-forward / merge 3-way por líneas con `diff3`) → push. Lo pendiente se commitea antes de tocar el working dir. Un conflicto en la misma línea se resuelve a favor de lo local y la versión completa de la nube queda al lado como `<nota> (versión de la nube).md` (sin UI de resolución todavía). Si isomorphic-git no puede mergear (criss-cross, borrada/editada), se hace un merge conservador con el árbol local y ambos padres, así el push nunca queda rechazado y todo sigue en el historial.
+
 ### Árbol del vault (visualización)
 
 El grafo asigna columnas por **topología del DAG** (no por rama), así ramas y merges se ven aunque la rama de trabajo ya se haya cerrado tras el merge (sus commits siguen alcanzables desde `main` vía el merge commit).

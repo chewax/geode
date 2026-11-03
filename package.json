@@ -1,6 +1,6 @@
 {
   "name": "geode",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Notas versionadas sobre Git — local-first, extensible.",
   "author": "Daniel Waksman <dwaksman@gmail.com>",
   "license": "UNLICENSED",
@@ -29,6 +29,7 @@
     "@codemirror/view": "^6.43.4",
     "codemirror": "^6.0.2",
     "diff": "^9.0.0",
+    "diff3": "0.0.3",
     "dompurify": "^3.4.11",
     "isomorphic-git": "^1.38.6",
     "lucide-react": "^1.23.0",

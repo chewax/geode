@@ -7,6 +7,7 @@ import { extractTags, tagMatches } from '@shared/obsidian'
 import { baseName, displayName, isNotePath, parseWikilinks, resolveLink, rewriteLinks, lineOf } from '@shared/links'
 import { foldQuery, searchText } from '@shared/search'
 import { matchesFilters, parseQuery, propertyLine } from '@shared/query'
+import { t } from '@shared/i18n'
 import { atomicWrite } from '../fs/atomic'
 import { sanitizeVaultName, seedBienvenida } from '../fs/vaultName'
 
@@ -556,7 +557,8 @@ export class VaultService {
     if (!stem || /^(image|imagen|clipboard|pasted|screenshot)$/i.test(stem)) {
       const d = new Date()
       const pad = (n: number): string => String(n).padStart(2, '0')
-      stem = `Pegado ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+      const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+      stem = t('Pegado {date}', { date })
     }
     const dir = await this.attachmentDirFor(notePath)
     const at = (file: string): string => (dir ? `${dir}/${file}` : file)

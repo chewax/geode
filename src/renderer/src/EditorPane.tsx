@@ -12,6 +12,8 @@ import { FormatToolbar } from './FormatToolbar'
 import { TableEditor } from './TableEditor'
 import { writeTable, type TableAtCursor } from './editor/formatting'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
+import { t } from '@shared/i18n'
+import { tx } from './i18n'
 
 /** Payload del arrastre de una tab. Se guarda en módulo porque `dataTransfer`
  *  no es legible durante `dragover` (solo en `drop`). */
@@ -218,7 +220,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
     const oid = propsRef.current.previewOid
     if (!oid) return window.geode.vault.readNote(path)
     return window.geode.git.readNoteAt(oid, path).then((text) => {
-      if (text === null) throw new Error('La nota no existía en ese momento')
+      if (text === null) throw new Error(t('La nota no existía en ese momento'))
       return text
     })
   }, [])
@@ -259,7 +261,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
             : `![${alt}](${relativeFrom(notePath, rel)})`
         )
       } catch (e) {
-        propsRef.current.onNotify(e instanceof Error ? e.message : 'No se pudo guardar la imagen')
+        propsRef.current.onNotify(e instanceof Error ? e.message : t('No se pudo guardar la imagen'))
       }
     }
     return parts.length ? parts.join('\n') : null
@@ -371,7 +373,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
             <span className="tab-label">{tabName(path)}</span>
             <button
               className="tab-close icon-btn"
-              title="Cerrar"
+              title={t('Cerrar')}
               onClick={(e) => {
                 e.stopPropagation()
                 props.onCloseTab(pane.id, path)
@@ -386,7 +388,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           {pane.active && !isImagePath(pane.active) && (
             <button
               className={`icon-btn${preview ? ' active' : ''}`}
-              title={preview ? 'Editar' : 'Vista previa'}
+              title={preview ? t('Editar') : t('Vista previa')}
               onClick={() => setPreview((p) => !p)}
             >
               {preview ? <PenLine size={14} /> : <Eye size={14} />}
@@ -395,8 +397,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           {pane.active && isNotePath(pane.active) && !preview && (
             <button
               className="icon-btn"
-              title="Vista previa al lado (se actualiza mientras escribís)"
-              aria-label="Vista previa al lado"
+              title={t('Vista previa al lado (se actualiza mientras escribís)')}
+              aria-label={t('Vista previa al lado')}
               onClick={() => props.onPreviewBeside(pane.id)}
             >
               <Columns2 size={14} />
@@ -406,8 +408,8 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
             className="icon-btn"
             title={
               pane.active
-                ? 'Dividir a la derecha (Ctrl+\\)'
-                : 'Abrí una nota para dividir el panel'
+                ? t('Dividir a la derecha (Ctrl+\\)')
+                : t('Abrí una nota para dividir el panel')
             }
             disabled={!pane.active}
             onClick={() => props.onSplit(pane.id, 'row')}
@@ -459,9 +461,9 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
           ghost ? (
             <div className="placeholder ghost-note">
               <FileQuestion size={32} />
-              <p className="ghost-note-title">Esta nota no existía todavía</p>
+              <p className="ghost-note-title">{t('Esta nota no existía todavía')}</p>
               <p className="ghost-note-body">
-                En el momento que estás viendo, «{tabName(pane.active)}» aún no había sido creada.
+                {t('En el momento que estás viendo, «{name}» aún no había sido creada.', { name: tabName(pane.active) })}
               </p>
             </div>
           ) : isImagePath(pane.active) ? (
@@ -474,7 +476,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               notePath={pane.active}
               files={props.files}
               previewOid={props.previewOid ?? null}
-              onOpenLink={(t) => pane.active && props.onOpenLink(t, pane.active)}
+              onOpenLink={(target) => pane.active && props.onOpenLink(target, pane.active)}
               onOpenTag={props.onOpenTag}
               loadNote={loadNote}
             />
@@ -500,11 +502,11 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               readOnly={props.previewOid != null}
               linkEnv={{
                 files: () => propsRef.current.files,
-                open: (t) => {
+                open: (target) => {
                   const from = propsRef.current.pane.active
-                  if (from) propsRef.current.onOpenLink(t, from)
+                  if (from) propsRef.current.onOpenLink(target, from)
                 },
-                openTag: (t) => propsRef.current.onOpenTag(t)
+                openTag: (tag) => propsRef.current.onOpenTag(tag)
               }}
               onPasteFiles={pasteFiles}
               hideFrontmatter={!showRawYaml}
@@ -512,7 +514,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
             </div>
           )
         ) : (
-          <div className="placeholder">Panel vacío. Arrastrá una nota o cerralo.</div>
+          <div className="placeholder">{t('Panel vacío. Arrastrá una nota o cerralo.')}</div>
         )}
         {dropZone && dropZone !== 'center' && <div className={`drop-hint ${dropZone}`} />}
         {dropZone === 'center' && <div className="drop-hint center" />}
@@ -529,8 +531,8 @@ function ImageView({ path, previewOid }: { path: string; previewOid: string | nu
     return (
       <div className="placeholder ghost-note">
         <ImageOff size={32} />
-        <p className="ghost-note-title">No se pudo mostrar la imagen</p>
-        <p className="ghost-note-body">«{displayName(path)}» no existe en este momento o no es una imagen válida.</p>
+        <p className="ghost-note-title">{t('No se pudo mostrar la imagen')}</p>
+        <p className="ghost-note-body">{t('«{name}» no existe en este momento o no es una imagen válida.', { name: displayName(path) })}</p>
       </div>
     )
   }
@@ -554,7 +556,7 @@ function AttachmentView({
   const ext = extOf(path)
   const url = vaultFileUrl(path, previewOid)
   const openOutside = (): void => {
-    window.geode.vault.openExternal(path).catch((e) => onNotify(e instanceof Error ? e.message : 'No se pudo abrir'))
+    window.geode.vault.openExternal(path).catch((e) => onNotify(e instanceof Error ? e.message : t('No se pudo abrir')))
   }
   return (
     <div className="attachment-view">
@@ -571,7 +573,7 @@ function AttachmentView({
         </div>
       )}
       <button className="attachment-open" onClick={openOutside}>
-        <ExternalLink size={14} /> Abrir con la aplicación del sistema
+        <ExternalLink size={14} /> {t('Abrir con la aplicación del sistema')}
       </button>
     </div>
   )

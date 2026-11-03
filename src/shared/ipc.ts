@@ -44,6 +44,8 @@ export const IPC = {
   vaultTags: 'geode:vault-tags',
   vaultObsidianConfig: 'geode:vault-obsidian-config',
   vaultOpenExternal: 'geode:vault-open-external',
+  vaultExternalChange: 'geode:vault-external-change',
+  mcpInfo: 'geode:mcp-info',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
   gitCheckout: 'geode:git-checkout',
@@ -256,6 +258,19 @@ export interface VaultApi {
   obsidianConfig(): Promise<ObsidianConfig>
   /** Abre un archivo de la bóveda con la aplicación del sistema (PDF, audio…). */
   openExternal(path: string): Promise<void>
+  /**
+   * Suscribe a cambios hechos en la bóveda DESDE AFUERA de la app (hoy: el
+   * servidor MCP, cuando una IA escribe en la memoria). Devuelve el unsubscribe.
+   */
+  onExternalChange(cb: (info: ExternalChange) => void): () => void
+}
+
+/** Cambio hecho por otro proceso (la IA vía MCP) y ya versionado. */
+export interface ExternalChange {
+  /** Notas tocadas (rutas relativas). */
+  paths: string[]
+  /** Quién lo hizo, p. ej. "Claude Code (IA)". */
+  author: string
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────
@@ -580,6 +595,24 @@ export interface AdvancedConfig {
   enabled: boolean
 }
 
+// ── Memoria para IA (servidor MCP) ─────────────────────────────────────────
+
+/** Cómo lanzar el servidor MCP de Geode para la bóveda activa. */
+export interface McpInfo {
+  /** Ruta de la bóveda que va a servir. */
+  vault: string
+  /** Ejecutable a lanzar (el binario de Geode). */
+  command: string
+  args: string[]
+  /** Variables de entorno (ELECTRON_RUN_AS_NODE=1: el binario corre como Node). */
+  env: Record<string, string>
+}
+
+export interface McpApi {
+  /** Config del servidor MCP para la bóveda activa, o null si no hay bóveda. */
+  info(): Promise<McpInfo | null>
+}
+
 export interface AdvancedApi {
   /** Config actual; default false si nunca se configuró. */
   get(): Promise<AdvancedConfig>
@@ -662,6 +695,7 @@ export interface GeodeApi {
   tour: TourApi
   snapshots: SnapshotsApi
   advanced: AdvancedApi
+  mcp: McpApi
   plugins: PluginsApi
   dictation: DictationApi
 }

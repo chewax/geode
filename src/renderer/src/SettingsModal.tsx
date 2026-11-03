@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, Brain } from 'lucide-react'
 import type {
   AiConfig,
   AiModel,
@@ -11,6 +11,7 @@ import type {
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
+import { McpSettings } from './McpSettings'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -18,7 +19,7 @@ interface SettingsModalProps {
 }
 
 /** Secciones del panel de ajustes (aside izquierdo). */
-type Section = 'general' | 'ai' | 'github' | 'plugins' | 'snapshots'
+type Section = 'general' | 'ai' | 'mcp' | 'github' | 'plugins' | 'snapshots'
 
 /** USD por token → texto "$X/M" (por millón de tokens), o "gratis"/"—". */
 function perMillion(perToken: string | null): string {
@@ -212,6 +213,9 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
             </button>
             <button className={section === 'ai' ? 'active' : ''} onClick={() => setSection('ai')}>
               <Sparkles size={15} /> Mensajes por IA
+            </button>
+            <button className={section === 'mcp' ? 'active' : ''} onClick={() => setSection('mcp')}>
+              <Brain size={15} /> Memoria para IA
             </button>
             <button className={section === 'github' ? 'active' : ''} onClick={() => setSection('github')}>
               <Cloud size={15} /> Respaldo en la nube
@@ -545,6 +549,8 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                 </p>
               </section>
             )}
+
+            {section === 'mcp' && <McpSettings />}
 
             {section === 'snapshots' && (
               <section className="settings-section">

@@ -10,6 +10,16 @@ export default defineConfig({
         '@shared': resolve('src/shared'),
         '@domain': resolve('src/domain')
       }
+    },
+    build: {
+      rollupOptions: {
+        // Dos entradas: la app (index) y el servidor MCP (mcp), que corre en un
+        // proceso aparte lanzado por el cliente de IA. mcp NO debe importar electron.
+        input: {
+          index: resolve('src/main/index.ts'),
+          mcp: resolve('src/main/mcp/index.ts')
+        }
+      }
     }
   },
   preload: {

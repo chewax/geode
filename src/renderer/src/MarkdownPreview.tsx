@@ -4,7 +4,7 @@ import { Marked, type TokenizerAndRendererExtension } from 'marked'
 import DOMPurify from 'dompurify'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf, isImagePath, resolveRelativeSrc, vaultFileUrl } from '@shared/attachments'
-import { readProperties, splitFrontmatter, stripComments, type Property } from '@shared/obsidian'
+import { isColorLike, readProperties, splitFrontmatter, stripComments, type Property } from '@shared/obsidian'
 import { usePluginHost } from './plugins'
 import type { PluginHost } from './plugins'
 import { useTheme } from './theme'
@@ -80,7 +80,8 @@ const tag: TokenizerAndRendererExtension = {
   },
   tokenizer(src: string) {
     const m = /^#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)/u.exec(src)
-    if (!m) return undefined
+    // Colores (#1e1e1e, #ff0000) no son etiquetas: quedan como texto.
+    if (!m || isColorLike(m[1])) return undefined
     return { type: 'tag', raw: m[0], tag: m[1].replace(/\/+$/, '') }
   },
   renderer(token) {
@@ -334,6 +335,13 @@ export function MarkdownPreview({
           img.removeAttribute('src')
           img.classList.add('missing')
         }
+      })
+
+      // `color: #fff`: un hex de sólo letras después de `:` es un color, no etiqueta.
+      root.querySelectorAll('a.tag[data-tag]').forEach((a) => {
+        const prev = a.previousSibling
+        const before = prev && prev.nodeType === Node.TEXT_NODE ? prev.textContent ?? '' : ''
+        if (isColorLike(a.getAttribute('data-tag') ?? '', before)) a.replaceWith(a.textContent ?? '')
       })
 
       root.querySelectorAll('a[data-wikilink]').forEach((a) => {

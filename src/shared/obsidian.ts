@@ -118,6 +118,46 @@ export interface TagHit {
   line: number
 }
 
+/**
+ * true si `#xxx` es casi seguro un COLOR (CSS/HTML) y no una etiqueta: 3, 4, 6 u
+ * 8 dígitos hexadecimales que incluyen al menos un número (`#1e1e1e`, `#ff0000`,
+ * `#000`), o cualquier hex válido escrito como valor (`color: #fff`). Palabras
+ * que sólo usan letras a-f (`#cafe`, `#bebe`) siguen siendo etiquetas si no
+ * vienen después de `:`.
+ */
+export function isColorLike(tag: string, before = ''): boolean {
+  if (!/^(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(tag)) return false
+  return /\d/.test(tag) || /[:=]\s*["']?$/.test(before)
+}
+
+/** Etiqueta encontrada en una línea, con su posición (incluye el `#`). */
+export interface TagMatch {
+  tag: string
+  from: number
+  to: number
+}
+
+/**
+ * Etiquetas de UNA línea (ya sin código), con posiciones. Ignora colores
+ * (`#1e1e1e`) y lo que está dentro de etiquetas HTML (`<span style="…#f00">`).
+ * Es la única regla de etiquetas: la usan el editor, la vista previa, el panel
+ * ETIQUETAS y la búsqueda `#tag`.
+ */
+export function findTags(line: string): TagMatch[] {
+  // Atributos de HTML en línea: se blanquean (conservando posiciones).
+  const clean = line.replace(/<[a-zA-Z/!][^>]*>/g, (m) => ' '.repeat(m.length))
+  const out: TagMatch[] = []
+  const re = new RegExp(TAG_SOURCE, 'gu')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(clean)) !== null) {
+    const from = m.index + m[1].length
+    const tag = m[2].replace(/\/+$/, '')
+    if (isColorLike(tag, clean.slice(0, from))) continue
+    out.push({ tag, from, to: from + 1 + m[2].length })
+  }
+  return out
+}
+
 /** Tags de una nota: los del texto (fuera de código) y los de la propiedad `tags`. */
 export function extractTags(text: string): TagHit[] {
   const out: TagHit[] = []
@@ -138,10 +178,8 @@ export function extractTags(text: string): TagHit[] {
   for (let ln = 0; ln < lines.length; ln++) {
     const lineText = lines[ln]
     if (offset + lineText.length >= bodyStart) {
-      const re = new RegExp(TAG_SOURCE, 'gu')
-      let m: RegExpExecArray | null
-      while ((m = re.exec(lineText)) !== null) {
-        if (offset + m.index >= bodyStart) out.push({ tag: m[2].replace(/\/+$/, ''), line: ln })
+      for (const t of findTags(lineText)) {
+        if (offset + t.from >= bodyStart) out.push({ tag: t.tag, line: ln })
       }
     }
     offset += lineText.length + 1

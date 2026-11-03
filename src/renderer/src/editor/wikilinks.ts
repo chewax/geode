@@ -2,7 +2,7 @@ import { autocompletion, type CompletionContext, type CompletionResult } from '@
 import type { Extension, Range } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { WIKILINK_SOURCE, dirName, linkTextFor, maskCode } from '@shared/links'
-import { TAG_SOURCE } from '@shared/obsidian'
+import { findTags } from '@shared/obsidian'
 
 /**
  * Entorno que el editor necesita para los enlaces: la lista de archivos de la
@@ -72,10 +72,13 @@ const linkHighlighter = ViewPlugin.fromClass(
         while ((m = re.exec(slice)) !== null) {
           marks.push(linkMark.range(from + m.index, from + m.index + m[0].length))
         }
-        const tagRe = new RegExp(TAG_SOURCE, 'gu')
-        while ((m = tagRe.exec(slice)) !== null) {
-          const start = from + m.index + m[1].length
-          marks.push(tagMark.range(start, start + 1 + m[2].length))
+        // Etiquetas línea por línea (misma regla que el resto de la app).
+        let lineStart = 0
+        for (const lineText of slice.split('\n')) {
+          for (const t of findTags(lineText)) {
+            marks.push(tagMark.range(from + lineStart + t.from, from + lineStart + t.to))
+          }
+          lineStart += lineText.length + 1
         }
       }
       return Decoration.set(marks, true)
@@ -99,11 +102,8 @@ function linkAt(view: EditorView, pos: number): string | null {
 /** Tag bajo una posición del documento, o null. */
 function tagAt(view: EditorView, pos: number): string | null {
   const line = view.state.doc.lineAt(pos)
-  const re = new RegExp(TAG_SOURCE, 'gu')
-  let m: RegExpExecArray | null
-  while ((m = re.exec(line.text)) !== null) {
-    const from = line.from + m.index + m[1].length
-    if (pos >= from && pos <= from + 1 + m[2].length) return m[2]
+  for (const t of findTags(line.text)) {
+    if (pos >= line.from + t.from && pos <= line.from + t.to) return t.tag
   }
   return null
 }

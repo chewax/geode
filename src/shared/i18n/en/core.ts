@@ -99,6 +99,7 @@ export const core: Record<string, string> = {
   '«{target}» todavía no existe — click para crearla': '“{target}” doesn’t exist yet — click to create it',
   'No se pudo dibujar el bloque «{lang}»: {error}': 'Couldn’t render the “{lang}” block: {error}',
   'Dibujando…': 'Rendering…',
+  'Las propiedades de esta nota tienen un formato inválido.': "This note's properties have an invalid format.",
   // Barra de formato
   'Negrita (Ctrl+B)': 'Bold (Ctrl+B)',
   'Cursiva (Ctrl+I)': 'Italic (Ctrl+I)',

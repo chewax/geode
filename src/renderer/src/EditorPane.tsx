@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX, DragEvent } from 'react'
 import type { Extension } from '@codemirror/state'
-import { X, Eye, PenLine, SplitSquareHorizontal, FileQuestion, ImageOff, ExternalLink, File as FileIcon } from 'lucide-react'
+import { X, Eye, PenLine, SplitSquareHorizontal, Columns2, FileQuestion, ImageOff, ExternalLink, File as FileIcon } from 'lucide-react'
 import { extOf, isAttachmentPath, isImagePath, relativeFrom, vaultFileUrl } from '@shared/attachments'
 import { PropertiesPanel } from './PropertiesPanel'
-import { displayName } from '@shared/links'
+import { displayName, isNotePath } from '@shared/links'
 import type { LeafPane, DropZone } from './paneTree'
 import { CodeMirrorEditor, type EditorHandle } from './editor/CodeMirrorEditor'
 import { MarkdownPreview } from './MarkdownPreview'
@@ -24,6 +24,8 @@ let dragPayload: TabDrag | null = null
 /** Handle imperativo que cada panel expone al App (flush, editor, preview). */
 export interface PaneHandle {
   flush(): Promise<void>
+  /** Otro panel editó `path`: si este panel la muestra, se actualiza en vivo. */
+  syncFromOtherPane(path: string, doc: string): void
   getEditor(): EditorHandle | null
   togglePreview(): void
   isPreview(): boolean
@@ -45,6 +47,8 @@ export interface EditorPaneProps {
   onReorderTab: (paneId: string, path: string, toIndex: number) => void
   onDropTab: (drag: TabDrag, dstPaneId: string, zone: DropZone) => void
   onSplit: (paneId: string, dir: 'row' | 'col') => void
+  /** Divide el panel con la vista previa en vivo de la misma nota a la derecha. */
+  onPreviewBeside: (paneId: string) => void
   onNoteOpen: (paneId: string, path: string, content: string) => void
   onNoteChange: (paneId: string, path: string, content: string) => void
   onSaved: (paneId: string) => void
@@ -119,7 +123,21 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
       flush,
       getEditor: () => editorRef.current,
       togglePreview: () => setPreview((p) => !p),
-      isPreview: () => previewRef.current
+      isPreview: () => previewRef.current,
+      syncFromOtherPane: (path, doc) => {
+        if (propsRef.current.pane.active !== path) return
+        // Lo que tipeó el otro panel es lo más nuevo: este panel no debe volver a
+        // escribir su copia vieja al disco (se pisarían entre sí).
+        if (pendingRef.current?.path === path) {
+          pendingRef.current = null
+          if (timerRef.current !== null) {
+            window.clearTimeout(timerRef.current)
+            timerRef.current = null
+          }
+        }
+        setContent(doc)
+        editorRef.current?.syncDoc(doc)
+      }
     }
     propsRef.current.registerHandle(pane.id, handle)
     return () => {
@@ -363,6 +381,16 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               onClick={() => setPreview((p) => !p)}
             >
               {preview ? <PenLine size={14} /> : <Eye size={14} />}
+            </button>
+          )}
+          {pane.active && isNotePath(pane.active) && !preview && (
+            <button
+              className="icon-btn"
+              title="Vista previa al lado (se actualiza mientras escribís)"
+              aria-label="Vista previa al lado"
+              onClick={() => props.onPreviewBeside(pane.id)}
+            >
+              <Columns2 size={14} />
             </button>
           )}
           <button

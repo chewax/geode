@@ -37,6 +37,12 @@ export interface EditorHandle {
   focus(): void
   /** Ejecuta un comando de CodeMirror sobre este editor (barra de formato). */
   run(cmd: (view: EditorView) => boolean): boolean
+  /**
+   * Aplica un texto que cambió en OTRO panel con la misma nota: reemplaza sólo
+   * el tramo distinto (cursor y scroll se conservan) y no cuenta como edición
+   * propia (no dispara onChange ni guarda).
+   */
+  syncDoc(doc: string): void
 }
 
 interface CodeMirrorEditorProps {
@@ -153,6 +159,25 @@ export const CodeMirrorEditor = forwardRef<EditorHandle, CodeMirrorEditorProps>(
       run(cmd): boolean {
         const view = viewRef.current
         return view ? cmd(view) : false
+      },
+      syncDoc(doc): void {
+        const view = viewRef.current
+        if (!view) return
+        const cur = view.state.doc.toString()
+        if (cur === doc) return
+        // Tramo común al principio y al final: sólo se reemplaza el medio.
+        let start = 0
+        const max = Math.min(cur.length, doc.length)
+        while (start < max && cur.charCodeAt(start) === doc.charCodeAt(start)) start++
+        let end = 0
+        while (
+          end < max - start &&
+          cur.charCodeAt(cur.length - 1 - end) === doc.charCodeAt(doc.length - 1 - end)
+        ) end++
+        view.dispatch({
+          changes: { from: start, to: cur.length - end, insert: doc.slice(start, doc.length - end) },
+          annotations: programmaticReload.of(true)
+        })
       }
     }), [])
 

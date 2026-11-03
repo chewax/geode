@@ -16,6 +16,7 @@ export interface PaneViewProps {
   onReorderTab: (paneId: string, path: string, toIndex: number) => void
   onDropTab: (drag: TabDrag, dstPaneId: string, zone: DropZone) => void
   onSplit: (paneId: string, dir: 'row' | 'col') => void
+  onPreviewBeside: (paneId: string) => void
   onNoteOpen: (paneId: string, path: string, content: string) => void
   onNoteChange: (paneId: string, path: string, content: string) => void
   onSaved: (paneId: string) => void
@@ -51,6 +52,7 @@ export function PaneView(props: PaneViewProps): JSX.Element {
         onReorderTab={props.onReorderTab}
         onDropTab={props.onDropTab}
         onSplit={props.onSplit}
+        onPreviewBeside={props.onPreviewBeside}
         onNoteOpen={props.onNoteOpen}
         onNoteChange={props.onNoteChange}
         onSaved={props.onSaved}

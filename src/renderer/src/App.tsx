@@ -2115,7 +2115,8 @@ export function App(): JSX.Element {
                     <div className="pop-row"><span>Programa</span><b>{CLI_SPECS[aiConfig.engine].program}</b></div>
                     <div className="pop-row"><span>Pago</span><b>Tu suscripción</b></div>
                     <div className="pop-row">
-                      <span>Modelo</span><b>El de {CLI_SPECS[aiConfig.engine].program}</b>
+                      <span>Modelo</span>
+                      <b>{aiConfig.cliModels[aiConfig.engine] ?? `El de ${CLI_SPECS[aiConfig.engine].program}`}</b>
                     </div>
                     {aiConfig.hasKey && (
                       <div className="pop-row">

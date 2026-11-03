@@ -45,6 +45,7 @@ import {
   type AiTextProvider
 } from './services/ai'
 import { CliProvider, detectClis, isCliEngine, mapCliError, testCli } from './services/aiCli'
+import { isValidModelName } from '@shared/aiEngines'
 import { setupDictation, teardownDictation } from './dictation'
 import {
   requestDeviceCode,
@@ -149,6 +150,7 @@ async function aiConfig(): Promise<AiConfig> {
     enabled: ai?.enabled ?? false,
     engine,
     ready: engine === 'openrouter' ? hasKey && !!model : true,
+    cliModels: { ...(ai?.cliModels ?? {}) },
     model,
     dictationModel: ai?.dictationModel ?? null,
     hasKey
@@ -167,7 +169,9 @@ function currentEngine(saved: unknown): AiEngine {
 async function textProvider(): Promise<{ engine: AiEngine; provider: AiTextProvider }> {
   const { ai } = await loadSettings()
   const engine = currentEngine(ai?.engine)
-  if (isCliEngine(engine)) return { engine, provider: new CliProvider(engine) }
+  if (isCliEngine(engine)) {
+    return { engine, provider: new CliProvider(engine, ai?.cliModels?.[engine] ?? null) }
+  }
   const key = await getAiKey()
   if (!key || !ai?.model) throw new Error('Configurá la API key y el modelo de IA en Ajustes')
   return { engine, provider: new OpenRouterProvider(key, ai.model) }
@@ -945,10 +949,28 @@ function registerIpcHandlers(): void {
     return aiConfig()
   })
 
+  ipcMain.handle(IPC.aiSetCliModel, async (_e, engine: unknown, model: unknown) => {
+    if (!isCliEngine(engine)) throw new Error('Motor de IA desconocido')
+    const name = typeof model === 'string' ? model.trim() : ''
+    if (name && !isValidModelName(name)) {
+      throw new Error('Ese nombre de modelo no es válido: usá solo letras, números, puntos y guiones.')
+    }
+    const settings = await loadSettings()
+    const cliModels = { ...(settings.ai?.cliModels ?? {}) }
+    if (name) cliModels[engine] = name
+    else delete cliModels[engine] // el predeterminado del programa
+    settings.ai = { ...settings.ai, cliModels }
+    await saveSettings(settings)
+    return aiConfig()
+  })
+
   ipcMain.handle(IPC.aiDetectClis, () => detectClis())
 
   ipcMain.handle(IPC.aiTestEngine, async (_e, engine: AiEngine): Promise<AiEngineTest> => {
-    if (isCliEngine(engine)) return testCli(engine)
+    if (isCliEngine(engine)) {
+      const { ai } = await loadSettings()
+      return testCli(engine, ai?.cliModels?.[engine] ?? null)
+    }
     // OpenRouter: una respuesta mínima con la key y el modelo guardados.
     try {
       const key = await getAiKey()

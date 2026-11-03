@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { AiCliStatus, AiEngineTest, CliEngine, NamedVersion } from '@shared/ipc'
-import { CLI_ENGINES, CLI_SPECS } from '@shared/aiEngines'
+import { CLI_ENGINES, CLI_SPECS, isValidModelName } from '@shared/aiEngines'
 import {
   NAMED_VERSION_PROMPT,
   SYSTEM_PROMPT,
@@ -44,15 +44,20 @@ export function buildCliPrompt(system: string, user: string): string {
   return `${system.trim()}\n\n=== ENTRADA ===\n${user}\n=== FIN DE LA ENTRADA ===`
 }
 
-/** Argumentos del modo no interactivo de cada CLI (el pedido va por stdin). */
-export function cliArgs(engine: CliEngine, outFile: string): string[] {
+/**
+ * Argumentos del modo no interactivo de cada CLI (el pedido va por stdin).
+ * `model` vacío o inválido = el predeterminado del programa.
+ */
+export function cliArgs(engine: CliEngine, outFile: string, model?: string | null): string[] {
+  const m = model && isValidModelName(model) ? model : null
   switch (engine) {
     case 'claude':
-      return ['-p', '--output-format', 'text']
+      return ['-p', '--output-format', 'text', ...(m ? ['--model', m] : [])]
     case 'codex':
       // "-" = leer el pedido de stdin. Sandbox de solo lectura: no debe tocar nada.
       return [
         'exec',
+        ...(m ? ['--model', m] : []),
         '--skip-git-repo-check',
         '--sandbox',
         'read-only',
@@ -63,7 +68,7 @@ export function cliArgs(engine: CliEngine, outFile: string): string[] {
         '-'
       ]
     case 'gemini':
-      return ['-p', GEMINI_DIRECTIVE]
+      return [...(m ? ['--model', m] : []), '-p', GEMINI_DIRECTIVE]
   }
 }
 
@@ -313,6 +318,8 @@ async function runProcess(bin: string, args: string[], opts: RunOptions): Promis
 
 export interface RunCliOptions {
   signal?: AbortSignal
+  /** Modelo a pedirle al CLI (null/ausente = el predeterminado del programa). */
+  model?: string | null
   timeoutMs?: number
   /** Solo para tests: ejecutable a usar en lugar del oficial. */
   bin?: string
@@ -331,7 +338,7 @@ export async function runCli(
   const dir = await mkdtemp(join(tmpdir(), 'geode-ai-'))
   try {
     const outFile = join(dir, 'respuesta.txt')
-    const res = await runProcess(opts.bin ?? CLI_SPECS[engine].bin, cliArgs(engine, outFile), {
+    const res = await runProcess(opts.bin ?? CLI_SPECS[engine].bin, cliArgs(engine, outFile, opts.model), {
       input: buildCliPrompt(system, user),
       cwd: dir,
       timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -380,11 +387,14 @@ export async function detectClis(): Promise<AiCliStatus[]> {
 }
 
 /** "Probar conexión": una consulta mínima para verificar instalación y sesión. */
-export async function testCli(engine: CliEngine): Promise<AiEngineTest> {
+export async function testCli(engine: CliEngine, model?: string | null): Promise<AiEngineTest> {
   const spec = CLI_SPECS[engine]
   try {
-    await runCli(engine, 'Respondé exactamente con la palabra OK y nada más.', 'Prueba de conexión desde Geode.')
-    return { ok: true, message: `${spec.program} respondió. Geode ya puede usar tu suscripción de ${spec.name}.` }
+    await runCli(engine, 'Respondé exactamente con la palabra OK y nada más.', 'Prueba de conexión desde Geode.', {
+      model
+    })
+    const con = model ? ` con el modelo ${model}` : ''
+    return { ok: true, message: `${spec.program} respondió${con}. Geode ya puede usar tu suscripción de ${spec.name}.` }
   } catch (e) {
     return { ok: false, message: mapCliError(engine, e).message }
   }
@@ -392,17 +402,24 @@ export async function testCli(engine: CliEngine): Promise<AiEngineTest> {
 
 /** Motor de texto que usa el CLI de un proveedor (mismos prompts que OpenRouter). */
 export class CliProvider implements AiTextProvider {
-  constructor(private readonly engine: CliEngine) {}
+  constructor(
+    private readonly engine: CliEngine,
+    private readonly model: string | null = null
+  ) {}
 
   async generateMessage(diff: string): Promise<string> {
-    return toOneLine(await runCli(this.engine, SYSTEM_PROMPT, diff))
+    return toOneLine(await runCli(this.engine, SYSTEM_PROMPT, diff, { model: this.model }))
   }
 
   async generateNamedVersion(diff: string, signal?: AbortSignal): Promise<NamedVersion> {
-    return parseNamedVersion(await runCli(this.engine, NAMED_VERSION_PROMPT, diff, { signal }))
+    return parseNamedVersion(
+      await runCli(this.engine, NAMED_VERSION_PROMPT, diff, { signal, model: this.model })
+    )
   }
 
   async generateText(instruction: string, selection: string, before: string): Promise<string> {
-    return runCli(this.engine, WRITER_PROMPT, writerUserMessage(instruction, selection, before))
+    return runCli(this.engine, WRITER_PROMPT, writerUserMessage(instruction, selection, before), {
+      model: this.model
+    })
   }
 }

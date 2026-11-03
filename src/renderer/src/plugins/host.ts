@@ -5,8 +5,18 @@ import type {
   GeodeEventName,
   GeodeEvents,
   PanelDef,
+  PickItem,
   StatusItemDef
 } from './types'
+
+/** Pedido de selección en curso (lo muestra <QuickPick/>). */
+export interface PickRequest {
+  /** Identificador único del pedido (reinicia el estado del selector). */
+  id: number
+  items: PickItem<unknown>[]
+  placeholder: string
+  resolve: (value: unknown) => void
+}
 
 /**
  * Puente que la App le da al host para operaciones que dependen de la UI
@@ -19,6 +29,8 @@ export interface AppBridge {
     revealRange(from: number, to: number): void
   }
   notify(message: string): void
+  /** Abre una nota (refrescando antes el árbol, por si se acaba de crear). */
+  openNote(path: string): Promise<void>
 }
 
 /**
@@ -42,6 +54,8 @@ export class PluginHost {
   private eventBus = new Map<string, Set<(payload: unknown) => void>>()
   private activeNoteState: { path: string; content: string } | null = null
   private bridge: AppBridge | null = null
+  private pickRequest: PickRequest | null = null
+  private pickSeq = 0
 
   // ── External store para React ──────────────────────────────────────────────
   private version = 0
@@ -157,5 +171,30 @@ export class PluginHost {
   }
   notify(message: string): void {
     this.bridge?.notify(message)
+  }
+  openNote(path: string): Promise<void> {
+    return this.bridge?.openNote(path) ?? Promise.resolve()
+  }
+
+  // ── Selector rápido ─────────────────────────────────────────────────────────
+  /** Muestra un selector; si ya había uno abierto, se cancela (resuelve null). */
+  pick<T>(items: PickItem<T>[], placeholder = 'Elegí una opción…'): Promise<T | null> {
+    this.pickRequest?.resolve(null)
+    return new Promise<T | null>((resolve) => {
+      this.pickRequest = {
+        id: ++this.pickSeq,
+        items: items as PickItem<unknown>[],
+        placeholder,
+        resolve: (v) => {
+          this.pickRequest = null
+          this.bump()
+          resolve(v as T | null)
+        }
+      }
+      this.bump()
+    })
+  }
+  currentPick(): PickRequest | null {
+    return this.pickRequest
   }
 }

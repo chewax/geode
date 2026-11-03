@@ -56,6 +56,16 @@ export interface Workspace {
   vault: {
     readNote(path: string): Promise<string>
     tree(): Promise<TreeNode[]>
+    /** true si existe una nota/archivo en esa ruta relativa. */
+    exists(path: string): Promise<boolean>
+    /** Crea una nota nueva (lanza "Ya existe" si la ruta está ocupada; nunca pisa). */
+    createNote(path: string, content: string): Promise<void>
+  }
+  /** Abre una nota en el panel activo (como tab fija) y refresca el árbol. */
+  openNote(path: string): Promise<void>
+  ui: {
+    /** Selector rápido (estilo paleta). Resuelve con el valor elegido o null si se cancela. */
+    pick<T>(items: PickItem<T>[], placeholder?: string): Promise<T | null>
   }
   git: {
     graph(): Promise<GitGraph>
@@ -75,6 +85,13 @@ export interface Workspace {
   runCommand(id: string): void
   /** Aviso breve (toast) al usuario. */
   notify(message: string): void
+}
+
+/** Una opción del selector rápido. */
+export interface PickItem<T> {
+  label: string
+  detail?: string
+  value: T
 }
 
 /** Contexto que recibe cada plugin en activate(): registrar + leer el workspace. */

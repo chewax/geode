@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, DragEvent } from 'react'
 import type { Extension } from '@codemirror/state'
-import { X, Eye, PenLine, SplitSquareHorizontal, FileQuestion } from 'lucide-react'
+import { X, Eye, PenLine, SplitSquareHorizontal, FileQuestion, ImageOff } from 'lucide-react'
+import { isImagePath, relativeFrom, vaultFileUrl } from '@shared/attachments'
+import { displayName } from '@shared/links'
 import type { LeafPane, DropZone } from './paneTree'
 import { CodeMirrorEditor, type EditorHandle } from './editor/CodeMirrorEditor'
 import { MarkdownPreview } from './MarkdownPreview'
@@ -46,14 +48,19 @@ export interface EditorPaneProps {
   /** oid en preview; null/undefined = presente en vivo. Al fijarse, el panel
    *  carga su contenido del árbol del commit (solo lectura) en vez del disco. */
   previewOid?: string | null
+  /** Archivos de la bóveda (notas + imágenes) para resolver/autocompletar enlaces. */
+  files: string[]
+  /** Abre (o crea) el destino de un enlace `[[...]]` escrito en `fromPath`. */
+  onOpenLink: (target: string, fromPath: string) => void
+  /** Aviso breve al usuario (errores al pegar imágenes). */
+  onNotify: (message: string) => void
 }
 
 const AUTOSAVE_MS = 600
 
-/** Nombre visible de una tab (nota sin extensión, o solo el basename). */
+/** Nombre visible de una tab (nota sin extensión, o el archivo con su extensión). */
 function tabName(path: string): string {
-  const base = path.slice(path.lastIndexOf('/') + 1)
-  return base.replace(/\.md$/i, '')
+  return displayName(path)
 }
 
 /** Un panel del área de edición: barra de tabs + editor (o vista previa). */
@@ -121,6 +128,14 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         return
       }
       const previewOid = propsRef.current.previewOid
+      // Las imágenes no se leen como texto: se muestran por el protocolo de la bóveda.
+      if (isImagePath(pane.active)) {
+        if (!cancelled) {
+          setGhost(false)
+          setContent('')
+        }
+        return
+      }
       try {
         // En preview leemos del árbol del commit; si no, del disco.
         const text = previewOid
@@ -157,6 +172,24 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => void flush(), AUTOSAVE_MS)
     propsRef.current.onNoteChange(pane.id, pane.active, doc)
+  }
+
+  /** Guarda imágenes pegadas/soltadas como adjuntos y arma su Markdown. */
+  const pasteFiles = async (files: File[]): Promise<string | null> => {
+    const notePath = propsRef.current.pane.active
+    if (!notePath || propsRef.current.previewOid != null) return null
+    const parts: string[] = []
+    for (const file of files) {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        const rel = await window.geode.vault.saveAttachment(file.name || 'image.png', bytes)
+        const alt = displayName(rel).replace(/\.[^.]+$/, '')
+        parts.push(`![${alt}](${relativeFrom(notePath, rel)})`)
+      } catch (e) {
+        propsRef.current.onNotify(e instanceof Error ? e.message : 'No se pudo guardar la imagen')
+      }
+    }
+    return parts.length ? parts.join('\n') : null
   }
 
   // ── Drag & drop de tabs ────────────────────────────────────────────────────
@@ -277,7 +310,7 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         ))}
         {dragOverTab === pane.tabs.length && <span className="tab-drop-end" />}
         <div className="epane-tabbar-actions">
-          {pane.active && (
+          {pane.active && !isImagePath(pane.active) && (
             <button
               className={`icon-btn${preview ? ' active' : ''}`}
               title={preview ? 'Editar' : 'Vista previa'}
@@ -316,8 +349,16 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
                 En el momento que estás viendo, «{tabName(pane.active)}» aún no había sido creada.
               </p>
             </div>
+          ) : isImagePath(pane.active) ? (
+            <ImageView path={pane.active} previewOid={props.previewOid ?? null} />
           ) : preview ? (
-            <MarkdownPreview source={content} />
+            <MarkdownPreview
+              source={content}
+              notePath={pane.active}
+              files={props.files}
+              previewOid={props.previewOid ?? null}
+              onOpenLink={(t) => pane.active && props.onOpenLink(t, pane.active)}
+            />
           ) : (
             <CodeMirrorEditor
               ref={editorRef}
@@ -327,6 +368,14 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
               onRequestAi={() => props.onRequestAi(pane.id)}
               extraExtensions={extraExtensions}
               readOnly={props.previewOid != null}
+              linkEnv={{
+                files: () => propsRef.current.files,
+                open: (t) => {
+                  const from = propsRef.current.pane.active
+                  if (from) propsRef.current.onOpenLink(t, from)
+                }
+              }}
+              onPasteFiles={pasteFiles}
             />
           )
         ) : (
@@ -335,6 +384,26 @@ export function EditorPane(props: EditorPaneProps): JSX.Element {
         {dropZone && dropZone !== 'center' && <div className={`drop-hint ${dropZone}`} />}
         {dropZone === 'center' && <div className="drop-hint center" />}
       </div>
+    </div>
+  )
+}
+
+/** Visor de una imagen de la bóveda (con fallback si no existe en esa versión). */
+function ImageView({ path, previewOid }: { path: string; previewOid: string | null }): JSX.Element {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => setBroken(false), [path, previewOid])
+  if (broken) {
+    return (
+      <div className="placeholder ghost-note">
+        <ImageOff size={32} />
+        <p className="ghost-note-title">No se pudo mostrar la imagen</p>
+        <p className="ghost-note-body">«{displayName(path)}» no existe en este momento o no es una imagen válida.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="image-view">
+      <img src={vaultFileUrl(path, previewOid)} alt={displayName(path)} onError={() => setBroken(true)} />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import git, { TREE } from 'isomorphic-git'
 import http from 'isomorphic-git/http/node'
 import { createPatch, diffLines } from 'diff'
 import type { GitCommitNode, GitGraph, NoteVersion, TreeNode } from '@shared/ipc'
+import { isImagePath } from '@shared/attachments'
 import { atomicWrite } from '../fs/atomic'
 
 /** Carpetas que nunca entran al versionado (índice derivado, metadata, etc.). */
@@ -626,8 +627,14 @@ export class GitService {
     return new TextDecoder().decode(blob)
   }
 
+  /** Bytes crudos de un archivo tal como estaba en un commit (imágenes del pasado). */
+  async readBytesAt(dir: string, oid: string, filepath: string): Promise<Uint8Array> {
+    const { blob } = await git.readBlob({ fs, dir, oid, filepath })
+    return blob
+  }
+
   /**
-   * Árbol de notas (.md) tal como estaba en un commit, con la MISMA forma que
+   * Árbol de notas (.md) e imágenes tal como estaba en un commit, con la MISMA forma que
    * `vault.tree()` (carpetas primero, luego archivos, alfabético). `treeBlobs`
    * no filtra, así que acá excluimos las carpetas no versionadas
    * (.git/.geode/…) y todo lo que no sea .md. Es la fuente de la vista previa
@@ -638,7 +645,8 @@ export class GitService {
     const paths: string[] = []
     for (const filepath of blobs.keys()) {
       if (IGNORED_TOP.has(filepath.split('/')[0])) continue
-      if (!filepath.toLowerCase().endsWith('.md')) continue
+      // Mismo criterio que vault.tree(): notas e imágenes.
+      if (!filepath.toLowerCase().endsWith('.md') && !isImagePath(filepath)) continue
       paths.push(filepath)
     }
     return this.buildTree(paths)

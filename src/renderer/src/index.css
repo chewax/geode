@@ -3191,3 +3191,216 @@ body.resizing-row { cursor: row-resize; user-select: none; }
   align-items: center;
   gap: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tema claro. Se activa con data-theme="light" en <html> (ver theme.ts). La
+   mayoría de la UI usa variables, así que basta redefinirlas; abajo se ajustan
+   los pocos colores fijos que pierden contraste sobre fondo claro.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #fbfaf7;
+  --panel: #f3f1ec;
+  --panel-2: #eae7df;
+  --border: #d9d5cb;
+  --muted: #66636f;
+  --accent: #6d3fe0;
+  --text: #1f1d26;
+  --head: #0f8f83;
+}
+
+/* Texto sobre el acento: blanco en claro (el morado es más oscuro). */
+:root[data-theme='light'] button.primary,
+:root[data-theme='light'] .tb-btn.cta,
+:root[data-theme='light'] .chip.branch-chip.current,
+:root[data-theme='light'] .chip.head-chip,
+:root[data-theme='light'] .time-banner .tb-btn.primary.head {
+  color: #fff;
+}
+
+/* Verdes/rojos/naranjas pensados para fondo oscuro: versiones más saturadas. */
+:root[data-theme='light'] .line-stat .added,
+:root[data-theme='light'] .st-ok,
+:root[data-theme='light'] .diff-file-head.added { color: #23864a; }
+:root[data-theme='light'] .line-stat .removed,
+:root[data-theme='light'] .modal-error,
+:root[data-theme='light'] .diff-file-head.deleted { color: #c53030; }
+:root[data-theme='light'] .st-warn { color: #b7791f; }
+:root[data-theme='light'] .diff-ln.add { color: #1f6f3d; background: rgba(35, 134, 74, 0.12); }
+:root[data-theme='light'] .diff-ln.del { color: #9b2c2c; background: rgba(197, 48, 48, 0.1); }
+:root[data-theme='light'] .modal-overlay { background: rgba(30, 28, 38, 0.35); }
+
+/* Autocompletado de CodeMirror con los colores de la app (ambos temas). */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  color: var(--text);
+  padding: 3px 10px !important;
+}
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+}
+.cm-tooltip-autocomplete .cm-completionDetail {
+  color: var(--muted);
+  font-style: normal;
+  margin-left: 8px;
+}
+
+/* ── Ajustes → Apariencia ──────────────────────────────────────────────────── */
+.theme-choices {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.theme-choices button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* ── Búsqueda de texto completo (sidebar) ─────────────────────────────────── */
+.search-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 8px 8px;
+  max-height: 45vh;
+  overflow: hidden;
+}
+.search-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--muted);
+}
+.search-input:focus-within { border-color: var(--accent); }
+.search-input input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.search-clear { border: none; background: none; padding: 2px; }
+.search-summary {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.search-restore { font-size: 11px; padding: 0; }
+/* Fila de resultado + botón de descartar (visible al hover, estilo VSCode). */
+.search-row { display: flex; align-items: center; min-width: 0; }
+.search-row > .search-file-head,
+.search-row > .search-match { flex: 1; min-width: 0; }
+.search-dismiss {
+  border: none;
+  background: none;
+  padding: 3px;
+  color: var(--muted);
+  visibility: hidden;
+}
+.search-row:hover > .search-dismiss,
+.search-dismiss:focus-visible { visibility: visible; }
+.search-dismiss:hover { color: var(--text); }
+.search-results,
+.search-matches,
+.backlinks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.search-results { overflow-y: auto; min-height: 0; }
+.search-file-head,
+.search-match,
+.backlink {
+  width: 100%;
+  border: none;
+  background: none;
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: 4px;
+  font-size: 12.5px;
+}
+.search-file-head:hover,
+.search-match:hover,
+.backlink:hover { background: var(--panel-2); }
+.search-file-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-file-dir { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-count {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 0 6px;
+}
+.search-match {
+  display: block;
+  padding: 2px 6px 2px 26px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-match mark {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text);
+  border-radius: 2px;
+}
+
+/* ── Enlaces entrantes ─────────────────────────────────────────────────────── */
+.backlinks { padding: 2px 6px 8px; max-height: 30vh; overflow-y: auto; }
+.backlink { flex-direction: column; align-items: flex-start; gap: 1px; padding: 4px 6px; }
+.backlink-name { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.backlink-context {
+  color: var(--muted);
+  font-size: 11.5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Enlaces wiki e imágenes en la vista previa ───────────────────────────── */
+.md-preview a.wikilink { color: var(--accent); border-bottom: 1px dashed transparent; }
+.md-preview a.wikilink:hover { text-decoration: none; border-bottom-color: var(--accent); }
+.md-preview a.wikilink.missing { opacity: 0.6; border-bottom-color: var(--muted); }
+.md-preview img { max-width: 100%; border-radius: 6px; }
+.md-preview img.missing {
+  display: inline-block;
+  min-width: 120px;
+  min-height: 24px;
+  border: 1px dashed var(--border);
+}
+
+/* ── Visor de imágenes (tab de una imagen) ────────────────────────────────── */
+.image-view {
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    repeating-conic-gradient(var(--panel) 0% 25%, var(--bg) 0% 50%) 50% / 20px 20px;
+}
+.image-view img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25); }
+
+.tree-file-icon { color: var(--muted); flex-shrink: 0; }

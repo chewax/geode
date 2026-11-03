@@ -39,7 +39,12 @@ const api: GeodeApi = {
     delete: (path) => ipcRenderer.invoke(IPC.vaultDelete, path),
     revealInExplorer: (path) => ipcRenderer.invoke(IPC.vaultReveal, path),
     duplicate: (path) => ipcRenderer.invoke(IPC.vaultDuplicate, path),
-    remove: (root, opts) => ipcRenderer.invoke(IPC.vaultRemove, root, opts)
+    remove: (root, opts) => ipcRenderer.invoke(IPC.vaultRemove, root, opts),
+    createNoteAt: (path, content) => ipcRenderer.invoke(IPC.vaultCreateNoteAt, path, content),
+    search: (query) => ipcRenderer.invoke(IPC.vaultSearch, query),
+    backlinks: (path) => ipcRenderer.invoke(IPC.vaultBacklinks, path),
+    updateLinks: (from, to) => ipcRenderer.invoke(IPC.vaultUpdateLinks, from, to),
+    saveAttachment: (name, data) => ipcRenderer.invoke(IPC.vaultSaveAttachment, name, data)
   },
   git: {
     commit: (message) => ipcRenderer.invoke(IPC.gitCommit, message),

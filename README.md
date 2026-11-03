@@ -5,12 +5,14 @@
 # Geode
 
 **Notas en Markdown que nunca se pierden.**<br/>
-Una app de notas local-first con historial automático: escribí, probá y volvé atrás sin miedo.
+Una app de notas local-first con historial automático: escribí, probá y volvé atrás sin miedo.<br/>
+**MCP ready:** tu bóveda también es la memoria de tus asistentes de IA.
 
 [![CI](https://github.com/chewax/geode/actions/workflows/ci.yml/badge.svg)](https://github.com/chewax/geode/actions/workflows/ci.yml)
 [![Licencia: MPL 2.0](https://img.shields.io/badge/licencia-MPL%202.0-7c3aed.svg)](LICENSE)
 [![Versión](https://img.shields.io/badge/versi%C3%B3n-0.8.1-a78bfa.svg)](CHANGELOG.md)
 ![Plataformas](https://img.shields.io/badge/plataformas-Windows%20%7C%20macOS%20%7C%20Linux-4a3a5c.svg)
+[![MCP ready](https://img.shields.io/badge/MCP-ready-7c3aed.svg)](docs/MCP.md)
 [![PRs bienvenidos](https://img.shields.io/badge/PRs-bienvenidos-38a169.svg)](CONTRIBUTING.md)
 
 ![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
@@ -21,6 +23,7 @@ Una app de notas local-first con historial automático: escribí, probá y volv�
 [Características](#características) ·
 [Instalación](#instalación) ·
 [Uso](#uso) ·
+[Memoria para IA](#memoria-para-ia-mcp) ·
 [Plugins](#plugins) ·
 [Desarrollo](#desarrollo) ·
 [Contribuir](#contribuir) ·
@@ -109,6 +112,20 @@ Geode toma muchas ideas de [Obsidian](https://obsidian.md) y es compatible con s
 | Plugins de terceros | Aislados (sandbox) | Acceso completo |
 | Código fuente | **Abierto** (MPL 2.0) | Cerrado |
 | Ecosistema y app móvil | En crecimiento (sin móvil todavía) | Muy grande, con móvil |
+
+## Memoria para IA (MCP)
+
+Geode es **MCP ready**: trae un servidor [MCP](https://modelcontextprotocol.io) integrado para que Claude, ChatGPT, Cursor, Gemini o cualquier asistente compatible use tu bóveda como **memoria de largo plazo**. La IA busca y lee tus notas, y guarda lo que vale la pena recordar: decisiones, preferencias, contexto de tus proyectos.
+
+**Recomendamos usar Geode como la memoria de tus IAs**, en lugar de la memoria propia de cada proveedor:
+
+- **Compatible con todos los proveedores.** Es la misma memoria para todos tus asistentes, no una distinta encerrada en cada producto. Si mañana cambiás de IA, tu memoria se queda con vos.
+- **Inmutable.** Por la naturaleza de Geode, cada cambio que hace la IA queda guardado como una versión más, con su nombre como autor. Nada se sobrescribe ni se pierde: ves qué recordó, cuándo y por qué, y lo deshacés con un click.
+- **En todos tus dispositivos.** Con el respaldo en la nube activado, lo que la IA aprende en una computadora se sincroniza solo con las demás.
+- **Tuya y legible.** Son notas Markdown comunes: las leés, las corregís y las organizás como cualquier otra nota.
+- **Sin costo extra.** El servidor MCP no usa tu API key: no gasta tokens por su cuenta.
+
+Para conectarlo, entrá a **Ajustes → Memoria para IA** y copiá el comando para Claude Code o el bloque de configuración para Claude Desktop, Cursor y otros. Los detalles técnicos, incluido cómo se manejan las escrituras simultáneas, están en [docs/MCP.md](docs/MCP.md).
 
 ## Instalación
 

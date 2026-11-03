@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { ChevronDown, ChevronRight, Hash } from 'lucide-react'
+import { t } from '@shared/i18n'
+import { tx } from './i18n'
 
 export interface TagsPanelProps {
   /** Cambia cuando algo se guardó o cambió el árbol: recalcular. */
@@ -64,13 +66,13 @@ export function TagsPanel({ refreshKey, disabled, onOpenTag }: TagsPanelProps): 
 
   const tree = useMemo(() => buildTree(tags ?? []), [tags])
 
-  if (disabled) return <div className="tree-empty"><p>Disponible en el presente.</p></div>
-  if (tags === null) return <div className="tree-empty"><p>Buscando etiquetas…</p></div>
+  if (disabled) return <div className="tree-empty"><p>{t('Disponible en el presente.')}</p></div>
+  if (tags === null) return <div className="tree-empty"><p>{t('Buscando etiquetas…')}</p></div>
   if (tags.length === 0) {
     return (
       <div className="tree-empty">
-        <p>Todavía no hay etiquetas.</p>
-        <p>Escribí <code>#algo</code> en una nota para agruparla con otras.</p>
+        <p>{t('Todavía no hay etiquetas.')}</p>
+        <p>{tx('Escribí {tag} en una nota para agruparla con otras.', { tag: <code>{t('#algo')}</code> })}</p>
       </div>
     )
   }
@@ -85,7 +87,7 @@ export function TagsPanel({ refreshKey, disabled, onOpenTag }: TagsPanelProps): 
               {n.children.length > 0 ? (
                 <button
                   className="icon-btn tag-twisty"
-                  aria-label={isOpen ? 'Colapsar' : 'Expandir'}
+                  aria-label={isOpen ? t('Colapsar') : t('Expandir')}
                   onClick={() =>
                     setOpen((prev) => {
                       const next = new Set(prev)
@@ -100,7 +102,7 @@ export function TagsPanel({ refreshKey, disabled, onOpenTag }: TagsPanelProps): 
               ) : (
                 <span className="tag-twisty-spacer" />
               )}
-              <button className="tag-name" title={`Ver notas con #${n.full}`} onClick={() => onOpenTag(n.full)}>
+              <button className="tag-name" title={t('Ver notas con #{tag}', { tag: n.full })} onClick={() => onOpenTag(n.full)}>
                 <Hash size={12} />
                 {n.name}
               </button>

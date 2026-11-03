@@ -121,12 +121,12 @@ const SYNC_INTERVAL_MS = 5 * 60_000
 
 /** Aviso humano tras traer cambios de la nube (y de conflictos, si los hubo). */
 function pullMessage(cloudCopies: string[]): string {
-  if (cloudCopies.length === 0) return 'Se trajeron cambios de tus otras computadoras.'
+  if (cloudCopies.length === 0) return t('Se trajeron cambios de tus otras computadoras.')
   if (cloudCopies.length === 1) {
     const name = displayName(cloudCopies[0]).replace(/ \(versión de la nube( \d+)?\)/, '')
-    return `«${name}» se editó en dos computadoras: quedó tu versión y la de la nube se guardó al lado.`
+    return t('«{name}» se editó en dos computadoras: quedó tu versión y la de la nube se guardó al lado.', { name })
   }
-  return `${cloudCopies.length} notas se editaron en dos computadoras: quedó tu versión y la de la nube se guardó al lado de cada una.`
+  return t('{n} notas se editaron en dos computadoras: quedó tu versión y la de la nube se guardó al lado de cada una.', { n: cloudCopies.length })
 }
 
 export function App(): JSX.Element {
@@ -138,7 +138,7 @@ export function App(): JSX.Element {
   const [newVaultOpen, setNewVaultOpen] = useState(false)
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
   // Bienvenida sin jerga: nombre del primer cuaderno (pre-rellenado y seleccionable).
-  const [vaultName, setVaultName] = useState('Mi primer cuaderno')
+  const [vaultName, setVaultName] = useState(() => t('Mi primer cuaderno'))
   // Estado del flujo de creación del primer cuaderno (idle / creando / error).
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -438,7 +438,7 @@ export function App(): JSX.Element {
     } catch (e) {
       // No lo escondemos: si falla, el popover muestra el motivo en vez de
       // quedarse "Cargando…" para siempre.
-      setAiUsageErr((e as Error).message || 'Error desconocido')
+      setAiUsageErr((e as Error).message || t('Error desconocido'))
     }
   }, [])
 
@@ -459,7 +459,7 @@ export function App(): JSX.Element {
       // pushCount>0 ya indica pendiente. El main ya humanizó el error
       // (mapBackupError), así que e.message es copy segura, sin crudo de API.
       setBackupFailed(true)
-      setBackupFailMsg(e instanceof Error ? e.message : 'No se pudo respaldar')
+      setBackupFailMsg(e instanceof Error ? e.message : t('No se pudo respaldar'))
     } finally {
       setPushing(false)
       await refreshGithub()
@@ -652,7 +652,7 @@ export function App(): JSX.Element {
       return
     }
     if (previewOid != null) {
-      setToast(`«${target}» no existía en ese momento.`)
+      setToast(t('«{name}» no existía en ese momento.', { name: target }))
       return
     }
     const clean = target.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/[<>:"|?*]/g, '')
@@ -661,10 +661,10 @@ export function App(): JSX.Element {
       const rel = isNotePath(clean) ? clean : `${clean}.md`
       const node = await window.geode.vault.createNoteAt(rel, `# ${displayName(rel)}\n\n`)
       await refreshTree()
-      setToast(`Nota «${displayName(node.path)}» creada.`)
+      setToast(t('Nota «{name}» creada.', { name: displayName(node.path) }))
       await openNoteAt(node.path)
     } catch (e) {
-      setToast(e instanceof Error ? e.message : 'No se pudo crear la nota')
+      setToast(e instanceof Error ? e.message : t('No se pudo crear la nota'))
     }
   }, [openNoteAt, previewOid, refreshTree])
 
@@ -689,12 +689,12 @@ export function App(): JSX.Element {
       setBacklinksKey((k) => k + 1)
       if (n > 0) {
         bumpAll()
-        setToast(`Se actualizaron los enlaces en ${n} ${n === 1 ? 'nota' : 'notas'}.`)
+        setToast(n === 1 ? t('Se actualizaron los enlaces en {n} nota.', { n }) : t('Se actualizaron los enlaces en {n} notas.', { n }))
         void refreshGraph() // la instantánea de seguridad aparece en la línea de tiempo
       }
     } catch (e) {
       console.warn('[enlaces] no se pudieron actualizar:', e)
-      setToast('Se renombró, pero no se pudieron actualizar los enlaces.')
+      setToast(t('Se renombró, pero no se pudieron actualizar los enlaces.'))
     }
   }, [bumpAll, refreshGraph])
 

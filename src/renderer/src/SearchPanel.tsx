@@ -80,7 +80,7 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
         setError(null)
       } catch (e) {
         if (seq !== seqRef.current) return
-        setError(e instanceof Error ? e.message : 'No se pudo buscar')
+        setError(e instanceof Error ? e.message : t('No se pudo buscar'))
       } finally {
         if (seq === seqRef.current) setLoading(false)
       }
@@ -98,8 +98,8 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
           ref={inputRef}
           value={query}
           disabled={disabled}
-          placeholder={disabled ? 'Volvé al presente para buscar' : 'Buscar en todas las notas…'}
-          aria-label="Buscar en todas las notas"
+          placeholder={disabled ? t('Volvé al presente para buscar') : t('Buscar en todas las notas…')}
+          aria-label={t('Buscar en todas las notas')}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -115,7 +115,7 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
         {loading ? (
           <Loader2 size={14} className="spin" />
         ) : query ? (
-          <button className="icon-btn search-clear" title="Limpiar" aria-label="Limpiar búsqueda" onClick={() => setQuery('')}>
+          <button className="icon-btn search-clear" title={t('Limpiar')} aria-label={t('Limpiar búsqueda')} onClick={() => setQuery('')}>
             <X size={12} />
           </button>
         ) : null}
@@ -139,12 +139,18 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
         <div className="search-summary">
           <span>
             {visible.length === 0
-              ? 'Sin resultados'
-              : `${total} ${total === 1 ? 'coincidencia' : 'coincidencias'} en ${visible.length} ${visible.length === 1 ? 'nota' : 'notas'}`}
+              ? t('Sin resultados')
+              : total === 1
+                ? visible.length === 1
+                  ? t('{total} coincidencia en {notes} nota', { total, notes: visible.length })
+                  : t('{total} coincidencia en {notes} notas', { total, notes: visible.length })
+                : visible.length === 1
+                  ? t('{total} coincidencias en {notes} nota', { total, notes: visible.length })
+                  : t('{total} coincidencias en {notes} notas', { total, notes: visible.length })}
           </span>
           {dismissed.size > 0 && (
             <button className="link-btn search-restore" onClick={() => setDismissed(new Set())}>
-              Mostrar descartados
+              {t('Mostrar descartados')}
             </button>
           )}
         </div>
@@ -163,8 +169,8 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
                 </button>
                 <button
                   className="icon-btn search-dismiss"
-                  title="Descartar esta nota de los resultados"
-                  aria-label={`Descartar ${displayName(r.path)} de los resultados`}
+                  title={t('Descartar esta nota de los resultados')}
+                  aria-label={t('Descartar {name} de los resultados', { name: displayName(r.path) })}
                   onClick={() => dismiss(r.path)}
                 >
                   <X size={12} />
@@ -181,8 +187,8 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
                       </button>
                       <button
                         className="icon-btn search-dismiss"
-                        title="Descartar esta coincidencia"
-                        aria-label="Descartar esta coincidencia"
+                        title={t('Descartar esta coincidencia')}
+                        aria-label={t('Descartar esta coincidencia')}
                         onClick={() => dismiss(`${r.path}:${m.line}:${m.col}`)}
                       >
                         <X size={12} />

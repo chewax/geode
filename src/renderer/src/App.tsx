@@ -28,7 +28,8 @@ import {
   Search,
   X
 } from 'lucide-react'
-import logoUrl from './assets/geode_logo_dark.png'
+// Logo de la app: geoda low poly (fuente única en resources/logo.svg).
+import logoUrl from '../../../resources/logo.svg'
 // URL del bundle IIFE del runtime del iframe de plugins (build:iframe). Se lee su
 // texto con fetch same-origin y se inyecta inline en el srcdoc de cada iframe; el
 // iframe conserva connect-src 'none' (los plugins de terceros no tienen red).

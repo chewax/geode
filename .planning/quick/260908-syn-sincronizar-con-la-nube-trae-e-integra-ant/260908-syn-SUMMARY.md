@@ -82,3 +82,12 @@ None.
 ## Commits
 
 - (sin commit: cambios entregados en el working tree)
+
+## Seguimiento (integración sobre main, 2026-11-03)
+
+- Rescatado del stash e integrado sobre main (PR de paridad PKM ya mergeado).
+- **Sync en segundo plano:** al abrir la bóveda, al volver a la ventana (throttle 60 s) y cada 5 min, si el respaldo automático está activo. Antes solo se traía al guardar, así que una PC sin ediciones nunca se enteraba de lo de la otra.
+- **Imágenes en conflicto:** el merge por líneas corrompía binarios; ahora se restauran los bytes locales y la versión de la nube va al lado como `foto (versión de la nube).png`.
+- **Single-flight por bóveda** en `GitService.sync` (auto-respaldo, botón y segundo plano no se pisan).
+- **Aviso humano de conflictos** en la UI (`cloudCopies` viaja por IPC).
+- `integrateRemote` separado del fetch → tests sin red (`tests/sync.test.ts`, 7) + uno de punta a punta por HTTP real con `git http-backend` (`tests/sync-http.test.ts`, se saltea sin git).

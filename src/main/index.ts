@@ -292,7 +292,7 @@ async function autoPushAfterCommit(root: string): Promise<void> {
     const url = normalizeRemoteUrl(remote)
     // Trae e integra lo que haya en la nube antes de subir: si otro dispositivo
     // pusheó, un push a secas se rechazaba (non-fast-forward) para siempre.
-    const { branch, oid, pulled } = await gitService.sync(root, url, token)
+    const { branch, oid, pulled, cloudCopies } = await gitService.sync(root, url, token)
     // Recordar el oid pusheado por rama PARA ESTA bóveda (el contador de
     // pendientes de esta bóveda vuelve a 0, sin tocar el de otras). Se recarga el
     // settings por si otra operación lo modificó durante el await del push.
@@ -301,7 +301,7 @@ async function autoPushAfterCommit(root: string): Promise<void> {
     // y notas abiertas (solo si la bóveda sincronizada sigue siendo la abierta).
     if (pulled && vault.getInfo()?.root === root) {
       for (const w of BrowserWindow.getAllWindows()) {
-        if (!w.isDestroyed()) w.webContents.send(IPC.gitPulled)
+        if (!w.isDestroyed()) w.webContents.send(IPC.gitPulled, { cloudCopies })
       }
     }
   } catch (e) {
@@ -1001,18 +1001,20 @@ function registerIpcHandlers(): void {
     let branch: string
     let oid: string
     let pulled: boolean
+    let cloudCopies: string[]
     try {
       const res = await gitService.sync(root, url, token)
       branch = res.branch
       oid = res.oid
       pulled = res.pulled
+      cloudCopies = res.cloudCopies
     } catch (e) {
       throw mapBackupError(e)
     }
 
     // Recordar el oid pusheado por rama PARA ESTA bóveda, para el contador de pendientes.
     await saveSettings(withPushedForVault(await loadSettings(), root, branch, oid))
-    return { branch, oid, pulled }
+    return { branch, oid, pulled, cloudCopies }
   })
 
   // ── Respaldo en la nube (enable + onboarding + signup) ──────────────────────

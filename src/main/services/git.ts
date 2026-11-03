@@ -680,6 +680,20 @@ export class GitService {
    * Devuelve `pulled=true` si el working dir cambió (el renderer debe recargar).
    */
   async sync(dir: string, url: string, token: string): Promise<SyncResult> {
+    // Single-flight por bóveda: el auto-respaldo, el botón y la sincronización al
+    // volver a la ventana pueden coincidir. Dos integraciones a la vez sobre el
+    // mismo .git podrían pisarse; la segunda espera y reusa el resultado.
+    const key = resolve(dir)
+    const running = this.syncsInFlight.get(key)
+    if (running) return running
+    const p = this.syncOnce(dir, url, token).finally(() => this.syncsInFlight.delete(key))
+    this.syncsInFlight.set(key, p)
+    return p
+  }
+
+  private syncsInFlight = new Map<string, Promise<SyncResult>>()
+
+  private async syncOnce(dir: string, url: string, token: string): Promise<SyncResult> {
     const branch = await git.currentBranch({ fs, dir, fullname: false })
     if (!branch) throw new Error('HEAD está en una versión anterior (detached): no hay rama para pushear')
     const onAuth = (): { username: string; password: string } => ({
@@ -691,46 +705,71 @@ export class GitService {
     const remoteTip = await this.fetchBranchTip(dir, url, branch, onAuth)
 
     // 2. Integrar lo traído, si la nube tiene algo que acá no está.
-    let pulled = false
-    const cloudCopies: string[] = []
-    if (remoteTip) {
-      let localTip = await git.resolveRef({ fs, dir, ref: branch })
-      // findMergeBase devuelve [] si las historias no se tocan (base undefined).
-      const [base] = (await git.findMergeBase({ fs, dir, oids: [localTip, remoteTip] })) as (
-        | string
-        | undefined
-      )[]
-      if (remoteTip !== localTip && base !== remoteTip) {
-        // Lo pendiente se versiona ANTES de mover el working dir (nada sin commit
-        // puede perderse en el checkout). Si había algo, la rama ya no es
-        // ancestro de la nube: pasa de fast-forward a merge 3-way, que es lo correcto.
-        if (await this.commit(dir, 'Cambios antes de sincronizar')) {
-          localTip = await git.resolveRef({ fs, dir, ref: branch })
-        }
-        if (base === localTip) {
-          // Fast-forward: la rama avanza al tip de la nube, sin reescribir nada.
-          await git.writeRef({ fs, dir, ref: `refs/heads/${branch}`, value: remoteTip, force: true })
-        } else {
-          await this.mergeRemote(dir, branch, localTip, remoteTip, cloudCopies)
-        }
-        // Materializar el nuevo tip en disco (merge/writeRef no tocan el working dir).
-        await git.checkout({ fs, dir, ref: branch, force: true })
-        if (cloudCopies.length > 0) {
-          await this.commit(
-            dir,
-            cloudCopies.length === 1
-              ? 'Versión de la nube de una nota en conflicto'
-              : `Versiones de la nube de ${cloudCopies.length} notas en conflicto`
-          )
-        }
-        pulled = true
-      }
-    }
+    const { pulled, cloudCopies } = remoteTip
+      ? await this.integrateRemote(dir, branch, remoteTip)
+      : { pulled: false, cloudCopies: [] as string[] }
 
     // 3. Pushear: ahora la rama contiene todo lo de la nube, así que es fast-forward.
     await git.push({ fs, http, dir, url, remote: 'origin', ref: branch, onAuth })
     const oid = await git.resolveRef({ fs, dir, ref: branch })
     return { branch, oid, pulled, cloudCopies }
+  }
+
+  /**
+   * Integra en la rama local `branch` el commit `remoteTip` (ya presente en la
+   * base de objetos local, p. ej. recién traído por fetch). Separado del fetch
+   * para poder testearlo sin red. Ver `sync` para la estrategia.
+   */
+  async integrateRemote(
+    dir: string,
+    branch: string,
+    remoteTip: string
+  ): Promise<{ pulled: boolean; cloudCopies: string[] }> {
+    const cloudCopies: string[] = []
+    let localTip = await git.resolveRef({ fs, dir, ref: branch })
+    // findMergeBase devuelve [] si las historias no se tocan (base undefined).
+    const [base] = (await git.findMergeBase({ fs, dir, oids: [localTip, remoteTip] })) as (
+      | string
+      | undefined
+    )[]
+    if (remoteTip === localTip || base === remoteTip) return { pulled: false, cloudCopies }
+
+    // Lo pendiente se versiona ANTES de mover el working dir (nada sin commit
+    // puede perderse en el checkout). Si había algo, la rama ya no es
+    // ancestro de la nube: pasa de fast-forward a merge 3-way, que es lo correcto.
+    if (await this.commit(dir, 'Cambios antes de sincronizar')) {
+      localTip = await git.resolveRef({ fs, dir, ref: branch })
+    }
+    let binaryConflicts: string[] = []
+    if (base === localTip) {
+      // Fast-forward: la rama avanza al tip de la nube, sin reescribir nada.
+      await git.writeRef({ fs, dir, ref: `refs/heads/${branch}`, value: remoteTip, force: true })
+    } else {
+      binaryConflicts = await this.mergeRemote(dir, branch, localTip, remoteTip, cloudCopies)
+    }
+    // Materializar el nuevo tip en disco (merge/writeRef no tocan el working dir).
+    await git.checkout({ fs, dir, ref: branch, force: true })
+
+    // Imágenes cambiadas en los dos lados: el merge por líneas no sirve para
+    // binarios. Se restauran los bytes LOCALES y la versión de la nube va al lado.
+    for (const filepath of binaryConflicts) {
+      const ours = await this.readBytesAt(dir, localTip, filepath)
+      const theirs = await this.readBytesAt(dir, remoteTip, filepath)
+      await atomicWrite(this.resolveInside(dir, filepath), ours)
+      const copyPath = cloudCopyPath(dir, filepath)
+      await atomicWrite(this.resolveInside(dir, copyPath), theirs)
+      cloudCopies.push(copyPath)
+    }
+
+    if (cloudCopies.length > 0) {
+      await this.commit(
+        dir,
+        cloudCopies.length === 1
+          ? 'Versión de la nube de una nota en conflicto'
+          : `Versiones de la nube de ${cloudCopies.length} notas en conflicto`
+      )
+    }
+    return { pulled: true, cloudCopies }
   }
 
   /**
@@ -783,13 +822,20 @@ export class GitService {
     localTip: string,
     remoteTip: string,
     cloudCopies: string[]
-  ): Promise<void> {
+  ): Promise<string[]> {
     const author = this.author()
+    // Binarios (imágenes) cambiados en ambos lados: el driver solo ve texto, así
+    // que se marcan y el caller restaura los bytes reales tras el checkout.
+    const binaryConflicts: string[] = []
     const message = 'Integrar cambios de la nube'
     const conflicts = new Map<string, string>() // ruta → contenido completo de la nube
 
     const mergeDriver: MergeDriverCallback = ({ contents, path }) => {
       const [base, ours, theirs] = contents
+      if (isImagePath(path) || /\u0000/.test(ours + theirs)) {
+        binaryConflicts.push(path)
+        return { cleanMerge: true, mergedText: ours }
+      }
       const r = mergeLines(base, ours, theirs)
       if (!r.cleanMerge) conflicts.set(path, theirs)
       return { cleanMerge: true, mergedText: r.mergedText }
@@ -826,9 +872,10 @@ export class GitService {
 
     for (const [filepath, content] of conflicts) {
       const copyPath = cloudCopyPath(dir, filepath)
-      await atomicWrite(join(dir, copyPath), content)
+      await atomicWrite(this.resolveInside(dir, copyPath), content)
       cloudCopies.push(copyPath)
     }
+    return binaryConflicts
   }
 
   /**

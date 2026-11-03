@@ -96,6 +96,21 @@ import {
 
 type SaveStatus = 'none' | 'clean' | 'saving' | 'saved'
 
+/** Mínimo entre sincronizaciones en segundo plano (al volver a la ventana). */
+const SYNC_THROTTLE_MS = 60_000
+/** Cada cuánto se sincroniza solo mientras la app está abierta. */
+const SYNC_INTERVAL_MS = 5 * 60_000
+
+/** Aviso humano tras traer cambios de la nube (y de conflictos, si los hubo). */
+function pullMessage(cloudCopies: string[]): string {
+  if (cloudCopies.length === 0) return 'Se trajeron cambios de tus otras computadoras.'
+  if (cloudCopies.length === 1) {
+    const name = displayName(cloudCopies[0]).replace(/ \(versión de la nube( \d+)?\)/, '')
+    return `«${name}» se editó en dos computadoras: quedó tu versión y la de la nube se guardó al lado.`
+  }
+  return `${cloudCopies.length} notas se editaron en dos computadoras: quedó tu versión y la de la nube se guardó al lado de cada una.`
+}
+
 export function App(): JSX.Element {
   const [vault, setVault] = useState<VaultInfo | null>(null)
   /** Recorrido guiado de primera vez. `vault` listo = las anclas Capa 0 existen
@@ -288,16 +303,17 @@ export function App(): JSX.Element {
   /** Tras traer cambios de la nube (sync): el disco cambió por debajo, así que
    *  se relee el árbol, se cierran pestañas de notas que ya no existen y se
    *  recargan los editores (cada panel persiste lo pendiente antes de releer). */
-  const reloadAfterPull = useCallback(async () => {
+  const reloadAfterPull = useCallback(async (cloudCopies: string[] = []) => {
     const t = await refreshTree()
     setPanes((prev) => keepOnly(prev, new Set(flattenPaths(t))))
     bumpAll()
-    setToast('Se trajeron cambios de la nube')
+    void refreshGraph() // lo traído aparece en la línea de tiempo
+    setToast(pullMessage(cloudCopies))
   }, [refreshTree, bumpAll])
 
   // El auto-respaldo corre en el main tras cada snapshot; si trajo cambios de la
   // nube al disco, avisa por acá para que la UI no muestre notas desactualizadas.
-  useEffect(() => window.geode.git.onPulled(() => void reloadAfterPull()), [reloadAfterPull])
+  useEffect(() => window.geode.git.onPulled((info) => void reloadAfterPull(info.cloudCopies)), [reloadAfterPull])
 
   const refreshGraph = useCallback(async () => {
     setGraph(await window.geode.git.graph())
@@ -403,7 +419,7 @@ export function App(): JSX.Element {
       const res = await window.geode.git.push()
       // El respaldo trae e integra lo de la nube antes de subir: si el disco
       // cambió, recargar árbol y notas para no mostrar contenido viejo.
-      if (res.pulled) await reloadAfterPull()
+      if (res.pulled) await reloadAfterPull(res.cloudCopies)
       host.emit('sync:after', { branch: res.branch, oid: res.oid })
     } catch (e) {
       // El respaldo falló: el botón lo refleja de forma efímera ("No se pudo
@@ -418,6 +434,59 @@ export function App(): JSX.Element {
       await refreshGraph() // mover el chip "en GitHub" al commit recién pusheado
     }
   }, [flushAll, reloadAfterPull, refreshGithub, refreshGraph, host])
+
+  /**
+   * Sincronización en segundo plano: al abrir la bóveda, al volver a la ventana
+   * y cada pocos minutos, trae lo que otras computadoras subieron (y sube lo
+   * propio). Sin esto, una PC que no editó nada nunca se enteraba de los cambios
+   * de la otra hasta guardar algo encima de contenido viejo. Silenciosa ante
+   * errores (sin internet, etc.): el botón de respaldo sigue mostrando el estado
+   * real y el próximo intento lo reintenta. Nunca durante el viaje en el tiempo.
+   */
+  const githubCfgRef = useRef(githubCfg)
+  githubCfgRef.current = githubCfg
+  const previewOidRef = useRef(previewOid)
+  previewOidRef.current = previewOid
+  const lastSyncRef = useRef(0)
+  const syncingRef = useRef(false)
+  const backgroundSync = useCallback(async (force = false): Promise<void> => {
+    const cfg = githubCfgRef.current
+    if (!cfg?.connected || !cfg.remote || !cfg.autoPush) return // sin respaldo automático
+    if (previewOidRef.current != null || syncingRef.current) return
+    if (!force && Date.now() - lastSyncRef.current < SYNC_THROTTLE_MS) return
+    syncingRef.current = true
+    lastSyncRef.current = Date.now()
+    setPushing(true)
+    try {
+      await flushAll()
+      const res = await window.geode.git.push()
+      if (res.pulled) await reloadAfterPull(res.cloudCopies)
+      setBackupFailed(false)
+      setBackupFailMsg(null)
+    } catch {
+      // Silencioso a propósito (ver arriba): pushCount>0 ya refleja lo pendiente.
+    } finally {
+      syncingRef.current = false
+      setPushing(false)
+      void refreshGithub()
+    }
+  }, [flushAll, reloadAfterPull, refreshGithub])
+
+  // Al abrir una bóveda (o conectar su respaldo): traer de inmediato.
+  useEffect(() => {
+    if (vault && githubCfg?.remote) void backgroundSync(true)
+  }, [vault?.root, githubCfg?.remote, backgroundSync])
+
+  // Al volver a la ventana y periódicamente (con throttle).
+  useEffect(() => {
+    const onFocus = (): void => void backgroundSync()
+    window.addEventListener('focus', onFocus)
+    const id = window.setInterval(() => void backgroundSync(), SYNC_INTERVAL_MS)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.clearInterval(id)
+    }
+  }, [backgroundSync])
 
   /** Abre (o activa) una nota en el panel enfocado. Sin `pinned` = preview (un
    *  click en el árbol); `{ pinned: true }` = tab permanente (doble click). */
@@ -1356,7 +1425,8 @@ export function App(): JSX.Element {
   // Toast: se desvanece solo.
   useEffect(() => {
     if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 2500)
+    // Los avisos largos (p. ej. conflictos de sync) quedan más tiempo para leerlos.
+    const id = window.setTimeout(() => setToast(null), Math.max(2500, toast.length * 60))
     return () => window.clearTimeout(id)
   }, [toast])
 

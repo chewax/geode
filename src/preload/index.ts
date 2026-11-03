@@ -54,7 +54,8 @@ const api: GeodeApi = {
     push: () => ipcRenderer.invoke(IPC.gitPush),
     pendingPush: () => ipcRenderer.invoke(IPC.gitPendingPush),
     onPulled: (cb) => {
-      const handler = (): void => cb()
+      const handler = (_e: IpcRendererEvent, info?: { cloudCopies?: string[] }): void =>
+        cb({ cloudCopies: info?.cloudCopies ?? [] })
       ipcRenderer.on(IPC.gitPulled, handler)
       return () => ipcRenderer.removeListener(IPC.gitPulled, handler)
     },

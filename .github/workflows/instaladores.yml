@@ -1,0 +1,85 @@
+# Genera los instaladores de Windows, macOS y Linux y los sube a un release en
+# BORRADOR (ver publish en electron-builder.yml). Se corre a mano desde
+# Actions → "Instaladores" → Run workflow. La versión sale de package.json:
+# para sacar una versión nueva, subir el "version" antes de correrlo.
+# El release queda en borrador hasta apretar "Publish" en GitHub.
+name: Instaladores
+
+on:
+  workflow_dispatch:
+
+permissions:
+  # Necesario para crear el release y subirle los instaladores.
+  contents: write
+
+concurrency:
+  group: instaladores
+  cancel-in-progress: false
+
+jobs:
+  # Crea el release en borrador una sola vez antes de empaquetar, para que los
+  # tres jobs en paralelo suban al mismo release en vez de crear duplicados.
+  release:
+    name: Preparar release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Crear release en borrador si no existe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "El release $VERSION ya existe; se actualizan sus instaladores."
+          else
+            gh release create "$VERSION" --draft --title "$VERSION" --notes "Geode $VERSION" --target "$GITHUB_SHA"
+          fi
+
+  build:
+    name: ${{ matrix.name }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            flag: --win
+          - name: macOS
+            os: macos-latest
+            flag: --mac
+          - name: Linux
+            os: ubuntu-latest
+            flag: --linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar
+        run: npm run build
+
+      - name: Empaquetar y subir al release
+        run: npx electron-builder ${{ matrix.flag }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Sin certificado de Apple Developer: no buscar identidad para firmar.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # Copia de los instaladores en la corrida, por si el release falla.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geode-${{ matrix.name }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+          if-no-files-found: ignore
+          retention-days: 14

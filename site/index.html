@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Geode es una app de notas en Markdown que guarda cada versión por vos. Gratis, de código abierto y sin conexión.">
+<meta property="og:title" content="Geode · Escribí sin miedo a perder nada">
+<meta property="og:description" content="Notas en Markdown con memoria: volvé a cualquier versión anterior. Para Windows, macOS y Linux.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>html{color-scheme:light dark}[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Geode · Escribí sin miedo a perder nada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: hero en dos columnas (tesis + demo de línea de tiempo sobre anillos de ágata), luego bandas de ancho completo con contenido a 1120px. */
+  :root {
+    --bg: #f5f3f8;
+    --surface: #ffffff;
+    --sunken: #ece8f2;
+    --line: #dcd5e6;
+    --fg: #1f1a28;
+    --muted: #625a70;
+    --accent: #6d3fe0;
+    --accent-fg: #ffffff;
+    --accent-soft: #e9e1fb;
+    --ok: #0f8f83;
+    --add-bg: #dff3ee;
+    --add-fg: #0b6b62;
+    --del-bg: #f8e1e4;
+    --del-fg: #a3283a;
+    --ring-a: #ebe5f4;
+    --ring-b: #f5f3f8;
+    --shadow: 0 1px 2px rgba(31, 26, 40, .06), 0 18px 48px -18px rgba(60, 30, 120, .25);
+    --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --f-body: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --f-note: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --wrap: 1120px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131017; --surface: #1c1822; --sunken: #18141e; --line: #2e2838;
+      --fg: #ece8f2; --muted: #a39bb2; --accent: #b794f6; --accent-fg: #1a1024;
+      --accent-soft: #2a2140; --ok: #2dd4bf;
+      --add-bg: #12302c; --add-fg: #5fe0cc; --del-bg: #3a1a22; --del-fg: #ff8fa0;
+      --ring-a: #1b1722; --ring-b: #131017;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 24px 60px -20px rgba(0, 0, 0, .7);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131017; --surface: #1c1822; --sunken: #18141e; --line: #2e2838;
+    --fg: #ece8f2; --muted: #a39bb2; --accent: #b794f6; --accent-fg: #1a1024;
+    --accent-soft: #2a2140; --ok: #2dd4bf;
+    --add-bg: #12302c; --add-fg: #5fe0cc; --del-bg: #3a1a22; --del-fg: #ff8fa0;
+    --ring-a: #1b1722; --ring-b: #131017;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 24px 60px -20px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--f-body); font-size: 17px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap {
+    max-width: var(--wrap); margin-inline: auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .ico { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+  /* Navegación */
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--f-display); font-weight: 800; font-size: 22px; letter-spacing: -.01em; }
+  .brand img { width: 34px; height: 34px; }
+  .nav-links { display: flex; align-items: center; gap: 24px; font-size: 15px; }
+  .nav-links a { text-decoration: none; color: var(--muted); }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-links .btn { color: var(--accent-fg); }
+
+  /* Botones */
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; font: 600 16px/1 var(--f-body); text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease, background .15s ease; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); }
+  .btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+  .btn.ghost:hover { background: var(--surface); }
+  .btn.sm { padding: 8px 14px; font-size: 14px; }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; padding-block: 40px 88px; }
+  .eyebrow { font-family: var(--f-mono); font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(44px, 6.4vw, 82px); line-height: .98; letter-spacing: -.035em; margin: 16px 0 22px; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 19.5px; color: var(--muted); max-width: 33em; margin: 0 0 30px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--muted); }
+  .fine span { display: inline-flex; align-items: center; gap: 6px; }
+  .fine .ico { width: 16px; height: 16px; color: var(--ok); }
+
+  /* Demo de la línea de tiempo, sobre anillos de ágata */
+  .stage { position: relative; padding: 28px; border-radius: 28px; isolation: isolate; min-width: 0; }
+  .stage::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+    background: repeating-radial-gradient(ellipse at 70% 40%, var(--ring-a) 0 14px, var(--ring-b) 14px 30px);
+    mask-image: radial-gradient(ellipse at 60% 45%, #000 40%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse at 60% 45%, #000 40%, transparent 78%);
+  }
+  .win { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .win-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--sunken); }
+  .tab { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .chip .ico { width: 14px; height: 14px; }
+  .chip.present { background: var(--add-bg); color: var(--add-fg); }
+  .chip.past { background: var(--accent-soft); color: var(--accent); }
+  .note { font-family: var(--f-note); font-size: 16.5px; line-height: 1.6; padding: 20px 24px 8px; min-height: 300px; }
+  .note h3 { font-family: var(--f-note); font-size: 23px; font-weight: 600; margin: 0 0 8px; }
+  .note h4 { font-family: var(--f-note); font-size: 17px; font-weight: 600; margin: 14px 0 4px; }
+  .note p { margin: 2px 0; }
+  .note .add { background: var(--add-bg); color: var(--add-fg); border-radius: 4px; padding: 0 4px; margin-inline: -4px; }
+  .note .del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; border-radius: 4px; padding: 0 4px; margin-inline: -4px; }
+  .note.past { color: var(--muted); }
+  .diff-key { display: flex; gap: 14px; padding: 6px 24px 14px; font-size: 12.5px; color: var(--muted); }
+  .diff-key b { font-weight: 600; }
+  .diff-key .k-add { color: var(--add-fg); }
+  .diff-key .k-del { color: var(--del-fg); }
+
+  .timeline { border-top: 1px solid var(--line); padding: 16px 20px 18px; display: grid; gap: 12px; }
+  .tl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .tl-when { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); }
+  .tl-name { font-weight: 600; font-size: 15px; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .ticks { display: grid; grid-template-columns: repeat(4, 1fr); font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+  .ticks span:nth-child(2) { text-align: center; transform: translateX(-17%); }
+  .ticks span:nth-child(3) { text-align: center; transform: translateX(17%); }
+  .ticks span:last-child { text-align: right; }
+  .tl-actions { display: flex; gap: 8px; flex-wrap: wrap; min-height: 34px; align-items: center; }
+  .tl-msg { font-size: 13.5px; color: var(--ok); display: inline-flex; gap: 6px; align-items: center; }
+  .tl-msg .ico { width: 16px; height: 16px; }
+  .stage-cap { margin: 14px 4px 0; font-size: 13.5px; color: var(--muted); text-align: center; }
+
+  /* Secciones */
+  section.band { padding-block: 88px; border-top: 1px solid var(--line); }
+  .sec-head { max-width: 40em; margin-bottom: 44px; }
+  h2 { font-family: var(--f-display); font-weight: 800; font-size: clamp(32px, 4vw, 46px); line-height: 1.05; letter-spacing: -.025em; margin: 10px 0 14px; text-wrap: balance; }
+  .sec-head p { color: var(--muted); margin: 0; font-size: 18px; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; counter-reset: s; }
+  .step { display: grid; gap: 10px; align-content: start; }
+  .step-n { font-family: var(--f-mono); font-size: 13px; color: var(--accent); }
+  .step h3 { font-family: var(--f-display); font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  .step p { margin: 0; color: var(--muted); }
+  kbd { font-family: var(--f-mono); font-size: 13px; background: var(--sunken); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--fg); }
+
+  .feats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .feat { background: var(--surface); padding: 28px 26px; display: grid; gap: 10px; align-content: start; }
+  .feat .ico { width: 24px; height: 24px; color: var(--accent); }
+  .feat h3 { margin: 4px 0 0; font-size: 18.5px; font-weight: 600; font-family: var(--f-display); }
+  .feat p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  .adv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+  .adv p { color: var(--muted); font-size: 18px; margin: 0 0 14px; max-width: 32em; }
+  .adv ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .adv li { display: flex; gap: 10px; align-items: center; font-size: 16px; }
+  .adv li .ico { width: 18px; height: 18px; color: var(--ok); }
+  .graph { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; font-family: var(--f-mono); font-size: 13px; overflow-x: auto; }
+  .graph svg { display: block; width: 100%; min-width: 360px; height: auto; }
+  .g-text { fill: var(--fg); font-family: var(--f-mono); font-size: 12.5px; }
+  .g-muted { fill: var(--muted); font-family: var(--f-mono); font-size: 11.5px; }
+  .g-main { stroke: var(--accent); }
+  .g-branch { stroke: var(--ok); }
+  .g-tag { fill: var(--accent-soft); }
+  .g-tag-t { fill: var(--accent); font-family: var(--f-mono); font-size: 11px; font-weight: 500; }
+
+  .dl { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 44px; }
+  .dl h2 { margin-top: 0; }
+  .dl p { color: var(--muted); margin: 0 0 24px; }
+  .dl p.oss { margin: 20px 0 0; font-size: 14.5px; }
+  .platforms { display: grid; gap: 10px; }
+  .plat { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .plat b { font-weight: 600; }
+  .plat small { display: block; color: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+  .plat-note { margin: 4px 2px 0; font-size: 13px; color: var(--muted); }
+  .also { margin: 14px 0 0; font-size: 14px; color: var(--muted); }
+
+  footer { padding-block: 40px 56px; color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { color: var(--muted); }
+  .foot-links a:first-child { display: inline-flex; align-items: center; gap: 6px; vertical-align: bottom; }
+  .foot-links .ico { width: 16px; height: 16px; }
+
+  @media (max-width: 900px) {
+    .hero, .adv, .dl { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+    .steps, .feats { grid-template-columns: minmax(0, 1fr); }
+    .nav-links a:not(.btn) { display: none; }
+    .dl { padding: 28px 22px; }
+    section.band { padding-block: 64px; }
+    .stage { padding: 14px; }
+  }
+  @media (min-width: 601px) and (max-width: 900px) {
+    .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn { transition: none; }
+    .btn:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+  <symbol id="i-compare" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-blocks" viewBox="0 0 24 24"><rect width="7" height="7" x="14" y="3" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+  <symbol id="i-forward" viewBox="0 0 24 24"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></symbol>
+</svg>
+
+<header class="wrap nav">
+  <a class="brand" href="#inicio"><img src="logo.svg" alt="" width="34" height="34">Geode</a>
+  <nav class="nav-links" aria-label="Principal">
+    <a href="#como-funciona">Cómo funciona</a>
+    <a href="#funciones">Funciones</a>
+    <a href="#modo-avanzado">Modo Avanzado</a>
+    <a class="btn primary sm" href="#descargar"><svg class="ico"><use href="#i-download"/></svg>Descargar</a>
+  </nav>
+</header>
+
+<main id="inicio">
+  <div class="wrap hero">
+    <div>
+      <div class="eyebrow">Notas en Markdown · con memoria</div>
+      <h1>Escribí sin miedo a <em>perder nada.</em></h1>
+      <p class="lede">Geode guarda cada versión de tus notas por vos. Borrá, reescribí, probá otra idea: siempre podés volver a cualquier momento anterior.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="#descargar"><svg class="ico"><use href="#i-download"/></svg>Descargar</a>
+        <a class="btn ghost" href="https://github.com/chewax/geode"><svg class="ico"><use href="#i-github"/></svg>Ver en GitHub</a>
+      </div>
+      <div class="fine">
+        <span><svg class="ico"><use href="#i-check"/></svg>Gratis y de código abierto</span>
+        <span><svg class="ico"><use href="#i-check"/></svg>Funciona sin internet</span>
+        <span><svg class="ico"><use href="#i-check"/></svg>Sin cuenta para empezar</span>
+      </div>
+      <p class="also">Para Windows, macOS y Linux</p>
+    </div>
+
+    <div class="stage">
+      <div class="win" aria-label="Demostración de la línea de tiempo de una nota">
+        <div class="win-bar">
+          <div class="tab"><svg class="ico" style="width:16px;height:16px"><use href="#i-file"/></svg><span>Viaje a Cabo Polonio.md</span></div>
+          <span id="chip" class="chip present"><svg class="ico"><use href="#i-check"/></svg>Guardado</span>
+        </div>
+        <div id="note" class="note" aria-live="polite"></div>
+        <div id="diffkey" class="diff-key" hidden><span class="k-add"><b>Agregado</b> desde la versión anterior</span><span class="k-del"><b>Quitado</b></span></div>
+        <div class="timeline">
+          <div class="tl-head">
+            <span id="tl-name" class="tl-name">Versión final</span>
+            <span id="tl-when" class="tl-when">Hoy, 10:42</span>
+          </div>
+          <label for="scrub" class="eyebrow" style="font-size:11px">Línea de tiempo · arrastrá para volver</label>
+          <input id="scrub" type="range" min="0" max="3" step="1" value="3">
+          <div class="ticks" aria-hidden="true"><span>Hace 6 días</span><span>Hace 4 días</span><span>Ayer</span><span>Hoy</span></div>
+          <div id="tl-actions" class="tl-actions"></div>
+        </div>
+      </div>
+      <p class="stage-cap">Probalo: mové la línea de tiempo. Nada de lo que veas en el pasado se borra del presente.</p>
+    </div>
+  </div>
+
+  <section id="como-funciona" class="band">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">Cómo funciona</div>
+        <h2>Cada versión queda guardada, como las capas de una geoda.</h2>
+        <p>No tenés que aprender nada nuevo. Escribís como en cualquier editor y Geode se encarga de recordar.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <span class="step-n">Paso 1</span>
+          <h3>Escribís</h3>
+          <p>Cada cambio se guarda en disco mientras escribís. Si se corta la luz o se cierra la app, tu texto sigue ahí.</p>
+        </div>
+        <div class="step">
+          <span class="step-n">Paso 2</span>
+          <h3>Guardás una versión</h3>
+          <p>Con <kbd>Ctrl</kbd> + <kbd>S</kbd> marcás un punto al que querés poder volver. Le ponés un nombre si querés; si no, Geode lo fecha por vos.</p>
+        </div>
+        <div class="step">
+          <span class="step-n">Paso 3</span>
+          <h3>Volvés cuando quieras</h3>
+          <p>La línea de tiempo te muestra tus notas tal como estaban. Si algo te sirve, lo traés al presente sin borrar lo de hoy.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="funciones" class="band">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">Funciones</div>
+        <h2>Pensado para que experimentar no dé miedo.</h2>
+      </div>
+      <div class="feats">
+        <div class="feat"><svg class="ico"><use href="#i-history"/></svg><h3>Línea de tiempo</h3><p>Recorré todo tu cuaderno o una sola nota hacia atrás, en modo solo lectura, sin tocar el presente.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-compare"/></svg><h3>Comparar versiones</h3><p>Mirá qué cambió entre dos momentos, con lo agregado y lo quitado marcado en palabras y en color.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-clock"/></svg><h3>Copias automáticas</h3><p>Cada 5, 10, 15 o 30 minutos, solo si hubo cambios. También antes de volver al pasado o cerrar la app.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-cloud"/></svg><h3>Respaldo en la nube</h3><p>Opcional y privado. Un asistente te guía paso a paso; después tus versiones se respaldan solas.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-folder"/></svg><h3>Tus archivos son tuyos</h3><p>Notas en Markdown común, en una carpeta de tu computadora. Las podés abrir con cualquier otro editor.</p></div>
+        <div class="feat"><svg class="ico"><use href="#i-blocks"/></svg><h3>Extensible con plugins</h3><p>Comandos, paneles y extensiones del editor. Activá solo los que usás.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="modo-avanzado" class="band">
+    <div class="wrap adv">
+      <div>
+        <div class="eyebrow">Modo Avanzado</div>
+        <h2>Si sabés git, está todo ahí.</h2>
+        <p>Por dentro, cada versión es un commit de git. Si nunca escuchaste esa palabra, no la vas a ver. Si la conocés, el Modo Avanzado te muestra el motor.</p>
+        <ul>
+          <li><svg class="ico"><use href="#i-check"/></svg>Grafo de versiones con ramas y etiquetas</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Ramas para probar ideas y fusionarlas después</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Repositorio git estándar, sin formato propio</li>
+        </ul>
+      </div>
+      <div class="graph" aria-label="Ejemplo del grafo de versiones">
+        <svg viewBox="0 0 420 210" role="img" aria-label="Grafo con la rama main y una rama de prueba fusionada">
+          <path class="g-main" d="M24 24 V186" stroke-width="2.5" fill="none"/>
+          <path class="g-branch" d="M24 66 C24 86, 58 82, 58 102 V124 C58 144, 24 140, 24 160" stroke-width="2.5" fill="none"/>
+          <circle cx="24" cy="24" r="6" fill="var(--accent)"/>
+          <circle cx="24" cy="66" r="6" fill="var(--accent)"/>
+          <circle cx="58" cy="102" r="6" fill="var(--ok)"/>
+          <circle cx="58" cy="124" r="6" fill="var(--ok)"/>
+          <circle cx="24" cy="160" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/>
+          <circle cx="24" cy="186" r="6" fill="var(--accent)"/>
+          <text class="g-text" x="90" y="28">Versión final</text><text class="g-muted" x="230" y="28">a3f9c21</text>
+          <rect class="g-tag" x="300" y="14" width="44" height="20" rx="5"/><text class="g-tag-t" x="310" y="28">v1.0</text>
+          <text class="g-text" x="90" y="70">Con presupuesto</text><text class="g-muted" x="230" y="70">7be04d8</text>
+          <text class="g-text" x="90" y="106">Probar ruta por Valizas</text><text class="g-muted" x="290" y="106">idea-valizas</text>
+          <text class="g-text" x="90" y="128">Agregar horarios</text><text class="g-muted" x="290" y="128">idea-valizas</text>
+          <text class="g-text" x="90" y="164">Fusionar idea-valizas</text><text class="g-muted" x="290" y="164">merge</text>
+          <text class="g-text" x="90" y="190">Primer borrador</text><text class="g-muted" x="230" y="190">1c02e7f</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section id="descargar" class="band">
+    <div class="wrap">
+      <div class="dl">
+        <div>
+          <div class="eyebrow">Descargar</div>
+          <h2>Empezá tu primer cuaderno en un click.</h2>
+          <p>Instalás, ponés un nombre y ya estás escribiendo. El respaldo en la nube lo activás cuando quieras.</p>
+          <div class="cta-row">
+            <a class="btn primary" href="https://github.com/chewax/geode/releases/latest"><svg class="ico"><use href="#i-download"/></svg>Descargar Geode</a>
+            <a class="btn ghost" href="https://github.com/chewax/geode"><svg class="ico"><use href="#i-github"/></svg>Ver en GitHub</a>
+          </div>
+          <p class="oss">Geode es de código abierto. Podés leer el código, reportar un problema o proponer una mejora en GitHub.</p>
+        </div>
+        <div class="platforms">
+          <div class="plat"><div><b>Windows 10 y 11</b><small>Instalador .exe</small></div><a class="btn ghost sm" href="https://github.com/chewax/geode/releases/latest">Descargar</a></div>
+          <div class="plat"><div><b>macOS 12 o posterior</b><small>.dmg · Apple Silicon (M1 o posterior)</small></div><a class="btn ghost sm" href="https://github.com/chewax/geode/releases/latest">Descargar</a></div>
+          <div class="plat"><div><b>Linux</b><small>.AppImage · x64</small></div><a class="btn ghost sm" href="https://github.com/chewax/geode/releases/latest">Descargar</a></div>
+          <p class="plat-note">En macOS, la primera vez que la abras: Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente». En Linux, dale permiso de ejecución al archivo .AppImage.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>Geode · notas que no se pierden · código abierto</span>
+  <span class="foot-links"><a href="https://github.com/chewax/geode"><svg class="ico"><use href="#i-github"/></svg>Ver en GitHub</a> · <a href="https://github.com/chewax/geode/releases">Versiones</a></span>
+</footer>
+
+<script>
+  // Versiones de ejemplo de la nota de la demo (de la más vieja a la actual).
+  var VERSIONS = [
+    { when: 'Hace 6 días', name: 'Primer borrador', lines: [
+      '# Viaje a Cabo Polonio', 'Salir el viernes temprano', 'Llevar linterna'] },
+    { when: 'Hace 4 días', name: 'Con presupuesto', lines: [
+      '# Viaje a Cabo Polonio', 'Salir el viernes temprano', 'Llevar linterna',
+      '## Presupuesto', 'Ómnibus: $ 1.200', 'Camión al Cabo: $ 600'] },
+    { when: 'Ayer, 19:05', name: 'Copia automática', lines: [
+      '# Viaje a Cabo Polonio', 'Salir el viernes temprano', 'Llevar linterna frontal y pilas',
+      '## Presupuesto', 'Ómnibus: $ 1.200', 'Camión al Cabo: $ 600', 'Hostel: $ 2.400 por noche'] },
+    { when: 'Hoy, 10:42', name: 'Versión final', lines: [
+      '# Viaje a Cabo Polonio', 'Salir el jueves de noche', 'Llevar linterna frontal y pilas',
+      '## Presupuesto', 'Ómnibus: $ 1.200', 'Camión al Cabo: $ 600', 'Hostel: $ 2.400 por noche',
+      '## Pendiente', 'Confirmar la reserva'] }
+  ];
+  var PRESENT = VERSIONS.length - 1;
+
+  // Diff por líneas con LCS: devuelve [{t:'eq'|'add'|'del', s}].
+  function diff(a, b) {
+    var n = a.length, m = b.length, dp = [];
+    for (var i = 0; i <= n; i++) { dp.push(new Array(m + 1).fill(0)); }
+    for (i = n - 1; i >= 0; i--) for (var j = m - 1; j >= 0; j--)
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    var out = []; i = 0; j = 0;
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { out.push({ t: 'eq', s: a[i] }); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: 'del', s: a[i++] }); }
+      else { out.push({ t: 'add', s: b[j++] }); }
+    }
+    while (i < n) out.push({ t: 'del', s: a[i++] });
+    while (j < m) out.push({ t: 'add', s: b[j++] });
+    return out;
+  }
+
+  function lineEl(s, cls) {
+    var tag = 'p', text = s;
+    if (s.indexOf('## ') === 0) { tag = 'h4'; text = s.slice(3); }
+    else if (s.indexOf('# ') === 0) { tag = 'h3'; text = s.slice(2); }
+    else { text = '· ' + s; }
+    var el = document.createElement(tag);
+    var span = document.createElement('span');
+    span.textContent = text;
+    if (cls) span.className = cls;
+    el.appendChild(span);
+    return el;
+  }
+
+  var note = document.getElementById('note');
+  var chip = document.getElementById('chip');
+  var key = document.getElementById('diffkey');
+  var actions = document.getElementById('tl-actions');
+  var scrub = document.getElementById('scrub');
+
+  function render(idx, msg) {
+    var v = VERSIONS[idx];
+    var prev = idx > 0 ? VERSIONS[idx - 1].lines : v.lines;
+    note.innerHTML = '';
+    diff(prev, v.lines).forEach(function (d) {
+      note.appendChild(lineEl(d.s, d.t === 'eq' ? '' : d.t));
+    });
+    document.getElementById('tl-name').textContent = v.name;
+    document.getElementById('tl-when').textContent = v.when;
+    key.hidden = idx === 0;
+    var past = idx !== PRESENT;
+    note.classList.toggle('past', false);
+    chip.className = 'chip ' + (past ? 'past' : 'present');
+    chip.innerHTML = past
+      ? '<svg class="ico"><use href="#i-history"/></svg>Estás viendo el pasado'
+      : '<svg class="ico"><use href="#i-check"/></svg>Guardado';
+    actions.innerHTML = '';
+    if (msg) {
+      actions.innerHTML = '<span class="tl-msg"><svg class="ico"><use href="#i-check"/></svg>' + msg + '</span>';
+    } else if (past) {
+      var back = document.createElement('button');
+      back.className = 'btn primary sm'; back.type = 'button';
+      back.innerHTML = '<svg class="ico" style="width:16px;height:16px"><use href="#i-undo"/></svg>Volver aquí';
+      back.onclick = function () {
+        // Simula la restauración no destructiva: el contenido viejo pasa a ser el presente.
+        note.querySelectorAll('.del').forEach(function (n) { n.parentNode.remove(); });
+        note.querySelectorAll('.add').forEach(function (n) { n.className = ''; });
+        key.hidden = true;
+        chip.className = 'chip present';
+        chip.innerHTML = '<svg class="ico"><use href="#i-check"/></svg>Guardado';
+        actions.innerHTML = '<span class="tl-msg"><svg class="ico"><use href="#i-check"/></svg>Trajiste “' + v.name + '” al presente. La versión de hoy sigue en la línea de tiempo.</span>';
+      };
+      var fwd = document.createElement('button');
+      fwd.className = 'btn ghost sm'; fwd.type = 'button';
+      fwd.innerHTML = '<svg class="ico" style="width:16px;height:16px"><use href="#i-forward"/></svg>Ir al presente';
+      fwd.onclick = function () { scrub.value = PRESENT; render(PRESENT); };
+      actions.appendChild(back); actions.appendChild(fwd);
+    }
+  }
+
+  scrub.addEventListener('input', function () { render(+scrub.value); });
+  render(PRESENT);
+</script>
+</body>
+</html>

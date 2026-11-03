@@ -1,3 +1,4 @@
+import { t } from '@shared/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { FileText, Loader2, Search, X } from 'lucide-react'
@@ -121,6 +122,18 @@ export function SearchPanel({ focusNonce, disabled, onOpen, onClose, seed }: Sea
       </div>
 
       {error && <p className="modal-error">{error}</p>}
+
+      {!query.trim() && !disabled && (
+        <div className="search-hint">
+          <p>{t('También podés filtrar:')}</p>
+          <ul>
+            <li><code>estado:pendiente</code> {t('por propiedad')}</li>
+            <li><code>fecha:&gt;2026-01-01</code> {t('mayor, menor (>, <, >=, <=)')}</li>
+            <li><code>#trabajo</code> {t('por etiqueta')}</li>
+            <li><code>-estado:hecho</code> {t('excluir')}</li>
+          </ul>
+        </div>
+      )}
 
       {visible && (
         <div className="search-summary">

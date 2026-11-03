@@ -6,6 +6,7 @@ import { ATTACHMENTS_DIR, MAX_ATTACHMENT_BYTES, extOf, isAttachmentPath, isImage
 import { extractTags, tagMatches } from '@shared/obsidian'
 import { baseName, displayName, isNotePath, parseWikilinks, resolveLink, rewriteLinks, lineOf } from '@shared/links'
 import { foldQuery, searchText } from '@shared/search'
+import { matchesFilters, parseQuery, propertyLine } from '@shared/query'
 import { atomicWrite } from '../fs/atomic'
 import { sanitizeVaultName, SEED_BIENVENIDA } from '../fs/vaultName'
 
@@ -326,15 +327,24 @@ export class VaultService {
   async search(query: string, maxFiles = 200): Promise<SearchResult[]> {
     // `#tag` busca por etiqueta (como Obsidian), no como texto.
     if (/^#[^\s#]+$/.test(query.trim())) return this.searchTag(query.trim(), maxFiles)
-    const q = foldQuery(query)
-    if (!q) return []
+    // Filtros (`estado:pendiente`, `-#archivo`, `fecha:>2026-01-01`) + texto libre.
+    const { text: freeText, filters } = parseQuery(query)
+    const q = foldQuery(freeText)
+    if (!q && filters.length === 0) return []
     const paths = await this.listFiles()
     const texts = await this.readAllNotes(paths)
     const results: SearchResult[] = []
+    const propKeys = filters.filter((f) => f.kind === 'prop' && !f.negate).map((f) => (f as { key: string }).key)
     for (const [path, text] of texts) {
-      const nameMatch = foldQuery(displayName(path)).includes(q)
-      const matches = searchText(text, q)
-      if (nameMatch || matches.length > 0) results.push({ path, nameMatch, matches })
+      if (!matchesFilters(text, filters)) continue
+      if (q) {
+        const nameMatch = foldQuery(displayName(path)).includes(q)
+        const matches = searchText(text, q)
+        if (nameMatch || matches.length > 0) results.push({ path, nameMatch, matches })
+        continue
+      }
+      // Sólo filtros: se muestran las líneas de las propiedades que coincidieron.
+      results.push({ path, nameMatch: false, matches: propertyMatches(text, propKeys) })
     }
     results.sort(
       (a, b) =>
@@ -400,6 +410,30 @@ export class VaultService {
    * Configuración de Obsidian relevante (de `.obsidian/app.json`), si la carpeta
    * es una bóveda de Obsidian: dónde guardar adjuntos y qué estilo de enlace usar.
    */
+  /**
+   * Favoritas de la bóveda. Viven en `.geode/marcadores.json`: dentro de la
+   * carpeta (se mudan con ella) pero fuera del historial, como el resto de `.geode`.
+   */
+  async getBookmarks(): Promise<string[]> {
+    if (!this.root) return []
+    try {
+      const data = JSON.parse(await readFile(join(this.root, '.geode', 'marcadores.json'), 'utf8')) as unknown
+      return Array.isArray(data) ? data.filter((p): p is string => typeof p === 'string') : []
+    } catch {
+      return []
+    }
+  }
+
+  async setBookmarks(paths: unknown): Promise<void> {
+    if (!this.root) throw new Error('No hay vault abierto')
+    if (!Array.isArray(paths) || !paths.every((p) => typeof p === 'string')) throw new Error('Lista de marcadores inválida')
+    // Sólo rutas dentro de la bóveda (resolveInside lanza si alguna sale).
+    for (const p of paths) this.resolveInside(p)
+    const unique = [...new Set(paths as string[])].slice(0, 500)
+    await mkdir(join(this.root, '.geode'), { recursive: true })
+    await atomicWrite(join(this.root, '.geode', 'marcadores.json'), JSON.stringify(unique, null, 2))
+  }
+
   async obsidianConfig(): Promise<{ isObsidian: boolean; attachmentFolder: string | null; useWikilinks: boolean }> {
     if (!this.root) return { isObsidian: false, attachmentFolder: null, useWikilinks: false }
     let isObsidian = false
@@ -546,4 +580,18 @@ export class VaultService {
       return false
     }
   }
+}
+
+/** Coincidencias "sintéticas" en las líneas de las propiedades `keys` (búsqueda sólo por filtros). */
+function propertyMatches(text: string, keys: string[]): SearchResult['matches'] {
+  const lines = text.split('\n')
+  const out: SearchResult['matches'] = []
+  for (const key of new Set(keys)) {
+    const ln = propertyLine(text, key)
+    if (ln < 0) continue
+    const line = lines[ln].replace(/\r$/, '')
+    const len = line.indexOf(':') + 1
+    out.push({ line: ln, col: 0, length: len, before: '', text: line.slice(0, len), after: line.slice(len, len + 80) })
+  }
+  return out
 }

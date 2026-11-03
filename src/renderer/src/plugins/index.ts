@@ -7,6 +7,7 @@ import { outlinePlugin } from './builtin/outline'
 import { dailyNotesPlugin } from './builtin/dailyNotes'
 import { templatesPlugin } from './builtin/templates'
 import { mermaidPlugin } from './builtin/mermaid'
+import { mathPlugin } from './builtin/math'
 
 export { PluginHost } from './host'
 export { GeodeProvider, useGeode, usePluginRegistry, usePluginHost } from './react'
@@ -26,7 +27,8 @@ export const BUILTIN_PLUGINS: GeodePlugin[] = [
   outlinePlugin,
   dailyNotesPlugin,
   templatesPlugin,
-  mermaidPlugin
+  mermaidPlugin,
+  mathPlugin
 ]
 
 /**

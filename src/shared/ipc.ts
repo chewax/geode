@@ -42,7 +42,10 @@ export const IPC = {
   vaultUpdateLinks: 'geode:vault-update-links',
   vaultSaveAttachment: 'geode:vault-save-attachment',
   vaultTags: 'geode:vault-tags',
+  vaultBookmarksGet: 'geode:vault-bookmarks-get',
+  vaultBookmarksSet: 'geode:vault-bookmarks-set',
   vaultObsidianConfig: 'geode:vault-obsidian-config',
+  vaultExportPdf: 'geode:vault-export-pdf',
   vaultOpenExternal: 'geode:vault-open-external',
   gitCommit: 'geode:git-commit',
   gitGraph: 'geode:git-graph',
@@ -100,7 +103,9 @@ export const IPC = {
   backupOnboardingSet: 'geode:backup-onboarding-set',
   backupOpenSignup: 'geode:backup-open-signup',
   tourGet: 'geode:tour-get',
-  tourSet: 'geode:tour-set'
+  tourSet: 'geode:tour-set',
+  i18nGet: 'geode:i18n-get',
+  i18nSet: 'geode:i18n-set'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -254,8 +259,18 @@ export interface VaultApi {
   tags(): Promise<{ tag: string; count: number }[]>
   /** Configuración de Obsidian de la bóveda abierta (si lo es). */
   obsidianConfig(): Promise<ObsidianConfig>
+  /** Notas marcadas como favoritas en esta bóveda (rutas relativas, en orden). */
+  getBookmarks(): Promise<string[]>
+  /** Reemplaza la lista de favoritas de esta bóveda. */
+  setBookmarks(paths: string[]): Promise<void>
   /** Abre un archivo de la bóveda con la aplicación del sistema (PDF, audio…). */
   openExternal(path: string): Promise<void>
+  /**
+   * Exporta a PDF lo que la ventana muestra al imprimir (la vista de impresión
+   * que arma el renderer). Pregunta dónde guardar; devuelve la ruta elegida o
+   * null si se canceló.
+   */
+  exportPdf(suggestedName: string): Promise<string | null>
 }
 
 // ── Git (versionado, Capa 2) ───────────────────────────────────────────────
@@ -464,6 +479,21 @@ export interface TourApi {
   set(state: TourState): Promise<TourSnapshot>
 }
 
+// ── Idioma ───────────────────────────────────────────────────────────────────
+
+/** Preferencia de idioma guardada y el idioma efectivo que resulta. */
+export interface LanguageInfo {
+  pref: import('./i18n').LocalePref
+  locale: import('./i18n').Locale
+}
+
+export interface I18nApi {
+  /** Idioma actual (lo lee el renderer antes de dibujar la app). */
+  get(): Promise<LanguageInfo>
+  /** Cambia el idioma. El renderer recarga la ventana para aplicarlo. */
+  set(pref: import('./i18n').LocalePref): Promise<LanguageInfo>
+}
+
 // ── IA (mensajes de commit) ─────────────────────────────────────────────────
 
 export interface AiModel {
@@ -661,6 +691,7 @@ export interface GeodeApi {
   github: GithubApi
   backup: BackupApi
   tour: TourApi
+  i18n: I18nApi
   snapshots: SnapshotsApi
   advanced: AdvancedApi
   plugins: PluginsApi

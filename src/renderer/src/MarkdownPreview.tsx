@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { JSX, MouseEvent } from 'react'
-import { Marked, type TokenizerAndRendererExtension } from 'marked'
+import { Marked, type Token, type TokenizerAndRendererExtension } from 'marked'
+import markedFootnote from 'marked-footnote'
 import DOMPurify from 'dompurify'
 import { displayName, isNotePath, resolveLink } from '@shared/links'
 import { extOf, isImagePath, resolveRelativeSrc, vaultFileUrl } from '@shared/attachments'
@@ -8,6 +9,7 @@ import { isColorLike, readProperties, splitFrontmatter, stripComments, type Prop
 import { usePluginHost } from './plugins'
 import type { PluginHost } from './plugins'
 import { useTheme } from './theme'
+import { t } from '@shared/i18n'
 
 /** Escapa texto para meterlo en HTML/atributos. */
 function esc(s: string): string {
@@ -89,8 +91,71 @@ const tag: TokenizerAndRendererExtension = {
   }
 }
 
-const md = new Marked({ gfm: true, breaks: true })
-md.use({ extensions: [wikilink, highlight, tag] })
+/**
+ * Fórmulas: `$$…$$` en su propia línea (bloque), `$$…$$` dentro de un párrafo
+ * (centrada) y `$…$` en línea. Acá sólo se marcan; las dibuja el plugin que
+ * registre los lenguajes `math` / `math-inline` (KaTeX, integrado). Sin plugin
+ * se ven como el texto original.
+ *
+ * Regla del `$` en línea (como Obsidian/Pandoc): sin espacio después del `$` de
+ * apertura ni antes del de cierre, y el cierre no seguido de un dígito. Así
+ * "cuesta $5 y $10" sigue siendo texto.
+ */
+const mathBlock: TokenizerAndRendererExtension = {
+  name: 'mathBlock',
+  level: 'block',
+  start(src: string) {
+    const m = /^ {0,3}\$\$/m.exec(src)
+    return m ? m.index : undefined
+  },
+  tokenizer(src: string) {
+    const m = /^ {0,3}\$\$([\s\S]+?)\$\$[ \t]*(?:\n+|$)/.exec(src)
+    if (!m) return undefined
+    return { type: 'mathBlock', raw: m[0], text: m[1].trim() }
+  },
+  renderer(token) {
+    return `<pre><code class="language-math">${esc(String(token.text))}</code></pre>\n`
+  }
+}
+
+const mathInline: TokenizerAndRendererExtension = {
+  name: 'mathInline',
+  level: 'inline',
+  start(src: string) {
+    const i = src.indexOf('$')
+    return i < 0 ? undefined : i
+  },
+  tokenizer(src: string) {
+    const display = /^\$\$([^$]+?)\$\$/.exec(src)
+    if (display) return { type: 'mathInline', raw: display[0], text: display[1].trim(), display: true }
+    const m = /^\$(?!\$)(?=\S)([^$\n]*?\S)\$(?!\d)/.exec(src)
+    if (!m) return undefined
+    return { type: 'mathInline', raw: m[0], text: m[1], display: false }
+  },
+  renderer(token) {
+    const cls = token.display ? 'math-display' : 'math-inline'
+    return `<code class="${cls}">${esc(String(token.text))}</code>`
+  }
+}
+
+/**
+ * Instancia de marked. Se arma la primera vez que se usa (no al importar el
+ * módulo) para que los textos de las notas al pie salgan en el idioma elegido,
+ * que se fija antes de dibujar la app.
+ */
+let mdInstance: Marked | null = null
+/** Si no es null, cada token que marked recorre al parsear se anota acá (ver collectBlocks). */
+let tokenSink: Token[] | null = null
+function md(): Marked {
+  if (mdInstance) return mdInstance
+  const m = new Marked({ gfm: true, breaks: true })
+  m.use({ extensions: [wikilink, highlight, tag, mathBlock, mathInline] })
+  m.use({ walkTokens: (tok) => void tokenSink?.push(tok) })
+  // Notas al pie: `texto[^1]` y `[^1]: la nota` al final (como Obsidian).
+  m.use(markedFootnote({ description: t('Notas al pie'), backRefLabel: t('Volver a la referencia {0}') }))
+  mdInstance = m
+  return m
+}
 
 /** Tipos de callout de Obsidian → clase de color (los alias comparten estilo). */
 const CALLOUT_KIND: Record<string, string> = {
@@ -170,11 +235,15 @@ function sectionOf(text: string, heading: string): string {
   return lines.slice(start, end).join('\n')
 }
 
+/** Cuerpo que se dibuja: sin frontmatter ni comentarios `%%…%%`. */
+function previewBody(source: string): string {
+  const fm = splitFrontmatter(source)
+  return stripComments(fm ? source.slice(fm.end) : source)
+}
+
 /** Markdown (sin frontmatter ni comentarios) → HTML saneado. */
 function toHtml(source: string): string {
-  const fm = splitFrontmatter(source)
-  const body = stripComments(fm ? source.slice(fm.end) : source)
-  return DOMPurify.sanitize(md.parse(body, { async: false }) as string)
+  return DOMPurify.sanitize(md().parse(previewBody(source), { async: false }) as string)
 }
 
 export interface MarkdownPreviewProps {
@@ -403,6 +472,13 @@ export function MarkdownPreview({
       window.open(href, '_blank')
       return
     }
+    // Anclas internas (notas al pie): scroll dentro de esta vista previa.
+    if (href.startsWith('#') && href.length > 1) {
+      const id = decodeURIComponent(href.slice(1))
+      const target = Array.from(e.currentTarget.querySelectorAll('[id]')).find((el) => el.id === id)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     // Enlace Markdown estándar a otra nota: `[texto](Otra%20nota.md)`.
     if (notePath && href && !href.startsWith('#')) {
       const rel = resolveRelativeSrc(notePath, href)
@@ -422,17 +498,36 @@ export function MarkdownPreview({
 const noopSubscribe = (): (() => void) => () => {}
 const zero = (): number => 0
 
-/** Bloques ```lang del texto que tienen renderizador registrado por un plugin. */
+/**
+ * Bloques con renderizador de plugin: ```lang, `$$…$$` (lenguaje `math`) y
+ * `$…$` (`math-inline`). Usa el mismo lexer que la vista previa, así lo que se
+ * pide dibujar coincide exactamente con lo que aparece en la página.
+ */
 function collectBlocks(source: string, host: PluginHost): { lang: string; source: string; key: string }[] {
   const out: { lang: string; source: string; key: string }[] = []
-  const re = /^(```|~~~)[ \t]*([\w-]+)[^\n]*\n([\s\S]*?)^\1[ \t]*$/gm
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const lang = m[2].toLowerCase()
-    if (!host.codeBlockRenderer(lang)) continue
-    const text = m[3].replace(/\n$/, '')
-    out.push({ lang, source: text, key: `${lang}\n${text}` })
+  const seen = new Set<string>()
+  const add = (lang: string, text: string): void => {
+    if (!host.codeBlockRenderer(lang)) return
+    const key = `${lang}\n${text}`
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push({ lang, source: text, key })
   }
+  // Se recorre con el MISMO parse que dibuja (incluye notas al pie): llamar al
+  // lexer por separado rompe la extensión de notas al pie, que guarda estado.
+  const tokens: Token[] = []
+  tokenSink = tokens
+  try {
+    md().parse(previewBody(source), { async: false })
+  } finally {
+    tokenSink = null
+  }
+  tokens.forEach((tok) => {
+    const t = tok as Token & { lang?: string; text?: string; display?: boolean }
+    if (t.type === 'code' && t.lang) add(t.lang.split(/\s/)[0].toLowerCase(), String(t.text ?? '').replace(/\n$/, ''))
+    else if (t.type === 'mathBlock') add('math', String(t.text ?? ''))
+    else if (t.type === 'mathInline') add(t.display ? 'math' : 'math-inline', String(t.text ?? ''))
+  })
   return out
 }
 
@@ -454,7 +549,16 @@ function replaceCodeBlocks(
   host: PluginHost | null,
   rendered: Record<string, { html?: string; error?: string }>
 ): void {
-  if (!host) return
+  const asText = (code: Element): string => {
+    const text = code.textContent ?? ''
+    return code.classList.contains('math-display') ? `$$${text}$$` : `$${text}$`
+  }
+  if (!host) {
+    root.querySelectorAll('code.math-inline, code.math-display').forEach((code) => {
+      code.replaceWith(code.ownerDocument.createTextNode(asText(code)))
+    })
+    return
+  }
   root.querySelectorAll('pre > code[class*="language-"]').forEach((code) => {
     const lang = /language-([\w-]+)/.exec(code.className)?.[1]?.toLowerCase()
     if (!lang || !host.codeBlockRenderer(lang)) return
@@ -472,6 +576,28 @@ function replaceCodeBlocks(
       box.textContent = 'Dibujando…'
     }
     code.parentElement?.replaceWith(box)
+  })
+  // Fórmulas dentro del texto: se dibujan en línea; sin plugin, vuelven a ser texto.
+  root.querySelectorAll('code.math-inline, code.math-display').forEach((code) => {
+    const display = code.classList.contains('math-display')
+    const lang = display ? 'math' : 'math-inline'
+    const doc = code.ownerDocument
+    if (!host.codeBlockRenderer(lang)) {
+      code.replaceWith(doc.createTextNode(asText(code)))
+      return
+    }
+    const state = rendered[`${lang}\n${code.textContent ?? ''}`]
+    const span = doc.createElement('span')
+    span.className = display ? 'math-display' : 'math-inline'
+    if (state?.html !== undefined) span.innerHTML = state.html
+    else {
+      if (state?.error !== undefined) {
+        span.classList.add('plugin-block-error')
+        span.title = state.error
+      }
+      span.textContent = asText(code)
+    }
+    code.replaceWith(span)
   })
 }
 

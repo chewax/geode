@@ -26,6 +26,9 @@ import {
   NotebookPen,
   FolderCog,
   Search,
+  Star,
+  StarOff,
+  FileDown,
   X
 } from 'lucide-react'
 // Logo de la app: geoda low poly (fuente única en resources/logo.svg).
@@ -86,6 +89,10 @@ import { AiPromptModal } from './AiPromptModal'
 import { SearchPanel } from './SearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
 import { TagsPanel } from './TagsPanel'
+import { NoteSwitcher } from './NoteSwitcher'
+import { BookmarksPanel } from './BookmarksPanel'
+import { PrintView } from './PrintView'
+import { t } from '@shared/i18n'
 import { startRecording, type Recording } from './dictation/recorder'
 import { DAILY_DIR } from './plugins/builtin/dailyNotes'
 import { TEMPLATES_DIR, applyTemplate, localDate, localTime } from './plugins/builtin/templating'
@@ -220,6 +227,14 @@ export function App(): JSX.Element {
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null)
   const [aiUsageErr, setAiUsageErr] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  /** Ctrl+O: abrir nota por nombre. */
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  /** Notas favoritas de la bóveda (persisten en .geode/marcadores.json). */
+  const [bookmarks, setBookmarks] = useState<string[]>([])
+  /** Notas abiertas hace poco (por dispositivo y bóveda), la más reciente primero. */
+  const [recent, setRecent] = useState<string[]>([])
+  /** Nota que se está exportando a PDF (se dibuja en la vista de impresión). */
+  const [printing, setPrinting] = useState<{ path: string; content: string } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   /** Resaltado de la zona de drop raíz (soltar sobre el área vacía del árbol). */
   const [rootDragOver, setRootDragOver] = useState(false)
@@ -498,6 +513,88 @@ export function App(): JSX.Element {
     window.geode.vault.obsidianConfig().then(setObsidianCfg).catch(() => setObsidianCfg(null))
   }, [vault?.root])
 
+  // Favoritas y recientes de la bóveda abierta.
+  const recentKey = vault ? `geode.recent.${vault.root}` : null
+  useEffect(() => {
+    setBookmarks([])
+    if (!vault) {
+      setRecent([])
+      return
+    }
+    window.geode.vault.getBookmarks().then(setBookmarks).catch(() => setBookmarks([]))
+    try {
+      const raw = recentKey ? JSON.parse(localStorage.getItem(recentKey) ?? '[]') : []
+      setRecent(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [])
+    } catch {
+      setRecent([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vault?.root])
+
+  // Cada nota que se abre pasa al frente de las recientes (sólo en el presente).
+  useEffect(() => {
+    if (!openPath || !isNotePath(openPath) || previewOid != null || !recentKey) return
+    setRecent((prev) => {
+      if (prev[0] === openPath) return prev
+      const next = [openPath, ...prev.filter((p) => p !== openPath)].slice(0, 30)
+      try {
+        localStorage.setItem(recentKey, JSON.stringify(next))
+      } catch {
+        // Sin almacenamiento: las recientes sólo duran esta sesión.
+      }
+      return next
+    })
+  }, [openPath, previewOid, recentKey])
+
+  const saveBookmarks = useCallback((next: string[]) => {
+    setBookmarks(next)
+    window.geode.vault.setBookmarks(next).catch((e) => {
+      setToast(e instanceof Error ? e.message : t('No se pudieron guardar las favoritas'))
+    })
+  }, [])
+
+  /** Exportar a PDF: dibuja la nota en la vista de impresión y, cuando está lista, imprime. */
+  const exportPdf = useCallback(async (path: string) => {
+    if (previewOid != null) {
+      setToast(t('Volvé al presente para exportar.'))
+      return
+    }
+    await flushAll()
+    try {
+      const content = await window.geode.vault.readNote(path)
+      setPrinting({ path, content })
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t('No se pudo leer la nota'))
+    }
+  }, [previewOid, flushAll])
+
+  const printingRef = useRef(printing)
+  printingRef.current = printing
+  const finishPdf = useCallback(async () => {
+    const job = printingRef.current
+    if (!job) return
+    try {
+      const saved = await window.geode.vault.exportPdf(displayName(job.path))
+      if (saved) setToast(t('PDF guardado en {path}', { path: saved }))
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t('No se pudo exportar a PDF'))
+    } finally {
+      setPrinting(null)
+    }
+  }, [])
+
+  const toggleBookmark = useCallback((path: string) => {
+    setBookmarks((prev) => {
+      const has = prev.includes(path)
+      const next = has ? prev.filter((p) => p !== path) : [...prev, path]
+      window.geode.vault.setBookmarks(next).catch((e) => {
+        setToast(e instanceof Error ? e.message : t('No se pudieron guardar las favoritas'))
+      })
+      setToast(has ? t('«{name}» ya no está en favoritas.', { name: displayName(path) }) : t('«{name}» agregada a favoritas.', { name: displayName(path) }))
+      return next
+    })
+  }, [])
+
   // Al abrir una bóveda (o conectar su respaldo): traer de inmediato.
   useEffect(() => {
     if (vault && githubCfg?.remote) void backgroundSync(true)
@@ -577,6 +674,14 @@ export function App(): JSX.Element {
    * desde la línea de tiempo). Si tocó notas, recarga los editores abiertos.
    */
   const updateLinksAfterMove = useCallback(async (from: string, to: string) => {
+    // Las favoritas siguen a la nota (o a todo lo de la carpeta) que se movió.
+    setBookmarks((prev) => {
+      const remap = (p: string): string => (p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : p)
+      if (!prev.some((p) => remap(p) !== p)) return prev
+      const next = prev.map(remap)
+      void window.geode.vault.setBookmarks(next).catch(() => {})
+      return next
+    })
     try {
       const n = await window.geode.vault.updateLinks(from, to)
       // Recalcular los enlaces entrantes recién AHORA: si se pidieron al cambiar
@@ -1486,6 +1591,14 @@ export function App(): JSX.Element {
       await openNoteAt(path)
     },
     toggleGraph,
+    quickOpen: () => setSwitcherOpen(true),
+    toggleBookmark: () => {
+      if (openPath && isNotePath(openPath)) toggleBookmark(openPath)
+    },
+    exportPdf: () => {
+      if (openPath && isNotePath(openPath)) void exportPdf(openPath)
+    },
+    hasOpenNote: !!openPath && isNotePath(openPath),
     splitRight: () => splitPane(activePaneIdRef.current, 'row'),
     splitDown: () => splitPane(activePaneIdRef.current, 'col'),
     createBranch: () => { if (graph?.head.oid) setBranchFrom(graph.head.oid) },
@@ -1571,6 +1684,9 @@ export function App(): JSX.Element {
       host.registerCommand({ id: 'core.saveVersion', title: 'Guardar versión', category: 'Núcleo', shortcut: 'Ctrl+S', run: () => api().saveVersion() }),
       host.registerCommand({ id: 'core.newNote', title: 'Nueva nota', category: 'Núcleo', run: () => api().newNote() }),
       host.registerCommand({ id: 'core.newFolder', title: 'Nueva carpeta', category: 'Núcleo', run: () => api().newFolder() }),
+      host.registerCommand({ id: 'core.quickOpen', title: t('Abrir nota por nombre'), category: t('Núcleo'), shortcut: 'Ctrl+O', run: () => api().quickOpen() }),
+      host.registerCommand({ id: 'core.toggleBookmark', title: t('Agregar o quitar de favoritas'), category: t('Núcleo'), run: () => api().toggleBookmark(), isEnabled: () => api().hasOpenNote }),
+      host.registerCommand({ id: 'core.exportPdf', title: t('Exportar nota a PDF'), category: t('Núcleo'), run: () => api().exportPdf(), isEnabled: () => api().hasOpenNote }),
       host.registerCommand({ id: 'core.search', title: 'Buscar en todas las notas', category: 'Núcleo', shortcut: 'Ctrl+Shift+F', run: () => api().openSearch() }),
       host.registerCommand({ id: 'core.dictate', title: 'Dictar (empezar / terminar)', category: 'Núcleo', shortcut: 'Ctrl+Alt+Espacio', run: () => api().toggleDictation() }),
       host.registerCommand({ id: 'core.togglePreview', title: 'Alternar vista previa', category: 'Vista', run: () => api().togglePreview(), isEnabled: () => api().hasOpenPath }),
@@ -1619,6 +1735,9 @@ export function App(): JSX.Element {
       } else if (mod && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setPaletteOpen(true)
+      } else if (mod && !e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        setSwitcherOpen(true)
       } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
         e.preventDefault()
         void splitPane(activePaneIdRef.current, 'row')
@@ -1928,6 +2047,18 @@ export function App(): JSX.Element {
               </div>
             )}
           </SidebarSection>
+
+          {bookmarks.length > 0 && (
+            <SidebarSection id="favoritas" title={t('FAVORITAS')}>
+              <BookmarksPanel
+                paths={bookmarks.filter((p) => allFiles.includes(p))}
+                openPath={openPath}
+                disabled={previewOid != null}
+                onOpen={(p) => void openNoteAt(p)}
+                onRemove={(p) => saveBookmarks(bookmarks.filter((b) => b !== p))}
+              />
+            </SidebarSection>
+          )}
 
           <SidebarSection id="enlaces" title="ENLACES ENTRANTES">
             <BacklinksPanel
@@ -2294,6 +2425,17 @@ export function App(): JSX.Element {
                     <li onClick={() => { setMenu(null); void duplicateNode(n) }}>
                       <Copy size={14} /> Duplicar
                     </li>
+                    {!n.isDir && isNotePath(n.path) && (
+                      <>
+                        <li onClick={() => { setMenu(null); toggleBookmark(n.path) }}>
+                          {bookmarks.includes(n.path) ? <StarOff size={14} /> : <Star size={14} />}{' '}
+                          {bookmarks.includes(n.path) ? t('Quitar de favoritas') : t('Agregar a favoritas')}
+                        </li>
+                        <li onClick={() => { setMenu(null); void exportPdf(n.path) }}>
+                          <FileDown size={14} /> {t('Exportar a PDF')}
+                        </li>
+                      </>
+                    )}
                     <li className="ctx-sep" />
                     <li onClick={() => { setRenameError(null); setRenameSeed(null); setEditingPath(n.path); setMenu(null) }}>
                       <Pencil size={14} /> Renombrar
@@ -2310,6 +2452,25 @@ export function App(): JSX.Element {
       )}
 
       {paletteOpen && <CommandPalette host={host} onClose={() => setPaletteOpen(false)} />}
+      {switcherOpen && (
+        <NoteSwitcher
+          files={allFiles}
+          recent={recent}
+          bookmarks={bookmarks}
+          onOpen={(p) => void openNoteAt(p)}
+          onCreate={(name) => void openLink(name, openPathRef.current ?? '')}
+          onClose={() => setSwitcherOpen(false)}
+        />
+      )}
+      {printing && (
+        <PrintView
+          path={printing.path}
+          content={printing.content}
+          files={allFiles}
+          loadNote={(p) => window.geode.vault.readNote(p)}
+          onReady={() => void finishPdf()}
+        />
+      )}
       <QuickPick host={host} />
       {/* Recorrido guiado: se monta por portal a document.body, así que el sitio
           de montaje solo importa para el ciclo de vida de React. */}

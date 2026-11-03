@@ -1,4 +1,5 @@
 import type { GitCommitNode, GitTagRef } from '@shared/ipc'
+import { t } from '@shared/i18n'
 
 /**
  * Helpers puros para etiquetar entradas de la timeline en lenguaje humano.
@@ -27,15 +28,15 @@ export function entryLabel(c: GitCommitNode, tags: GitTagRef[], now = Date.now()
  */
 export function relativeDate(ts: number, now = Date.now()): string {
   const s = Math.max(0, Math.round((now - ts) / 1000))
-  if (s < 60) return 'ahora mismo'
+  if (s < 60) return t('ahora mismo')
   const m = Math.round(s / 60)
-  if (m < 60) return `hace ${m} ${m === 1 ? 'minuto' : 'minutos'}`
+  if (m < 60) return m === 1 ? t('hace {n} minuto', { n: m }) : t('hace {n} minutos', { n: m })
   const h = Math.round(m / 60)
-  if (h < 24) return `hace ${h} ${h === 1 ? 'hora' : 'horas'}`
+  if (h < 24) return h === 1 ? t('hace {n} hora', { n: h }) : t('hace {n} horas', { n: h })
   const d = Math.round(h / 24)
-  if (d < 7) return `hace ${d} ${d === 1 ? 'día' : 'días'}`
+  if (d < 7) return d === 1 ? t('hace {n} día', { n: d }) : t('hace {n} días', { n: d })
   const w = Math.round(d / 7)
-  return `hace ${w} ${w === 1 ? 'semana' : 'semanas'}`
+  return w === 1 ? t('hace {n} semana', { n: w }) : t('hace {n} semanas', { n: w })
 }
 
 /**

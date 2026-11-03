@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, nativeImage, protocol } from 'electron'
+import { app, dialog, shell, BrowserWindow, ipcMain, Menu, nativeImage, protocol } from 'electron'
 import { join, basename } from 'path'
 import { existsSync } from 'node:fs'
-import { stat } from 'node:fs/promises'
+import { stat, writeFile } from 'node:fs/promises'
+import { getLocale, resolveLocale, setLocale, t, type LocalePref } from '@shared/i18n'
 import iconPng from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
 import {
@@ -16,6 +17,7 @@ import {
   type BackupOnboarding,
   type BackupOnboardingState,
   type TourSnapshot,
+  type LanguageInfo,
   type TourState
 } from '@shared/ipc'
 
@@ -724,6 +726,32 @@ function registerIpcHandlers(): void {
   )
   ipcMain.handle(IPC.vaultTags, () => vault.tags())
   ipcMain.handle(IPC.vaultObsidianConfig, () => vault.obsidianConfig())
+  ipcMain.handle(IPC.vaultBookmarksGet, () => vault.getBookmarks())
+  ipcMain.handle(IPC.vaultBookmarksSet, (_e, paths: unknown) => vault.setBookmarks(paths))
+  // Exportar a PDF: imprime la vista de impresión de la ventana que lo pide.
+  ipcMain.handle(IPC.vaultExportPdf, async (e, suggestedName: unknown): Promise<string | null> => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (!win) return null
+    const base = String(suggestedName ?? 'nota').replace(/[\\/:*?"<>|]/g, '').trim() || 'nota'
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: t('Exportar a PDF'),
+      defaultPath: join(app.getPath('documents'), `${base}.pdf`),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    })
+    if (canceled || !filePath) return null
+    // Chromium pinta los márgenes con el color de fondo de la ventana (oscuro):
+    // se pasa a blanco sólo mientras se imprime.
+    const bg = win.getBackgroundColor()
+    win.setBackgroundColor('#ffffff')
+    let pdf: Buffer
+    try {
+      pdf = await e.sender.printToPDF({ printBackground: true, pageSize: 'A4', margins: { top: 0.7, bottom: 0.7, left: 0.7, right: 0.7 } })
+    } finally {
+      win.setBackgroundColor(bg)
+    }
+    await writeFile(filePath, pdf)
+    return filePath
+  })
   // Ruta validada con resolveInside (absPath): nunca una ruta cruda al shell.
   ipcMain.handle(IPC.vaultOpenExternal, async (_e, path: string) => {
     const err = await shell.openPath(vault.absPath(path))
@@ -1209,6 +1237,21 @@ function registerIpcHandlers(): void {
     }
   )
 
+  ipcMain.handle(IPC.i18nGet, async (): Promise<LanguageInfo> => {
+    const { language } = await loadSettings()
+    return { pref: language ?? 'system', locale: getLocale() }
+  })
+  ipcMain.handle(IPC.i18nSet, async (_e, pref: unknown): Promise<LanguageInfo> => {
+    const valid: LocalePref[] = ['system', 'es', 'en']
+    const next = valid.includes(pref as LocalePref) ? (pref as LocalePref) : 'system'
+    const settings = await loadSettings()
+    if (next === 'system') delete settings.language
+    else settings.language = next
+    await saveSettings(settings)
+    setLocale(resolveLocale(next, app.getLocale()))
+    return { pref: next, locale: getLocale() }
+  })
+
   ipcMain.handle(
     IPC.tourGet,
     async (): Promise<TourSnapshot> => ({ state: await getTourState() })
@@ -1257,6 +1300,9 @@ app.whenReady().then(async () => {
   // secuestran las teclas antes de que lleguen al editor y rompen el redo.
   // El copiar/pegar sigue funcionando (lo maneja Chromium dentro del editor).
   Menu.setApplicationMenu(null)
+
+  // Idioma de la interfaz (también lo usan los mensajes y diálogos del main).
+  setLocale(resolveLocale((await loadSettings()).language, app.getLocale()))
 
   registerIpcHandlers()
   registerVaultProtocol()

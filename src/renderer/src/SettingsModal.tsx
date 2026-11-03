@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic } from 'lucide-react'
+import { Check, RefreshCw, Cloud, Sparkles, Puzzle, FolderOpen, AlertTriangle, Clock, SlidersHorizontal, Monitor, Sun, Moon, Mic, Languages } from 'lucide-react'
 import type {
   AiConfig,
   AiModel,
@@ -10,6 +10,7 @@ import type {
 } from '@shared/ipc'
 import { BUILTIN_PLUGINS } from './plugins'
 import { getThemePref, setThemePref, type ThemePref } from './theme'
+import { LOCALES, getLocale, t, type LocalePref } from '@shared/i18n'
 import { PREF_FORMAT_TOOLBAR, useBoolPref } from './prefs'
 
 interface SettingsModalProps {
@@ -34,6 +35,18 @@ function perMillion(perToken: string | null): string {
 export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): JSX.Element {
   const [section, setSection] = useState<Section>('ai')
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref)
+  const [langPref, setLangPref] = useState<LocalePref>('system')
+  useEffect(() => {
+    window.geode.i18n.get().then((l) => setLangPref(l.pref)).catch(() => {})
+  }, [])
+  /** Cambia el idioma y recarga la ventana (todo el texto se arma al dibujar). */
+  const changeLanguage = async (pref: LocalePref): Promise<void> => {
+    if (pref === langPref) return
+    const before = getLocale()
+    const info = await window.geode.i18n.set(pref)
+    setLangPref(info.pref)
+    if (info.locale !== before) window.location.reload()
+  }
   const [formatToolbar, setFormatToolbar] = useBoolPref(PREF_FORMAT_TOOLBAR, true)
   /** Atajo global del dictado (null si no se pudo registrar). */
   const [dictationShortcut, setDictationShortcut] = useState<string | null>(null)
@@ -251,6 +264,21 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
                       }}
                     >
                       <Icon size={14} /> {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="field-label">{t('Idioma')}</div>
+                <div className="theme-choices" role="radiogroup" aria-label={t('Idioma')}>
+                  {([['system', t('Como el sistema')], ...LOCALES.map((l) => [l.id, l.label])] as [LocalePref, string][]).map(([value, label]) => (
+                    <button
+                      key={value}
+                      role="radio"
+                      aria-checked={langPref === value}
+                      className={langPref === value ? 'active' : ''}
+                      onClick={() => void changeLanguage(value)}
+                    >
+                      <Languages size={14} /> {label}
                     </button>
                   ))}
                 </div>

@@ -77,7 +77,7 @@ import { VersionGraph } from './VersionGraph'
 import { Timeline } from './Timeline'
 import { TimeTravelBanner } from './TimeTravelBanner'
 import { entryLabel, relativeDate } from './time/labels'
-import { NewVaultDialog } from './NewVaultDialog'
+import { NewVaultDialog, type NewNotebookMode } from './NewVaultDialog'
 import { CommitDialog } from './CommitDialog'
 import { SettingsModal } from './SettingsModal'
 import { BackupCard } from './BackupCard'
@@ -139,7 +139,8 @@ export function App(): JSX.Element {
   const tour = useTour(!!vault)
   const { bindings: shortcutBindings } = useShortcuts()
   const [vaults, setVaults] = useState<VaultInfo[]>([])
-  const [newVaultOpen, setNewVaultOpen] = useState(false)
+  // Pestaña con la que se abre el diálogo de cuaderno nuevo (null = cerrado).
+  const [newVaultOpen, setNewVaultOpen] = useState<NewNotebookMode | null>(null)
   const [removeVaultTarget, setRemoveVaultTarget] = useState<VaultInfo | null>(null)
   // Bienvenida sin jerga: nombre del primer cuaderno (pre-rellenado y seleccionable).
   const [vaultName, setVaultName] = useState(() => t('Mi primer cuaderno'))
@@ -633,7 +634,7 @@ export function App(): JSX.Element {
           setToast(
             names
               ? t('{author} actualizó {names}.', { author: info.author, names })
-              : t('{author} actualizó la bóveda.', { author: info.author })
+              : t('{author} actualizó el cuaderno.', { author: info.author })
           )
         })()
       }),
@@ -1075,7 +1076,20 @@ export function App(): JSX.Element {
     }
   }, [vaultName, adoptVault, openNote, backupOnboarding, tour])
 
-  /** Cambia a una bóveda ya conocida (selector de bóveda). */
+  /**
+   * Entra a un cuaderno recién creado o traído: lo adopta como activo y, si tiene
+   * la nota de bienvenida sembrada, la abre — así queda claro que ya estás adentro
+   * del cuaderno nuevo (no un panel vacío que parece que no pasó nada).
+   */
+  const enterNewVault = useCallback(async (info: VaultInfo) => {
+    await adoptVault(info)
+    const top = await window.geode.vault.tree().catch(() => [])
+    if (top.some((n) => !n.isDir && n.path === 'Bienvenida.md')) {
+      await openNote('Bienvenida.md')
+    }
+  }, [adoptVault, openNote])
+
+  /** Cambia a un cuaderno ya conocido (selector de cuadernos). */
   const switchVault = useCallback(async (root: string) => {
     const info = await window.geode.vault.switch(root)
     if (!info) {
@@ -1121,7 +1135,7 @@ export function App(): JSX.Element {
         await refreshVaults()
       }
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : t('No se pudo quitar la bóveda'))
+      window.alert(e instanceof Error ? e.message : t('No se pudo quitar el cuaderno'))
     } finally {
       setRemoveVaultTarget(null)
     }
@@ -2109,7 +2123,7 @@ export function App(): JSX.Element {
               </div>
             ) : (
               <div className="tree-empty">
-                <p className="tree-empty-title">{t('Bóveda vacía')}</p>
+                <p className="tree-empty-title">{t('Cuaderno vacío')}</p>
                 <p>{t('Creá una nota o una carpeta con las acciones de la cabecera de esta sección.')}</p>
               </div>
             )}
@@ -2170,7 +2184,7 @@ export function App(): JSX.Element {
             vaults={vaults}
             onSwitch={(root) => void switchVault(root)}
             onManage={() => void openVault()}
-            onNew={() => setNewVaultOpen(true)}
+            onNew={(mode) => setNewVaultOpen(mode)}
             onRemove={(v) => setRemoveVaultTarget(v)}
           />
         </aside>
@@ -2378,11 +2392,12 @@ export function App(): JSX.Element {
       {newVaultOpen && (
         <NewVaultDialog
           githubConnected={!!githubCfg?.connected}
+          initialMode={newVaultOpen}
           onReady={(info) => {
-            setNewVaultOpen(false)
-            void adoptVault(info)
+            setNewVaultOpen(null)
+            void enterNewVault(info)
           }}
-          onClose={() => setNewVaultOpen(false)}
+          onClose={() => setNewVaultOpen(null)}
         />
       )}
 

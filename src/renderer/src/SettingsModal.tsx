@@ -760,7 +760,7 @@ export function SettingsModal({ onClose, onConfigChange }: SettingsModalProps): 
               <section className="settings-section">
                 <h2><Clock size={18} /> {t('Guardado automático')}</h2>
                 <p className="modal-sub">
-                  {t('La bóveda se guarda sola cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente, la IA puede ponerle un nombre a cada una de esas snapshots automáticas.')}
+                  {t('El cuaderno se guarda solo cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente, la IA puede ponerle un nombre a cada una de esas snapshots automáticas.')}
                 </p>
 
                 <label className="field-label">{t('Cadencia')}</label>

@@ -68,8 +68,8 @@ export const core: Record<string, string> = {
     'Put each plugin in its own folder inside the plugins folder, with a {file}. Changes to which plugins are on apply after restarting the app.',
   'No hay plugins instalados todavía.': 'No plugins installed yet.',
   'Abrí la paleta de comandos con {key} para ver lo que aportan.': 'Open the command palette with {key} to see what they add.',
-  'La bóveda se guarda sola cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente, la IA puede ponerle un nombre a cada una de esas snapshots automáticas.':
-    'Your vault saves itself every so often, and only when something changed. Optionally, AI can give each of those automatic snapshots a name.',
+  'El cuaderno se guarda solo cada cierto tiempo, y sólo cuando algo cambió. Opcionalmente, la IA puede ponerle un nombre a cada una de esas snapshots automáticas.':
+    'Your notebook saves itself every so often, and only when something changed. Optionally, AI can give each of those automatic snapshots a name.',
   Cadencia: 'Frequency',
   'Manual (sólo al guardar)': 'Manual (only when you save)',
   'Cada {n} minutos': 'Every {n} minutes',

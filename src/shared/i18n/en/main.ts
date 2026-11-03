@@ -1,24 +1,23 @@
 /** Traducciones al inglés: área "main" (ver index.ts). */
 export const main: Record<string, string> = {
   // ── Bóvedas / cuadernos ───────────────────────────────────────────────────
-  'No hay vault abierto': 'No notebook is open',
   'No hay cuaderno abierto': 'No notebook is open',
-  'Bóveda desconocida': 'Unknown notebook',
-  'No se pudo enviar la carpeta a la papelera: {motivo}. La bóveda sigue en la lista.':
+  'Cuaderno desconocido': 'Unknown notebook',
+  'No se pudo enviar la carpeta a la papelera: {motivo}. El cuaderno sigue en la lista.':
     "Couldn't move the folder to the trash: {motivo}. The notebook is still in the list.",
   'Elegí una carpeta VACÍA donde clonar el repo': 'Choose an EMPTY folder to clone the repo into',
   'La carpeta no está vacía. Elegí (o creá) una carpeta vacía para clonar.':
     'That folder isn’t empty. Choose (or create) an empty folder to clone into.',
-  'Elegí la carpeta para la bóveda nueva': 'Choose the folder for the new notebook',
+  'Elegí la carpeta para el cuaderno nuevo': 'Choose the folder for the new notebook',
   'Elegí dónde crear tu cuaderno': 'Choose where to create your notebook',
-  'Elegí una carpeta como vault': 'Choose a folder to use as a notebook',
+  'Elegí una carpeta para abrir como cuaderno': 'Choose a folder to use as a notebook',
   'No se pudo crear el cuaderno. Revisá que tengas permiso de escritura en la carpeta.':
     "Couldn't create the notebook. Check that you have permission to write to that folder.",
   'No se pudo abrir el archivo con la aplicación del sistema': "Couldn't open the file with the system app",
   nota: 'note',
   Cuaderno: 'Notebook',
   'No es una carpeta: {path}': 'Not a folder: {path}',
-  'Ruta fuera del vault: {path}': 'Path outside the notebook: {path}',
+  'Ruta fuera del cuaderno: {path}': 'Path outside the notebook: {path}',
   'Ya existe: {path}': 'Already exists: {path}',
   'Lista de marcadores inválida': 'Invalid bookmark list',
   'Solo se pueden adjuntar imágenes': 'Only images can be attached',

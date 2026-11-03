@@ -44,11 +44,11 @@ export function ConfirmRemoveVaultDialog({
         }}
       >
         <h2>
-          <FolderX size={18} /> {t('¿Quitar la bóveda "{name}" de la lista?', { name: vaultName })}
+          <FolderX size={18} /> {t('¿Quitar el cuaderno "{name}" de la lista?', { name: vaultName })}
         </h2>
         <p className="modal-sub">
           {t(
-            'Se saca del selector de bóvedas. Tus archivos y todo el historial quedan intactos en el disco.'
+            'Se saca del selector de cuadernos. Tus archivos y todo el historial quedan intactos en el disco.'
           )}
         </p>
         <label className="remove-vault-check">

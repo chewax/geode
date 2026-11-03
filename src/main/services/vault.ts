@@ -42,7 +42,7 @@ export class VaultService {
 
   async openDialog(): Promise<VaultInfo | null> {
     const res = await dialog.showOpenDialog({
-      title: t('Elegí una carpeta como vault'),
+      title: t('Elegí una carpeta para abrir como cuaderno'),
       properties: ['openDirectory', 'createDirectory']
     })
     if (res.canceled || res.filePaths.length === 0) return null
@@ -73,11 +73,11 @@ export class VaultService {
    * vault. Bloquea path traversal (`../`) — clave para no leer/escribir fuera.
    */
   private resolveInside(relPath: string): string {
-    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!this.root) throw new Error(t('No hay cuaderno abierto'))
     const abs = resolve(this.root, relPath)
     const rel = relative(this.root, abs)
     if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`)) {
-      throw new Error(t('Ruta fuera del vault: {path}', { path: relPath }))
+      throw new Error(t('Ruta fuera del cuaderno: {path}', { path: relPath }))
     }
     return abs
   }
@@ -126,7 +126,7 @@ export class VaultService {
 
   /** Crea una nota nueva con nombre libre en `relDir` ('' = raíz). */
   async createNote(relDir = ''): Promise<TreeNode> {
-    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!this.root) throw new Error(t('No hay cuaderno abierto'))
     const base = 'Nueva nota'
 
     let name = `${base}.md`
@@ -142,7 +142,7 @@ export class VaultService {
 
   /** Crea una carpeta con nombre libre en `relDir` ('' = raíz). */
   async createFolder(relDir = ''): Promise<TreeNode> {
-    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!this.root) throw new Error(t('No hay cuaderno abierto'))
     const base = 'Nueva carpeta'
 
     let name = base
@@ -207,6 +207,35 @@ export class VaultService {
     }
 
     return { root: dir }
+  }
+
+  /**
+   * Prepara un cuaderno nuevo en una carpeta ELEGIDA por el usuario. Si la carpeta
+   * está vacía (típico: la acaba de crear en el diálogo nativo), se usa TAL CUAL
+   * como cuaderno; si ya tiene contenido, se crea adentro una subcarpeta con el
+   * nombre del cuaderno (vía `createLocal`, que nunca pisa nada). En ambos casos
+   * siembra `Bienvenida.md`. `reused` indica si se usó la carpeta elegida, para
+   * que `discardNew` sepa qué limpiar si falla un paso posterior.
+   */
+  async createInPicked(name: string, picked: string): Promise<{ root: string; reused: boolean }> {
+    if (await this.isEmptyDir(picked)) {
+      await mkdir(picked, { recursive: true })
+      await atomicWrite(join(picked, 'Bienvenida.md'), seedBienvenida())
+      return { root: picked, reused: true }
+    }
+    const { root } = await this.createLocal(name, picked)
+    return { root, reused: false }
+  }
+
+  /**
+   * Limpia un cuaderno recién preparado cuando falla un paso posterior. Si la
+   * carpeta era la elegida por el usuario (`reused`), NO se borra la carpeta: solo
+   * lo que sembramos nosotros (la nota y el `.git`), y queda vacía como estaba.
+   */
+  async discardNew(root: string, reused: boolean): Promise<void> {
+    if (!reused) return this.discard(root)
+    await rm(join(root, 'Bienvenida.md'), { force: true })
+    await rm(join(root, '.git'), { recursive: true, force: true })
   }
 
   /**
@@ -426,7 +455,7 @@ export class VaultService {
   }
 
   async setBookmarks(paths: unknown): Promise<void> {
-    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!this.root) throw new Error(t('No hay cuaderno abierto'))
     if (!Array.isArray(paths) || !paths.every((p) => typeof p === 'string')) throw new Error(t('Lista de marcadores inválida'))
     // Sólo rutas dentro de la bóveda (resolveInside lanza si alguna sale).
     for (const p of paths) this.resolveInside(p)
@@ -548,7 +577,7 @@ export class VaultService {
    * caracteres ilegales se quitan y una colisión agrega sufijo (nunca pisa).
    */
   async saveAttachment(name: string, data: Uint8Array, notePath: string | null = null): Promise<string> {
-    if (!this.root) throw new Error(t('No hay vault abierto'))
+    if (!this.root) throw new Error(t('No hay cuaderno abierto'))
     if (!isImagePath(name)) throw new Error(t('Solo se pueden adjuntar imágenes'))
     if (data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error(t('La imagen es demasiado grande (máximo 25 MB)'))
     const ext = extOf(name)

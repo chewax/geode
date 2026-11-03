@@ -178,7 +178,7 @@ describe('withVaultLock', () => {
   it("con onTimeout 'proceed' corre igual si el candado sigue tomado", async () => {
     await mkdir(join(dir, '.geode'), { recursive: true })
     await writeFile(join(dir, '.geode', 'write.lock'), JSON.stringify({ pid: process.pid, at: Date.now() }))
-    await expect(withVaultLock(dir, async () => 'x', { timeoutMs: 50 })).rejects.toThrow(/ocupada/)
+    await expect(withVaultLock(dir, async () => 'x', { timeoutMs: 50 })).rejects.toThrow(/ocupado/)
     expect(await withVaultLock(dir, async () => 'x', { timeoutMs: 50, onTimeout: 'proceed' })).toBe('x')
   })
 })

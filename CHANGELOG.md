@@ -6,6 +6,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Cambiado
+- **Nuevo cuaderno sin cuenta**: el selector de cuadernos ahora tiene "Nuevo cuaderno…", que crea un cuaderno local versionado sin conectar GitHub. El respaldo en la nube queda como opción en las otras pestañas del diálogo.
+- Al crear un cuaderno (local o respaldado) se abre automáticamente con su nota de bienvenida. Si la carpeta elegida está vacía se usa tal cual; si no, se crea una subcarpeta con el nombre.
+- Los cuadernos creados con respaldo en GitHub ya nacen con su primera versión y se suben enseguida.
+- La interfaz habla siempre de "cuadernos" (antes mezclaba "bóveda" y "vault").
+
 ## [1.0.0] - 2026-11-03
 
 ### Agregado

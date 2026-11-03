@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,8 +21,8 @@ afterEach(async () => {
 
 describe('VaultService', () => {
   it('bloquea rutas fuera de la bóveda (path traversal)', async () => {
-    await expect(vault.readNote('../fuera.md')).rejects.toThrow(/fuera del vault/)
-    await expect(vault.writeNote('../../x.md', 'x')).rejects.toThrow(/fuera del vault/)
+    await expect(vault.readNote('../fuera.md')).rejects.toThrow(/fuera del cuaderno/)
+    await expect(vault.writeNote('../../x.md', 'x')).rejects.toThrow(/fuera del cuaderno/)
   })
 
   it('el árbol muestra notas e imágenes y oculta .git/.geode/.obsidian y otros archivos', async () => {
@@ -139,5 +139,28 @@ describe('VaultService — bóvedas de Obsidian', () => {
     expect(solo[0].matches[0]).toMatchObject({ line: 1, text: 'estado:' })
     expect((await vault.search('llamar -estado:pendiente')).map((r) => r.path)).toEqual(['P2.md'])
     expect((await vault.search('prioridad:>2 cliente')).map((r) => r.path)).toEqual(['P1.md'])
+  })
+})
+
+describe('VaultService.createInPicked', () => {
+  it('usa la carpeta elegida tal cual si está vacía, y al descartar la deja vacía', async () => {
+    const picked = join(dir, 'Nueva')
+    await mkdir(picked)
+    const { root, reused } = await vault.createInPicked('Mi cuaderno', picked)
+    expect(root).toBe(picked)
+    expect(reused).toBe(true)
+    expect(await readdir(picked)).toEqual(['Bienvenida.md'])
+    await mkdir(join(picked, '.git'))
+    await vault.discardNew(root, reused)
+    expect(await readdir(picked)).toEqual([])
+  })
+
+  it('si la carpeta elegida tiene contenido, crea una subcarpeta con el nombre', async () => {
+    await writeFile(join(dir, 'otra.md'), 'x')
+    const { root, reused } = await vault.createInPicked('Mi cuaderno', dir)
+    expect(reused).toBe(false)
+    expect(root).toBe(join(dir, 'Mi cuaderno'))
+    expect(await readdir(root)).toEqual(['Bienvenida.md'])
+    expect(await readFile(join(dir, 'otra.md'), 'utf8')).toBe('x')
   })
 })

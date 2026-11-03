@@ -1140,7 +1140,7 @@ export class GitService {
     const root = resolve(dir)
     const full = resolve(root, filepath)
     if (full !== root && !full.startsWith(root + sep)) {
-      throw new Error(t('Ruta fuera del vault: {path}', { path: filepath }))
+      throw new Error(t('Ruta fuera del cuaderno: {path}', { path: filepath }))
     }
     return full
   }

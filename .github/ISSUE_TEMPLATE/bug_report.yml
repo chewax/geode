@@ -39,7 +39,7 @@ body:
     id: version
     attributes:
       label: Versión de Geode
-      placeholder: "0.8.1"
+      placeholder: "1.0.0"
     validations:
       required: true
   - type: dropdown

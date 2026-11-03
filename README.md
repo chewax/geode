@@ -10,7 +10,7 @@ Una app de notas local-first con historial automático: escribí, probá y volv�
 
 [![CI](https://github.com/chewax/geode/actions/workflows/ci.yml/badge.svg)](https://github.com/chewax/geode/actions/workflows/ci.yml)
 [![Licencia: MPL 2.0](https://img.shields.io/badge/licencia-MPL%202.0-7c3aed.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-0.8.1-a78bfa.svg)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.0.0-a78bfa.svg)](CHANGELOG.md)
 ![Plataformas](https://img.shields.io/badge/plataformas-Windows%20%7C%20macOS%20%7C%20Linux-4a3a5c.svg)
 [![MCP ready](https://img.shields.io/badge/MCP-ready-7c3aed.svg)](docs/MCP.md)
 [![PRs bienvenidos](https://img.shields.io/badge/PRs-bienvenidos-38a169.svg)](CONTRIBUTING.md)

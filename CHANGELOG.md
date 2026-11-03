@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [1.0.0] - 2026-11-03
+
 ### Agregado
 - **Interfaz en inglés**: Ajustes → General → Idioma (o el del sistema). La IA responde en el idioma elegido.
 - **Abrir nota por nombre** (Ctrl+O, reasignable): búsqueda difusa, recientes y favoritas primero; crea la nota si no existe.
@@ -94,7 +96,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ### Agregado
 - Primera versión: notas Markdown locales con versionado automático sobre isomorphic-git.
 
-[Sin publicar]: https://github.com/chewax/geode/compare/v0.8.0...HEAD
+[Sin publicar]: https://github.com/chewax/geode/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/chewax/geode/compare/v0.8.0...v1.0.0
 [0.8.1]: https://github.com/chewax/geode/compare/v0.6.0...v0.8.0
 [0.6.0]: https://github.com/chewax/geode/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/chewax/geode/compare/v0.4.0...v0.5.0
